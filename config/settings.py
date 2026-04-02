@@ -24,8 +24,8 @@ class Settings:
             },
             "friendstamilmp3": {
                 "base_url": "https://www.friendstamilmp3.in",
-                "enabled": False,
-                "categories": ["latest"]
+                "enabled": True,
+                "categories": ["latest", "2026", "2025", "old"]
             }
         },
         "download": {

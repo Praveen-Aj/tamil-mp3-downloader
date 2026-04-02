@@ -15,6 +15,12 @@ class Song:
     size_mb: Optional[float] = None
     quality: str = "320kbps"
     album_name: str = ""
+    artist: Optional[str] = None
+    album_title: Optional[str] = None
+    year: Optional[int] = None
+    track_number: Optional[int] = None
+    cover_art_url: Optional[str] = None
+    cover_art_bytes: Optional[bytes] = None
 
     @property
     def is_zip(self) -> bool:

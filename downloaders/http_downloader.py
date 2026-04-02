@@ -12,17 +12,25 @@ Features
 """
 
 import logging
+import json
 import re
 import threading
 import time
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 import requests
 from tqdm import tqdm
+try:
+    from mutagen.id3 import APIC, ID3, TALB, TDRC, TIT2, TPE1, TRCK
+    from mutagen.mp3 import MP3
+    _MUTAGEN_AVAILABLE = True
+except Exception:
+    APIC = ID3 = TALB = TDRC = TIT2 = TPE1 = TRCK = MP3 = None
+    _MUTAGEN_AVAILABLE = False
 
 from downloaders.base import BaseDownloader
 from models.song import DownloadResult, Song
@@ -40,6 +48,7 @@ _HEADERS = {
 }
 
 _CHUNK = 65536          # 64 KiB chunks
+_COVER_ART_TIMEOUT = 20
 
 
 class HTTPDownloader(BaseDownloader):
@@ -57,7 +66,10 @@ class HTTPDownloader(BaseDownloader):
         self.timeout = timeout
         self.max_retries = max_retries
         self._tqdm_lock = threading.RLock()
+        self._state_lock = threading.RLock()
         tqdm.set_lock(self._tqdm_lock)
+        if not _MUTAGEN_AVAILABLE:
+            logger.warning("mutagen is unavailable; ID3 tagging will be skipped.")
 
     # ------------------------------------------------------------------
     # Public API
@@ -189,6 +201,120 @@ class HTTPDownloader(BaseDownloader):
             label = f"[ZIP] {label}"
         return label
 
+    @staticmethod
+    def _state_path(dest_dir: Path) -> Path:
+        """Path to the per-album download state file."""
+        return dest_dir / ".download_state.json"
+
+    @staticmethod
+    def _safe_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def _load_state(self, state_path: Path) -> Dict[str, Any]:
+        if not state_path.exists():
+            return {}
+        try:
+            with open(state_path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _save_state(self, state_path: Path, state: Dict[str, Any]) -> None:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = state_path.with_suffix(state_path.suffix + ".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump(state, fh, indent=2, ensure_ascii=False)
+        tmp_path.replace(state_path)
+
+    def _update_state_entry(self, state_path: Path, key: str, entry: Dict[str, Any]) -> None:
+        with self._state_lock:
+            state = self._load_state(state_path)
+            state[key] = entry
+            self._save_state(state_path, state)
+
+    @staticmethod
+    def _is_mp3_file(path: Path) -> bool:
+        return path.suffix.lower() == ".mp3"
+
+    def _cover_art_payload(self, song: Song) -> Optional[Tuple[bytes, str]]:
+        """Return cover art bytes + mime type when available."""
+        if song.cover_art_bytes:
+            return song.cover_art_bytes, "image/jpeg"
+        if not song.cover_art_url:
+            return None
+
+        timeout = min(self.timeout, _COVER_ART_TIMEOUT)
+        try:
+            with requests.get(song.cover_art_url, headers=_HEADERS, timeout=timeout) as resp:
+                if resp.status_code != 200 or not resp.content:
+                    return None
+                content_type = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                if not content_type.startswith("image/"):
+                    return None
+                return resp.content, content_type
+        except Exception as exc:
+            logger.debug("Cover art fetch failed for '%s': %s", song.display_name, exc)
+            return None
+
+    def _apply_id3_tags(self, song: Song, file_path: Path) -> None:
+        """
+        Apply ID3 tags after download completes.
+
+        Tagging is intentionally non-fatal to avoid breaking downloads.
+        """
+        if not _MUTAGEN_AVAILABLE or not self._is_mp3_file(file_path):
+            return
+
+        try:
+            audio = MP3(str(file_path), ID3=ID3)
+            if audio.tags is None:
+                audio.add_tags()
+            tags = audio.tags
+            if tags is None:
+                return
+
+            tags.delall("TIT2")
+            tags.add(TIT2(encoding=3, text=song.display_name))
+
+            artist = (song.artist or "Unknown Artist").strip() or "Unknown Artist"
+            tags.delall("TPE1")
+            tags.add(TPE1(encoding=3, text=[artist]))
+
+            album_title = (song.album_title or song.album_name or "").strip()
+            if album_title:
+                tags.delall("TALB")
+                tags.add(TALB(encoding=3, text=album_title))
+
+            if song.year:
+                tags.delall("TDRC")
+                tags.add(TDRC(encoding=3, text=str(song.year)))
+
+            if song.track_number:
+                tags.delall("TRCK")
+                tags.add(TRCK(encoding=3, text=str(song.track_number)))
+
+            cover_art = self._cover_art_payload(song)
+            if cover_art is not None:
+                cover_bytes, mime = cover_art
+                tags.delall("APIC")
+                tags.add(
+                    APIC(
+                        encoding=3,
+                        mime=mime or "image/jpeg",
+                        type=3,
+                        desc="Cover",
+                        data=cover_bytes,
+                    )
+                )
+
+            audio.save(v2_version=3)
+        except Exception as exc:
+            logger.warning("ID3 tagging failed for '%s': %s", song.display_name, exc)
+
     # ------------------------------------------------------------------
     # Core download logic
     # ------------------------------------------------------------------
@@ -239,17 +365,23 @@ class HTTPDownloader(BaseDownloader):
         """Single download attempt (no retry logic here)."""
 
         # ---- resolve redirects first ----
+        head_headers: Dict[str, Any] = {}
         try:
             head = requests.head(
                 url, headers=_HEADERS, allow_redirects=True,
                 timeout=self.timeout
             )
             final_url = head.url
+            head_headers = dict(head.headers or {})
         except Exception:
             final_url = url
 
         # ---- determine output path ----
         out_path = self._output_path(song, dest_dir, final_url)
+        tmp_path = out_path.with_suffix(out_path.suffix + ".part")
+        state_path = self._state_path(dest_dir)
+        state_key = out_path.name
+        known_total = self._safe_int(head_headers.get("content-length")) or None
 
         if out_path.exists() and out_path.stat().st_size > 0:
             # Already downloaded
@@ -257,7 +389,19 @@ class HTTPDownloader(BaseDownloader):
             if pbar is not None:
                 pbar.total = sz
                 pbar.n = sz
+                pbar.set_postfix_str("completed")
                 pbar.refresh()
+            self._update_state_entry(
+                state_path,
+                state_key,
+                {
+                    "url": final_url,
+                    "file_name": out_path.name,
+                    "downloaded": sz,
+                    "total": known_total or sz,
+                    "completed": True,
+                },
+            )
             return DownloadResult(
                 success=True,
                 song_name=song.display_name,
@@ -265,10 +409,21 @@ class HTTPDownloader(BaseDownloader):
                 size_downloaded=sz,
             )
 
-        # ---- streaming GET ----
-        resp = requests.get(
-            final_url, headers=_HEADERS, stream=True, timeout=self.timeout
-        )
+        # ---- streaming GET (resume if partial file exists) ----
+        resume_from = tmp_path.stat().st_size if tmp_path.exists() else 0
+        headers = dict(_HEADERS)
+        requested_resume = resume_from > 0
+        if requested_resume:
+            headers["Range"] = f"bytes={resume_from}-"
+
+        resp = requests.get(final_url, headers=headers, stream=True, timeout=self.timeout)
+
+        if requested_resume and resp.status_code == 416:
+            # Requested range is no longer valid; reset and retry from start.
+            resp.close()
+            resume_from = 0
+            headers = dict(_HEADERS)
+            resp = requests.get(final_url, headers=headers, stream=True, timeout=self.timeout)
 
         if resp.status_code == 404:
             return DownloadResult(
@@ -278,15 +433,42 @@ class HTTPDownloader(BaseDownloader):
             )
         resp.raise_for_status()
 
-        total = int(resp.headers.get("content-length", 0)) or None
+        resumed = requested_resume and resp.status_code == 206 and resume_from > 0
+        if requested_resume and not resumed:
+            # Server ignored range request; restart this file from scratch.
+            resume_from = 0
+
+        remaining = int(resp.headers.get("content-length", 0)) or None
+        if resumed and remaining is not None:
+            total = resume_from + remaining
+        else:
+            total = remaining or known_total
+
+        downloaded = resume_from
+        if pbar is not None and resumed:
+            pbar.set_postfix_str("resumed")
+
         if pbar is not None:
             pbar.reset(total=total)
+            if downloaded:
+                pbar.update(downloaded)
+            pbar.refresh()
 
-        downloaded = 0
-        tmp_path = out_path.with_suffix(out_path.suffix + ".part")
+        self._update_state_entry(
+            state_path,
+            state_key,
+            {
+                "url": final_url,
+                "file_name": out_path.name,
+                "downloaded": downloaded,
+                "total": total,
+                "completed": False,
+            },
+        )
 
         try:
-            with open(tmp_path, "wb") as fh:
+            write_mode = "ab" if resumed else "wb"
+            with open(tmp_path, write_mode) as fh:
                 for chunk in resp.iter_content(chunk_size=_CHUNK):
                     if chunk:
                         fh.write(chunk)
@@ -295,9 +477,37 @@ class HTTPDownloader(BaseDownloader):
                             pbar.update(len(chunk))
 
             tmp_path.rename(out_path)
+            self._apply_id3_tags(song, out_path)
         except Exception:
-            tmp_path.unlink(missing_ok=True)
+            self._update_state_entry(
+                state_path,
+                state_key,
+                {
+                    "url": final_url,
+                    "file_name": out_path.name,
+                    "downloaded": downloaded,
+                    "total": total,
+                    "completed": False,
+                },
+            )
             raise
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+        self._update_state_entry(
+            state_path,
+            state_key,
+            {
+                "url": final_url,
+                "file_name": out_path.name,
+                "downloaded": downloaded,
+                "total": total or downloaded,
+                "completed": True,
+            },
+        )
 
         return DownloadResult(
             success=True,

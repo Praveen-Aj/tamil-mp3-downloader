@@ -22,6 +22,7 @@ from config.settings import settings
 from downloaders.http_downloader import HTTPDownloader
 from models.song import Album, Song
 from scrapers.base import BaseScraper
+from scrapers.friendstamilmp3 import FriendsTamilMP3Scraper
 from scrapers.isaimini import IsaiminiScraper
 from scrapers.masstamilan import MassTamilanScraper
 from utils.logger import logger
@@ -239,6 +240,9 @@ class TamilMP3Downloader:
     def __init__(self) -> None:
         self.isaimini_scraper = IsaiminiScraper(settings.isaimini_url)
         self.masstamilan_scraper = MassTamilanScraper(settings.get("sources.masstamilan.base_url"))
+        self.friendstamilmp3_scraper = FriendsTamilMP3Scraper(
+            settings.get("sources.friendstamilmp3.base_url")
+        )
         self.scraper: BaseScraper = self.isaimini_scraper
         self.downloader = HTTPDownloader(
             settings.output_dir,
@@ -257,7 +261,7 @@ class TamilMP3Downloader:
             console.print(
                 "  [cyan]1[/]  IsaiminiHQ  [dim]- Latest 2025 / 2026 songs[/]  [bold yellow]⭐ Recommended[/]\n"
                 "  [cyan]2[/]  MassTamilan  [dim]- Latest releases 2025 / 2026[/]\n"
-                "  [cyan]3[/]  FriendsTamilMP3  [dim]- Classic songs (coming soon)[/]\n"
+                "  [cyan]3[/]  FriendsTamilMP3  [dim]- Classic and curated hits[/]\n"
                 "  [cyan]4[/]  Search  [dim]- Find albums across all sources[/]\n"
                 "  [cyan]5[/]  Settings\n"
                 "  [cyan]6[/]  Exit\n"
@@ -275,7 +279,7 @@ class TamilMP3Downloader:
             elif choice == "3":
                 console.clear()
                 _header()
-                console.print("[yellow]  FriendsTamilMP3 support coming soon![/]")
+                self._source_flow("FriendsTamilMP3", self.friendstamilmp3_scraper)
             elif choice == "4":
                 console.clear()
                 _header()
@@ -393,6 +397,11 @@ class TamilMP3Downloader:
                 "MassTamilan",
                 self.masstamilan_scraper,
                 settings.get("sources.masstamilan.categories", ["latest"]),
+            ),
+            (
+                "FriendsTamilMP3",
+                self.friendstamilmp3_scraper,
+                settings.get("sources.friendstamilmp3.categories", ["latest"]),
             ),
         ]
 
@@ -557,9 +566,19 @@ class TamilMP3Downloader:
                 return
             to_download = mp3s
 
-        # Set album_name on all selected songs
+        # Attach download path + ID3 metadata context for downloader tagging.
+        mp3_track_no = 0
         for s in to_download:
             s.album_name = album.safe_dirname
+            s.album_title = album.display_name
+            s.year = album.year
+            if not s.artist:
+                s.artist = "Unknown Artist"
+            if s.is_zip:
+                s.track_number = None
+                continue
+            mp3_track_no += 1
+            s.track_number = mp3_track_no
 
         console.print()
         _rule(f"  Downloading: {album.display_name}  ")
