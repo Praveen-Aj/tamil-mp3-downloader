@@ -1,37 +1,33 @@
 """
-Concurrent HTTP downloader with rich progress bars and retry logic.
+Concurrent HTTP downloader with tqdm progress bars and retry logic.
 
 Features
 --------
 - Parallel downloads via ThreadPoolExecutor (default 3 workers)
-- Per-file progress bar + overall progress via rich
+- Per-file progress bars + overall progress via tqdm
 - Exponential-backoff retry (3 attempts per file)
 - Skips files that already exist (resume-friendly)
 - Prefers 320 kbps links; falls back gracefully
+- Falls back to sequential mode if concurrent execution fails
 """
 
+import logging
 import re
 import threading
 import time
+from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote
 
 import requests
-from rich.progress import (
-    BarColumn,
-    DownloadColumn,
-    Progress,
-    SpinnerColumn,
-    TaskID,
-    TextColumn,
-    TimeRemainingColumn,
-    TransferSpeedColumn,
-)
+from tqdm import tqdm
 
 from downloaders.base import BaseDownloader
 from models.song import DownloadResult, Song
+
+logger = logging.getLogger(__name__)
 
 _HEADERS = {
     "User-Agent": (
@@ -60,6 +56,8 @@ class HTTPDownloader(BaseDownloader):
         self.max_workers = max_workers
         self.timeout = timeout
         self.max_retries = max_retries
+        self._tqdm_lock = threading.RLock()
+        tqdm.set_lock(self._tqdm_lock)
 
     # ------------------------------------------------------------------
     # Public API
@@ -84,7 +82,7 @@ class HTTPDownloader(BaseDownloader):
         max_workers: Optional[int] = None,
     ) -> List[DownloadResult]:
         """
-        Download all songs concurrently with a rich multi-bar UI.
+        Download all songs concurrently with tqdm progress bars.
 
         Parameters
         ----------
@@ -92,53 +90,85 @@ class HTTPDownloader(BaseDownloader):
         album_name   : used as the sub-folder name under output_dir
         max_workers  : thread count (default = self.max_workers)
         """
-        workers = max_workers or self.max_workers
+        workers = max(1, int(max_workers if max_workers is not None else self.max_workers))
         album_dir = self._album_dir(album_name)
         results: List[Optional[DownloadResult]] = [None] * len(songs)
-        lock = threading.Lock()
+        pending_indices = set(range(len(songs)))
+        slot_pool: Queue[int] = Queue()
+        for position in range(1, workers + 1):
+            slot_pool.put(position)
 
-        progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[bold]{task.description}", justify="left"),
-            BarColumn(bar_width=28),
-            DownloadColumn(),
-            TransferSpeedColumn(),
-            TimeRemainingColumn(),
-            transient=False,
-        )
+        if not songs:
+            return []
 
-        with progress:
-            # Track overall as total bytes (None=unknown total → spinner)
-            total_size = sum(
-                int(s.size_mb * 1024 * 1024) for s in songs if s.size_mb
-            ) or None
-            overall_task = progress.add_task(
-                f"[cyan]Overall  [dim]({len(songs)} files)",
-                total=total_size,
-            )
+        with tqdm(
+            total=len(songs),
+            desc="Downloads",
+            unit="file",
+            dynamic_ncols=True,
+            position=0,
+        ) as overall:
+            concurrent_failed = False
+            try:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    futures = {
+                        pool.submit(
+                            self._concurrent_worker,
+                            idx=i,
+                            song=song,
+                            album_dir=album_dir,
+                            total_songs=len(songs),
+                            slot_pool=slot_pool,
+                        ): i
+                        for i, song in enumerate(songs)
+                    }
+                    for fut in as_completed(futures):
+                        idx = futures[fut]
+                        counted = False
+                        try:
+                            result = fut.result()
+                            results[idx] = result
+                            pending_indices.discard(idx)
+                            counted = True
+                        except Exception as exc:
+                            concurrent_failed = True
+                            logger.error(
+                                "Concurrent worker failed for '%s': %s",
+                                songs[idx].display_name,
+                                exc,
+                                exc_info=True,
+                            )
+                        finally:
+                            if counted:
+                                overall.update(1)
+            except Exception as exc:
+                concurrent_failed = True
+                logger.error("Concurrent download orchestration failed: %s", exc, exc_info=True)
+                # We only know completed entries by checking results.
+                pending_indices = {i for i, r in enumerate(results) if r is None}
 
-            def _worker(idx: int, song: Song) -> None:
-                label = self._short_label(song)
-                per_task = progress.add_task(f"[white]{label}", total=None, start=True)
-                result = self._download_with_progress(
-                    song, album_dir, progress, per_task
-                )
-                with lock:
-                    results[idx] = result
-                progress.advance(overall_task, result.size_downloaded or 0)
-                status = "[green]✓" if result.success else "[red]✗"
-                progress.update(
-                    per_task,
-                    description=f"{status} [dim]{label}",
-                )
-
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {
-                    pool.submit(_worker, i, song): i
-                    for i, song in enumerate(songs)
-                }
-                for fut in as_completed(futures):
-                    fut.result()   # surface any unexpected exception
+            if concurrent_failed:
+                remaining = [i for i in sorted(pending_indices) if results[i] is None]
+                if remaining:
+                    tqdm.write(
+                        "Concurrent mode hit an error. Falling back to sequential downloads..."
+                    )
+                    for idx in remaining:
+                        song = songs[idx]
+                        position = 1
+                        label = f"[fallback {idx + 1}/{len(songs)}] {self._short_label(song)}"
+                        with tqdm(
+                            total=0,
+                            desc=label,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                            dynamic_ncols=True,
+                            position=position,
+                            leave=False,
+                        ) as pbar:
+                            results[idx] = self._download_with_progress(song, album_dir, pbar=pbar)
+                        overall.update(1)
 
         return [r for r in results if r is not None]
 
@@ -167,8 +197,7 @@ class HTTPDownloader(BaseDownloader):
         self,
         song: Song,
         dest_dir: Path,
-        progress: Progress,
-        task_id: TaskID,
+        pbar: Optional[tqdm] = None,
     ) -> DownloadResult:
         """Resolve URL, download with progress, retry on failure."""
 
@@ -177,7 +206,7 @@ class HTTPDownloader(BaseDownloader):
 
         for attempt in range(self.max_retries):
             try:
-                result = self._attempt_download(song, url, dest_dir, progress, task_id)
+                result = self._attempt_download(song, url, dest_dir, pbar)
                 if result.success:
                     return result
                 # non-retriable HTTP errors
@@ -205,8 +234,7 @@ class HTTPDownloader(BaseDownloader):
         song: Song,
         url: str,
         dest_dir: Path,
-        progress: Progress,
-        task_id: TaskID,
+        pbar: Optional[tqdm] = None,
     ) -> DownloadResult:
         """Single download attempt (no retry logic here)."""
 
@@ -226,7 +254,10 @@ class HTTPDownloader(BaseDownloader):
         if out_path.exists() and out_path.stat().st_size > 0:
             # Already downloaded
             sz = out_path.stat().st_size
-            progress.update(task_id, description=f"[dim]skip {self._short_label(song)[:38]}")
+            if pbar is not None:
+                pbar.total = sz
+                pbar.n = sz
+                pbar.refresh()
             return DownloadResult(
                 success=True,
                 song_name=song.display_name,
@@ -248,7 +279,8 @@ class HTTPDownloader(BaseDownloader):
         resp.raise_for_status()
 
         total = int(resp.headers.get("content-length", 0)) or None
-        progress.update(task_id, total=total)
+        if pbar is not None:
+            pbar.reset(total=total)
 
         downloaded = 0
         tmp_path = out_path.with_suffix(out_path.suffix + ".part")
@@ -259,7 +291,8 @@ class HTTPDownloader(BaseDownloader):
                     if chunk:
                         fh.write(chunk)
                         downloaded += len(chunk)
-                        progress.update(task_id, completed=downloaded)
+                        if pbar is not None:
+                            pbar.update(len(chunk))
 
             tmp_path.rename(out_path)
         except Exception:
@@ -301,3 +334,37 @@ class HTTPDownloader(BaseDownloader):
         else:
             safe = song.safe_filename
         return dest_dir / (safe or "download.mp3")
+
+    def _download_one(self, song: Song, dest_dir: Path) -> DownloadResult:
+        """Compatibility helper for single-song downloads without explicit tqdm bar."""
+        return self._download_with_progress(song, dest_dir, pbar=None)
+
+    def _concurrent_worker(
+        self,
+        idx: int,
+        song: Song,
+        album_dir: Path,
+        total_songs: int,
+        slot_pool: Queue[int],
+    ) -> DownloadResult:
+        """
+        Execute one concurrent download with a dedicated tqdm progress bar slot.
+
+        Using per-worker slots keeps tqdm output stable while downloads run in parallel.
+        """
+        position = slot_pool.get()
+        try:
+            label = f"[{idx + 1}/{total_songs}] {self._short_label(song)}"
+            with tqdm(
+                total=0,
+                desc=label,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                dynamic_ncols=True,
+                position=position,
+                leave=False,
+            ) as pbar:
+                return self._download_with_progress(song, album_dir, pbar=pbar)
+        finally:
+            slot_pool.put(position)
