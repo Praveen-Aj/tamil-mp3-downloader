@@ -4,6 +4,7 @@ This scraper tries multiple strategies to retrieve latest Tamil songs from
 Masstamilan (including Cloudflare bypass via cloudscraper and browser rendering).
 """
 
+import logging
 import re
 from typing import List, Optional
 from urllib.parse import urljoin
@@ -15,23 +16,25 @@ from playwright.sync_api import Page, sync_playwright
 from models.song import Album, Song
 from scrapers.base import BaseScraper
 
+logger = logging.getLogger(__name__)
+
 
 class MassTamilanScraper(BaseScraper):
     """Scraper for MassTamilan.dev (or masstamilan.in)."""
 
-    def __init__(self, base_url: str = "https://www.masstamilan.dev"):
+    def __init__(self, base_url: str = "https://www.masstamilan.dev") -> None:
         super().__init__(base_url)
         self._session = cloudscraper.create_scraper()
         self._pw = None
         self._browser = None
 
-    def _init_browser(self):
+    def _init_browser(self) -> None:
         if self._browser:
             return
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
 
-    def _close_browser(self):
+    def _close_browser(self) -> None:
         if self._browser:
             self._browser.close()
         if self._pw:
@@ -39,16 +42,23 @@ class MassTamilanScraper(BaseScraper):
         self._browser = None
         self._pw = None
 
-    def __enter__(self):
+    def __enter__(self) -> "MassTamilanScraper":
         self._init_browser()
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: object) -> None:
         self._close_browser()
+
+    def _is_cloudflare_challenge(self, html: str) -> bool:
+        tokens = ["Just a moment", "Checking your browser before accessing", "cf-browser-verification"]
+        return any(token in html for token in tokens)
 
     def test_connection(self) -> bool:
         try:
             r = self._session.get(self.base_url, timeout=20)
+            if r.status_code == 200 and r.text and self._is_cloudflare_challenge(r.text):
+                logger.warning("Masstamilan: Cloudflare challenge detected on connection test")
+                return False
             return r.status_code == 200
         except Exception:
             return False
@@ -57,12 +67,17 @@ class MassTamilanScraper(BaseScraper):
         try:
             r = self._session.get(url, timeout=25)
             if r.status_code == 200 and r.text:
+                if self._is_cloudflare_challenge(r.text):
+                    logger.warning("Masstamilan: Cloudflare challenge page received for %s", url)
+                    return None
                 return r.text
         except Exception:
             pass
         return None
 
     def _render_page(self, url: str) -> Optional[str]:
+        # Playwright sync may fail when called inside existing async event loops
+        # (e.g. some IDE / plugin environments). If it fails, fallback gracefully.
         try:
             self._init_browser()
             page: Page = self._browser.new_page()
@@ -70,13 +85,17 @@ class MassTamilanScraper(BaseScraper):
             page.wait_for_timeout(5000)
             html = page.content()
             page.close()
+            if html and self._is_cloudflare_challenge(html):
+                logger.warning("Masstamilan: Cloudflare challenge page rendered for %s", url)
+                return None
             return html
-        except Exception:
+        except Exception as e:
+            logger.warning("Masstamilan _render_page failed, skipping Playwright: %s", e)
             return None
 
     def get_albums(self, category: str = "latest", max_pages: int = 3) -> List[Album]:
         albums: List[Album] = []
-        seen = set()
+        seen: set[str] = set()
 
         # Category is not strictly required: masstamilan uses /tamil-songs?page=N
         for page_num in range(1, max_pages + 1):

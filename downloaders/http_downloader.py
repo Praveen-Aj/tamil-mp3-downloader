@@ -55,7 +55,7 @@ class HTTPDownloader(BaseDownloader):
         max_workers: int = 3,
         timeout: int = 90,
         max_retries: int = 3,
-    ):
+    ) -> None:
         super().__init__(output_dir)
         self.max_workers = max_workers
         self.timeout = timeout
@@ -94,7 +94,7 @@ class HTTPDownloader(BaseDownloader):
         """
         workers = max_workers or self.max_workers
         album_dir = self._album_dir(album_name)
-        results: list = [None] * len(songs)
+        results: List[Optional[DownloadResult]] = [None] * len(songs)
         lock = threading.Lock()
 
         progress = Progress(
@@ -117,7 +117,7 @@ class HTTPDownloader(BaseDownloader):
                 total=total_size,
             )
 
-            def _worker(idx: int, song: Song):
+            def _worker(idx: int, song: Song) -> None:
                 label = self._short_label(song)
                 per_task = progress.add_task(f"[white]{label}", total=None, start=True)
                 result = self._download_with_progress(

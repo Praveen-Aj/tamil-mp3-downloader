@@ -3,7 +3,7 @@ Configuration settings for Tamil MP3 Downloader.
 """
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 
 class Settings:
@@ -47,12 +47,12 @@ class Settings:
         }
     }
 
-    def __init__(self, config_file: Path = None):
+    def __init__(self, config_file: Optional[Path] = None) -> None:
         self.config_file = config_file or Path("config/settings.json")
-        self._config = self.DEFAULT_CONFIG.copy()
+        self._config: Dict[str, Any] = self.DEFAULT_CONFIG.copy()
         self.load()
 
-    def load(self):
+    def load(self) -> None:
         """Load settings from file."""
         if self.config_file.exists():
             try:
@@ -63,7 +63,7 @@ class Settings:
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}")
 
-    def save(self):
+    def save(self) -> None:
         """Save settings to file."""
         try:
             import json
@@ -73,7 +73,7 @@ class Settings:
         except Exception as e:
             print(f"Warning: Could not save config file: {e}")
 
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """Get a setting value."""
         keys = key.split('.')
         value = self._config
@@ -84,7 +84,7 @@ class Settings:
         except KeyError:
             return default
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         """Set a setting value."""
         keys = key.split('.')
         config = self._config
@@ -93,7 +93,7 @@ class Settings:
         config[keys[-1]] = value
         self.save()
 
-    def _deep_update(self, base_dict: Dict, update_dict: Dict):
+    def _deep_update(self, base_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> None:
         """Deep update a dictionary."""
         for key, value in update_dict.items():
             if isinstance(value, dict) and key in base_dict and isinstance(base_dict[key], dict):

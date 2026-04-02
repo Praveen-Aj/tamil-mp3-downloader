@@ -1,1 +1,1 @@
-# Tamil MP3 Downloader - Models Package
+"""Data model package for songs, albums, and download outcomes."""

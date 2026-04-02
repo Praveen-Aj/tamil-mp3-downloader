@@ -1,3 +1,5 @@
+"""Playwright-based probe script to inspect dynamic MassTamilan page rendering."""
+
 from playwright.sync_api import sync_playwright
 
 with sync_playwright() as p:

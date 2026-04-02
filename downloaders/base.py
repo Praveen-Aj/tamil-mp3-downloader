@@ -11,7 +11,7 @@ from models.song import Song, DownloadResult
 class BaseDownloader(ABC):
     """Abstract base class for all downloaders."""
 
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 

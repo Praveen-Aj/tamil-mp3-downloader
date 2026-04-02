@@ -1,4 +1,8 @@
+"""Utility helpers for downloading a batch of audio links with progress output."""
+
 from pathlib import Path
+from typing import Iterable, Tuple
+
 import requests
 from urllib.parse import unquote
 from clint.textui import progress
@@ -13,7 +17,12 @@ def _is_audio(href: str) -> bool:
     return bool(href) and href.lower().endswith(AUDIO_EXTS)
 
 
-def download_links(links, base_url, out_dir: Path, chunk_size: int = 256):
+def download_links(
+    links: Iterable[str],
+    base_url: str,
+    out_dir: Path,
+    chunk_size: int = 256,
+) -> Tuple[int, int, int]:
     """Download audio links from a list of hrefs.
 
     links: iterable of href strings (maybe absolute or relative)

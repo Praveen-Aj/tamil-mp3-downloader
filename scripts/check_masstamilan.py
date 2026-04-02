@@ -1,3 +1,5 @@
+"""Quick cloudscraper-based connectivity and selector probe for MassTamilan pages."""
+
 import cloudscraper
 from bs4 import BeautifulSoup
 

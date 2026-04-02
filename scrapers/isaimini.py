@@ -165,7 +165,7 @@ _JS_GET_SONGS = r"""
 class IsaiminiScraper(BaseScraper):
     """Playwright-based scraper for IsaiminiHQ."""
 
-    def __init__(self, base_url: str = "https://www.isaiminihq.com"):
+    def __init__(self, base_url: str = "https://www.isaiminihq.com") -> None:
         super().__init__(base_url)
         self._pw = None
         self._browser = None
@@ -174,13 +174,13 @@ class IsaiminiScraper(BaseScraper):
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def _init_browser(self):
+    def _init_browser(self) -> None:
         if self._browser:
             return
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
 
-    def _close_browser(self):
+    def _close_browser(self) -> None:
         if self._browser:
             self._browser.close()
         if self._pw:
@@ -188,11 +188,11 @@ class IsaiminiScraper(BaseScraper):
         self._browser = None
         self._pw = None
 
-    def __enter__(self):
+    def __enter__(self) -> "IsaiminiScraper":
         self._init_browser()
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: object) -> None:
         self._close_browser()
 
     # ------------------------------------------------------------------
@@ -219,7 +219,7 @@ class IsaiminiScraper(BaseScraper):
         """
         self._init_browser()
         all_albums: List[Album] = []
-        seen_urls: set = set()
+        seen_urls: set[str] = set()
 
         for page_num in range(1, max_pages + 1):
             page_url = self._category_url(category, page_num)
@@ -296,7 +296,7 @@ class IsaiminiScraper(BaseScraper):
             data = page.evaluate(_JS_GET_ALBUMS)
 
             # Also try to extract post dates from the page for year info
-            date_map: dict = {}
+            date_map: dict[str, int] = {}
             try:
                 date_data = page.evaluate(r"""
                     () => {
@@ -336,7 +336,7 @@ class IsaiminiScraper(BaseScraper):
 
         return albums
 
-    def _wait_for_content(self, page: Page):
+    def _wait_for_content(self, page: Page) -> None:
         selectors = [
             "a[href*='.mp3']",
             "a[href*='.zip']",
@@ -421,7 +421,7 @@ class IsaiminiScraper(BaseScraper):
     @staticmethod
     def _clean_name_size(
         raw_name: str, url: str, size_text: str
-    ):
+    ) -> tuple[str, Optional[float]]:
         """Return (clean_name, size_mb)."""
         is_zip = ".zip" in url.lower()
 
@@ -459,7 +459,7 @@ class IsaiminiScraper(BaseScraper):
           2. 320 kbps MP3s
           3. Everything else
         """
-        def key(s: Song):
+        def key(s: Song) -> int:
             if s.is_zip:
                 return 0
             if "320" in s.quality:

@@ -1,1 +1,1 @@
-# Tamil MP3 Downloader - Scrapers Package
+"""Scraper package with source-specific site integrations."""

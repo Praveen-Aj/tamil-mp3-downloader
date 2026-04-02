@@ -10,7 +10,7 @@ from models.song import Album, Song
 class BaseScraper(ABC):
     """Abstract base class for all music source scrapers."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip('/')
 
     @abstractmethod
