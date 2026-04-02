@@ -10,6 +10,7 @@ Improvements over v1:
 - Deduplication of albums and songs
 """
 
+import logging
 import re
 import time
 from typing import List, Optional
@@ -19,6 +20,8 @@ from playwright.sync_api import Page, sync_playwright
 
 from models.song import Album, Song
 from scrapers.base import BaseScraper
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -167,8 +170,8 @@ class IsaiminiScraper(BaseScraper):
 
     def __init__(self, base_url: str = "https://www.isaiminihq.com") -> None:
         super().__init__(base_url)
-        self._pw = None
-        self._browser = None
+        self._pw: Optional[object] = None
+        self._browser: Optional[object] = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -246,8 +249,8 @@ class IsaiminiScraper(BaseScraper):
             page.goto(album.url, wait_until="networkidle", timeout=30000)
             self._wait_for_content(page)
             raw = self._parse_songs(page, album.display_name)
-        except Exception as e:
-            pass  # caller handles empty list
+        except Exception:
+            logger.exception("Failed to fetch songs for album=%s", album.display_name)
         finally:
             page.close()
 

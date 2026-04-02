@@ -60,11 +60,13 @@ class HTTPDownloader(BaseDownloader):
         max_workers: int = 3,
         timeout: int = 90,
         max_retries: int = 3,
+        show_progress: bool = True,
     ) -> None:
         super().__init__(output_dir)
         self.max_workers = max_workers
         self.timeout = timeout
         self.max_retries = max_retries
+        self.show_progress = bool(show_progress)
         self._tqdm_lock = threading.RLock()
         self._state_lock = threading.RLock()
         tqdm.set_lock(self._tqdm_lock)
@@ -119,6 +121,7 @@ class HTTPDownloader(BaseDownloader):
             unit="file",
             dynamic_ncols=True,
             position=0,
+            disable=not self.show_progress,
         ) as overall:
             concurrent_failed = False
             try:
@@ -162,9 +165,11 @@ class HTTPDownloader(BaseDownloader):
             if concurrent_failed:
                 remaining = [i for i in sorted(pending_indices) if results[i] is None]
                 if remaining:
-                    tqdm.write(
-                        "Concurrent mode hit an error. Falling back to sequential downloads..."
-                    )
+                    msg = "Concurrent mode hit an error. Falling back to sequential downloads..."
+                    if self.show_progress:
+                        tqdm.write(msg)
+                    else:
+                        logger.warning(msg)
                     for idx in remaining:
                         song = songs[idx]
                         position = 1
@@ -178,6 +183,7 @@ class HTTPDownloader(BaseDownloader):
                             dynamic_ncols=True,
                             position=position,
                             leave=False,
+                            disable=not self.show_progress,
                         ) as pbar:
                             results[idx] = self._download_with_progress(song, album_dir, pbar=pbar)
                         overall.update(1)
@@ -574,6 +580,7 @@ class HTTPDownloader(BaseDownloader):
                 dynamic_ncols=True,
                 position=position,
                 leave=False,
+                disable=not self.show_progress,
             ) as pbar:
                 return self._download_with_progress(song, album_dir, pbar=pbar)
         finally:

@@ -7,7 +7,8 @@ Entry point with a clean, rich-powered CLI.
 import sys
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import List, Optional, Sequence, TypeVar
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Sequence, TypeVar
 
 from rich import box
 from rich.console import Console
@@ -238,16 +239,27 @@ class TamilMP3Downloader:
     PAGE_SIZE: int = 10   # albums per page
 
     def __init__(self) -> None:
-        self.isaimini_scraper = IsaiminiScraper(settings.isaimini_url)
-        self.masstamilan_scraper = MassTamilanScraper(settings.get("sources.masstamilan.base_url"))
-        self.friendstamilmp3_scraper = FriendsTamilMP3Scraper(
+        self.isaimini_scraper: IsaiminiScraper = IsaiminiScraper(settings.isaimini_url)
+        self.masstamilan_scraper: MassTamilanScraper = MassTamilanScraper(
+            settings.get("sources.masstamilan.base_url")
+        )
+        self.friendstamilmp3_scraper: FriendsTamilMP3Scraper = FriendsTamilMP3Scraper(
             settings.get("sources.friendstamilmp3.base_url")
         )
         self.scraper: BaseScraper = self.isaimini_scraper
-        self.downloader = HTTPDownloader(
+        self.downloader: HTTPDownloader = HTTPDownloader(
             settings.output_dir,
             max_workers=settings.get("download.max_workers", 3),
+            show_progress=settings.show_progress,
         )
+        self._refresh_downloader_from_settings()
+
+    def _refresh_downloader_from_settings(self) -> None:
+        """Apply persisted runtime settings to downloader instance."""
+        self.downloader.output_dir = settings.output_dir
+        self.downloader.output_dir.mkdir(parents=True, exist_ok=True)
+        self.downloader.max_workers = max(1, int(settings.get("download.max_workers", 3)))
+        self.downloader.show_progress = settings.show_progress
 
     # â”€â”€ main loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -326,8 +338,8 @@ class TamilMP3Downloader:
             try:
                 self.scraper._init_browser()
                 albums = self.scraper.get_albums(category, max_pages=max_pages)
-            except Exception as e:
-                logger.error(f"Album fetch error: {e}")
+            except Exception:
+                logger.exception("Album fetch failed for source=%s category=%s", source_name, category)
 
         if not albums:
             if source_name.lower().startswith("masstamilan"):
@@ -342,8 +354,8 @@ class TamilMP3Downloader:
                 ):
                     try:
                         albums = self.scraper.get_albums(category, max_pages=max_pages)
-                    except Exception as e:
-                        logger.error(f"Fallback album fetch error: {e}")
+                    except Exception:
+                        logger.exception("Fallback album fetch failed for category=%s", category)
 
             if not albums:
                 console.print(
@@ -421,8 +433,8 @@ class TamilMP3Downloader:
             for category in categories:
                 try:
                     albums = scraper.get_albums(category, max_pages=max_pages)
-                except Exception as exc:
-                    logger.error(f"Search fetch error [{source_name}:{category}]: {exc}")
+                except Exception:
+                    logger.exception("Search fetch error source=%s category=%s", source_name, category)
                     continue
 
                 for album in albums:
@@ -523,8 +535,8 @@ class TamilMP3Downloader:
         ):
             try:
                 songs = self.scraper.get_songs(album)
-            except Exception as e:
-                logger.error(f"Song fetch error for {album.display_name}: {e}")
+            except Exception:
+                logger.exception("Song fetch error for album=%s", album.display_name)
 
         if not songs:
             console.print("[red]  âŒ  No songs found for this album.[/]")
@@ -583,11 +595,16 @@ class TamilMP3Downloader:
         console.print()
         _rule(f"  Downloading: {album.display_name}  ")
 
-        results = self.downloader.download_concurrent(
-            to_download,
-            album_name=album.safe_dirname,
-            max_workers=settings.get("download.max_workers", 3),
-        )
+        self._refresh_downloader_from_settings()
+        if settings.concurrent_enabled:
+            results = self.downloader.download_concurrent(
+                to_download,
+                album_name=album.safe_dirname,
+                max_workers=settings.get("download.max_workers", 3),
+            )
+        else:
+            console.print("  [dim]Concurrent downloads disabled. Using sequential mode.[/]")
+            results = self.downloader.download_songs(to_download)
 
         ok  = sum(1 for r in results if r.success)
         err = len(results) - ok
@@ -612,20 +629,79 @@ class TamilMP3Downloader:
 
     # â”€â”€ settings menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    def _settings_menu(self) -> None:
-        _rule("  Settings  ")
+    def _print_settings_summary(self) -> None:
+        """Render current persisted settings for download behavior."""
         console.print(
-            f"  [dim]Output directory  :[/]  {settings.output_dir}\n"
-            f"  [dim]Max workers        :[/]  {settings.get('download.max_workers', 3)}\n"
-            f"  [dim]Per-file retries   :[/]  {settings.get('download.retries', 3)}\n"
+            f"  [dim]Output directory      :[/]  {settings.output_dir}\n"
+            f"  [dim]Concurrent downloads  :[/]  {'ON' if settings.concurrent_enabled else 'OFF'}\n"
+            f"  [dim]Max workers           :[/]  {settings.get('download.max_workers', 3)}\n"
+            f"  [dim]Progress bars         :[/]  {'ON' if settings.show_progress else 'OFF'}\n"
         )
-        if _yn("  Change max concurrent downloads?"):
-            w = _ask("  Workers (1â€“8)", default="3")
-            try:
-                settings.set("download.max_workers", max(1, min(8, int(w))))
-                console.print(f"  [green]âœ“  Workers set to {settings.get('download.max_workers')}[/]")
-            except ValueError:
-                pass
+
+    def _change_output_directory(self) -> None:
+        new_output = _ask("New output directory", default=str(settings.output_dir)).strip()
+        if not new_output:
+            console.print("  [yellow]Output directory unchanged.[/]")
+            return
+
+        new_path = Path(new_output).expanduser()
+        settings.set("download.output_dir", str(new_path))
+        self._refresh_downloader_from_settings()
+        console.print(f"  [green]Output directory set to: {settings.output_dir}[/]")
+
+    def _toggle_concurrent_downloads(self) -> None:
+        new_value = not settings.concurrent_enabled
+        settings.set("download.concurrent_enabled", new_value)
+        console.print(
+            "  [green]Concurrent downloads "
+            + ("enabled.[/]" if new_value else "disabled.[/]")
+        )
+
+    def _set_max_workers(self) -> None:
+        current = str(settings.get("download.max_workers", 3))
+        raw_workers = _ask("Workers (1-8)", default=current).strip()
+        try:
+            workers = max(1, min(8, int(raw_workers)))
+        except ValueError:
+            console.print("  [yellow]Invalid number. Max workers unchanged.[/]")
+            return
+
+        settings.set("download.max_workers", workers)
+        self._refresh_downloader_from_settings()
+        console.print(f"  [green]Max workers set to {workers}.[/]")
+
+    def _toggle_progress_bar(self) -> None:
+        new_value = not settings.show_progress
+        settings.set("ui.show_progress", new_value)
+        self._refresh_downloader_from_settings()
+        console.print(
+            "  [green]Progress bars "
+            + ("enabled.[/]" if new_value else "disabled.[/]")
+        )
+
+    def _settings_menu(self) -> None:
+        handlers: Dict[str, Callable[[], None]] = {
+            "1": self._change_output_directory,
+            "2": self._toggle_concurrent_downloads,
+            "3": self._set_max_workers,
+            "4": self._toggle_progress_bar,
+        }
+
+        while True:
+            _rule("  Settings  ")
+            self._print_settings_summary()
+            console.print(
+                "  [cyan]1[/]  Change output directory\n"
+                "  [cyan]2[/]  Toggle concurrent downloads\n"
+                "  [cyan]3[/]  Set max workers\n"
+                "  [cyan]4[/]  Toggle progress bar\n"
+                "  [cyan]0[/]  Back\n"
+            )
+
+            choice = _ask("Choose setting", choices=["0", "1", "2", "3", "4"], default="0")
+            if choice == "0":
+                return
+            handlers[choice]()
 
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -637,8 +713,8 @@ def main() -> None:
     except KeyboardInterrupt:
         console.print("\n[green]ðŸ‘‹  Goodbye![/]\n")
         sys.exit(0)
-    except Exception as e:
-        logger.error(f"Fatal: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Fatal error in main loop.")
         console.print_exception()
         sys.exit(1)
     finally:
@@ -646,7 +722,7 @@ def main() -> None:
         try:
             app.scraper._close_browser()
         except Exception:
-            pass
+            logger.debug("Failed to close scraper browser cleanly.", exc_info=True)
 
 
 if __name__ == "__main__":

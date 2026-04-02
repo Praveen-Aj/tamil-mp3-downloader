@@ -28,7 +28,7 @@ class FriendsTamilMP3Scraper(BaseScraper):
 
     def __init__(self, base_url: str = "https://www.friendstamilmp3.in") -> None:
         super().__init__(base_url)
-        self._session = requests.Session()
+        self._session: requests.Session = requests.Session()
         self._session.headers.update(
             {
                 "User-Agent": (

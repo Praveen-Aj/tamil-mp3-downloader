@@ -3,6 +3,7 @@ Probe MassTamilan.dev download URL structure via cloudscraper + BeautifulSoup.
 """
 import re
 import cloudscraper
+import requests
 from bs4 import BeautifulSoup
 
 ALBUM_URL = "https://www.masstamilan.dev/karuppu-2026-songs"
@@ -41,7 +42,7 @@ soup2 = BeautifulSoup(resp2.text, "html.parser")
 
 album_links = soup2.find_all("a", href=re.compile(r"-songs", re.I))
 seen = set()
-print(f"Album links (unique):")
+print("Album links (unique):")
 for a in album_links:
     h = a.get("href","")
     if h and h not in seen and not h.startswith("?"):

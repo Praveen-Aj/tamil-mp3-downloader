@@ -70,8 +70,6 @@ tamil-mp3-downloader/
 ├── models/                    # Data models
 │   └── song.py               # Song, Album dataclasses
 ├── utils/                     # Utilities
-│   ├── helper.py             # Legacy helpers (kept)
-│   ├── downloader.py         # Legacy downloader (kept)
 │   └── logger.py             # Logging setup
 ├── config/                    # Configuration
 │   └── settings.py           # App settings

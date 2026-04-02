@@ -21,9 +21,10 @@ def setup_logger(name: str = "tamil_mp3_downloader", level: int = logging.INFO) 
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Remove existing handlers to avoid duplicates
+    # Remove existing handlers to avoid duplicates.
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
+    logger.propagate = False
 
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)

@@ -6,7 +6,7 @@ Masstamilan (including Cloudflare bypass via cloudscraper and browser rendering)
 
 import logging
 import re
-from typing import List, Optional
+from typing import Optional, List
 from urllib.parse import urljoin
 
 import cloudscraper
@@ -25,8 +25,8 @@ class MassTamilanScraper(BaseScraper):
     def __init__(self, base_url: str = "https://www.masstamilan.dev") -> None:
         super().__init__(base_url)
         self._session = cloudscraper.create_scraper()
-        self._pw = None
-        self._browser = None
+        self._pw: Optional[object] = None
+        self._browser: Optional[object] = None
 
     def _init_browser(self) -> None:
         if self._browser:

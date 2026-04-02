@@ -2,15 +2,20 @@
 Configuration settings for Tamil MP3 Downloader.
 """
 
+import copy
+import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class Settings:
     """Application settings and configuration."""
 
     # Default settings
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: Dict[str, Any] = {
         "sources": {
             "isaimini": {
                 "base_url": "https://www.isaiminihq.com",
@@ -32,6 +37,7 @@ class Settings:
             "output_dir": "output",
             "chunk_size": 65536,
             "timeout": 90,
+            "concurrent_enabled": True,
             "max_workers": 3,
             "retries": 3,
             "preferred_quality": "320kbps"
@@ -49,29 +55,37 @@ class Settings:
 
     def __init__(self, config_file: Optional[Path] = None) -> None:
         self.config_file = config_file or Path("config/settings.json")
-        self._config: Dict[str, Any] = self.DEFAULT_CONFIG.copy()
+        self._config: Dict[str, Any] = copy.deepcopy(self.DEFAULT_CONFIG)
         self.load()
+        if not self.config_file.exists():
+            self.save()
 
     def load(self) -> None:
         """Load settings from file."""
         if self.config_file.exists():
             try:
-                import json
-                with open(self.config_file, 'r', encoding='utf-8') as f:
+                with open(self.config_file, "r", encoding="utf-8") as f:
                     loaded_config = json.load(f)
-                    self._deep_update(self._config, loaded_config)
-            except Exception as e:
-                print(f"Warning: Could not load config file: {e}")
+                self._deep_update(self._config, loaded_config)
+            except Exception:
+                logger.warning(
+                    "Could not load config file at %s; using defaults.",
+                    self.config_file,
+                    exc_info=True,
+                )
 
     def save(self) -> None:
         """Save settings to file."""
         try:
-            import json
             self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.config_file, 'w', encoding='utf-8') as f:
+            with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"Warning: Could not save config file: {e}")
+        except Exception:
+            logger.warning(
+                "Could not save config file at %s.",
+                self.config_file,
+                exc_info=True,
+            )
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a setting value."""
@@ -115,6 +129,16 @@ class Settings:
     def page_size(self) -> int:
         """Get page size for menus."""
         return self.get("ui.page_size", 10)
+
+    @property
+    def concurrent_enabled(self) -> bool:
+        """Return whether concurrent downloads are enabled."""
+        return bool(self.get("download.concurrent_enabled", True))
+
+    @property
+    def show_progress(self) -> bool:
+        """Return whether progress bars are enabled."""
+        return bool(self.get("ui.show_progress", True))
 
 
 # Global settings instance
