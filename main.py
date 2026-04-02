@@ -1,399 +1,442 @@
-from pathlib import Path
-from bs4 import BeautifulSoup
-import requests
-from urllib.parse import unquote
+#!/usr/bin/env python3
+"""
+Tamil MP3 Downloader v3.0
+Entry point with a clean, rich-powered CLI.
+"""
+
 import sys
-import json
-import os
+from pathlib import Path
+from typing import List, Optional
 
-# colorama init (cross-platform ANSI support)
-try:
-    from colorama import init, Fore, Style
-    init(autoreset=True)
-except Exception:
-    class _Dummy:
-        def __getattr__(self, _):
-            return ''
-    Fore = _Dummy()
-    Style = _Dummy()
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.rule import Rule
+from rich.spinner import Spinner
+from rich.status import Status
+from rich.table import Table
+from rich.text import Text
 
-# Import helpers from split modules
-from utils.helper import (
-    collect_filtered_hrefs,
-    count_audio_hrefs,
-    parse_star_selection,
-    ensure_emoji_spacing,
-    clear_screen,
-    print_banner,
-    clear_below_banner,
-    format_terminal_link,
-    supports_terminal_links,
-)
-from utils.downloader import download_links
+from config.settings import settings
+from downloaders.http_downloader import HTTPDownloader
+from models.song import Album, Song
+from scrapers.isaimini import IsaiminiScraper
+from scrapers.masstamilan import MassTamilanScraper
+from utils.logger import logger
 
-# Re-export parse_star_selection for backward compatibility
-__all__ = ["parse_star_selection"]
-
-# Banner, author and version
-BANNER = r'''
- /$$$$$$$$                      /$$ /$$       /$$      /$$ /$$$$$$$   /$$$$$$ 
-|__  $$__/                     |__/| $$      | $$$    /$$$| $$__  $$ /$$__  $$
-   | $$  /$$$$$$  /$$$$$$/$$$$  /$$| $$      | $$$$  /$$$$| $$  \ $$|__/  \ $$
-   | $$ |____  $$| $$_  $$_  $$| $$| $$      | $$ $$/$$ $$| $$$$$$$/   /$$$$$/
-   | $$  /$$$$$$$| $$ \ $$ \ $$| $$| $$      | $$  $$$| $$| $$____/   |___  $$
-   | $$ /$$__  $$| $$ | $$ | $$| $$| $$      | $$\  $ | $$| $$       /$$  \ $$
-   | $$|  $$$$$$$| $$ | $$ | $$| $$| $$      | $$ \/  | $$| $$      |  $$$$$$/
-   |__/ \_______/|__/ |__/ |__/|__/|__/      |__/     |__/|__/       \______/ 
- 
-       Tamil MP3 Downloader - Author: Anbuselvan Rocky
-'''
-
-# Color choices
-BANNER_COLOR = Fore.CYAN + Style.BRIGHT
-MENU_COLOR = Fore.YELLOW + Style.BRIGHT
-PROMPT_COLOR = Fore.GREEN + Style.BRIGHT
-SUCCESS_COLOR = Fore.GREEN
-ERROR_COLOR = Fore.RED
-INFO_COLOR = Fore.MAGENTA
-COMING_SOON_COLOR = Fore.MAGENTA + Style.DIM
-RESET = Style.RESET_ALL
-
-CATEGORIES = {
-    '1': 'Star Hits',
-    '2': 'Music Director Hits',
-    '3': 'Singer Hits',
-    '4': 'Old Songs',
-    '5': 'Ring tones / Instrumentals',
-    '6': 'By Genre',
-}
+console = Console()
 
 
-def goodbye_and_exit():
+# ─────────────────────────────────────────────────────────────────────────────
+# UI helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _header():
+    console.print(
+        Panel(
+            Text.assemble(
+                ("🎵  Tamil MP3 Downloader   ", "bold yellow"),
+                ("v3.0  ", "bold cyan"),
+                ("• 2025 / 2026 Songs  •  320 kbps  •  Concurrent Downloads", "dim white"),
+            ),
+            expand=True,
+            border_style="cyan",
+            padding=(0, 2),
+        )
+    )
+
+
+def _rule(title: str = ""):
+    console.print(Rule(title, style="dim cyan"))
+
+
+def _ask(prompt: str, choices: Optional[List[str]] = None, default: str = "") -> str:
     try:
-        print('\n' + INFO_COLOR + 'GoodBye Nanba/Nanbis!' + RESET)
-    except Exception:
-        print('\nGoodBye Nanba/Nanbis!')
-    sys.exit(0)
+        return Prompt.ask(f"[bold cyan]  › {prompt}[/]", choices=choices, default=default)
+    except (EOFError, KeyboardInterrupt):
+        console.print("\n[green]👋  Goodbye![/]")
+        sys.exit(0)
 
 
-def get_resource_path(rel_path: str) -> str:
-    """Return an absolute path to a resource, working both when running from source
-    and when bundled by PyInstaller (where resources are extracted to sys._MEIPASS).
+def _yn(prompt: str) -> bool:
+    answer = _ask(prompt + " [y/n]", choices=["y", "n", "Y", "N"], default="y")
+    return answer.lower() == "y"
 
-    rel_path should be the path relative to the project root, for example: 'data/star-hits.json'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Album table
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _show_album_table(albums: List[Album], page: int, page_size: int):
+    start = (page - 1) * page_size
+    end   = start + page_size
+    page_albums = albums[start:end]
+    total_pages = (len(albums) + page_size - 1) // page_size
+
+    tbl = Table(
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold magenta",
+        border_style="dim cyan",
+        row_styles=["", "dim"],
+        expand=False,
+    )
+    tbl.add_column("#",    style="cyan bold", width=4,  justify="right")
+    tbl.add_column("Album Name",              width=40)
+    tbl.add_column("Year",  style="yellow",  width=6,  justify="center")
+    tbl.add_column("Songs", style="green",   width=7,  justify="center")
+
+    for i, album in enumerate(page_albums, start + 1):
+        sc = str(album.song_count) if album.song_count else "?"
+        tbl.add_row(str(i), album.display_name, album.year_str, sc)
+
+    console.print(tbl)
+    console.print(
+        f"  [dim]Page {page}/{total_pages}  "
+        f"— Albums {start+1}–{min(end, len(albums))} of {len(albums)}[/]"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Song table
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _show_song_table(songs: List[Song]):
+    tbl = Table(
+        box=box.SIMPLE_HEAVY,
+        show_header=True,
+        header_style="bold magenta",
+        border_style="dim",
+        expand=False,
+    )
+    tbl.add_column("#",       style="cyan bold",  width=4,  justify="right")
+    tbl.add_column("Song",                         width=42)
+    tbl.add_column("Quality", style="green",       width=9,  justify="center")
+    tbl.add_column("Size",    style="yellow",      width=9,  justify="right")
+
+    for i, s in enumerate(songs, 1):
+        q_color = s.quality_color
+        name_text = (
+            Text("📦  " + s.display_name, style="bold yellow")
+            if s.is_zip
+            else Text("🎵  " + s.display_name)
+        )
+        tbl.add_row(
+            str(i),
+            name_text,
+            Text(s.quality if s.quality != "unknown" else "?", style=f"bold {q_color}"),
+            s.size_str,
+        )
+
+    console.print(tbl)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Selection parser
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_selection(raw: str, items: list) -> list:
     """
-    try:
-        # If running as a PyInstaller bundle, files are in sys._MEIPASS
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            base = sys._MEIPASS
-        else:
-            # Use the directory containing main.py as the project root
-            base = os.path.dirname(os.path.abspath(__file__))
-        # Normalize separators and join into a single relative path string
-        rel_normalized = rel_path.replace('/', os.sep).lstrip(os.sep)
-        return os.path.join(base, rel_normalized)
-    except Exception:
-        return rel_path
-
-
-def read_version() -> str:
-    """Read version string from VERSION file located at the project root (bundled via PyInstaller)."""
-    try:
-        vpath = get_resource_path('VERSION')
-        with open(vpath, 'r', encoding='utf-8') as vf:
-            ver = vf.read().strip()
-            if ver:
-                return ver
-    except Exception:
-        pass
-    return '0.0.0'
-
-
-def print_banner_and_menu():
-    # full clear then print banner
-    clear_screen()
-    # Replace the author name with a clickable terminal link when supported
-    author_name = 'Anbuselvan Rocky'
-    github_url = 'https://github.com/anburocky3'
-    # Insert the version inline next to the author name inside the banner.
-    # Read runtime version first (fallback to 0.0.0 on error)
-    try:
-        version = read_version()
-    except Exception:
-        version = '0.0.0'
-
-    try:
-        if supports_terminal_links():
-            formatted_author = format_terminal_link(author_name, github_url)
-            banner_to_print = BANNER.replace(author_name, f"{formatted_author} - v{version}")
-        else:
-            banner_to_print = BANNER.replace(author_name, f"{author_name} | v{version}")
-    except Exception:
-        # On any error, fall back to the original banner without inline version
-        banner_to_print = BANNER
-
-    print_banner(banner_to_print, BANNER_COLOR, RESET)
-    print(MENU_COLOR + 'What would you like to download? (type the number; type "exit" to quit)' + RESET)
-    # only display actual numbered categories
-    for k, v in CATEGORIES.items():
-        # Present 'By Genre' (6) as coming soon so users know it's not implemented
-        if k == '6':
-            print(f" {Fore.CYAN}{k}{RESET}. {COMING_SOON_COLOR}{v} (Coming Soon){RESET}")
-        else:
-            print(f" {Fore.CYAN}{k}{RESET}. {v}")
-    print(f"")
-
-
-def prompt_choice(prompt: str, default: str = '') -> str:
-    return input(PROMPT_COLOR + prompt + RESET).strip() or default
-
-
-def show_and_download(index_url: str, category_name: str, save_subpath_default: str):
-    clear_below_banner(BANNER, BANNER_COLOR, RESET)
-    try:
-        page = requests.get(index_url, timeout=30)
-        page.raise_for_status()
-    except Exception as e:
-        print(ERROR_COLOR + f"Failed to fetch URL {index_url}: {e}" + RESET)
-        return
-
-    soup = BeautifulSoup(page.content, 'html.parser')
-    hrefs = collect_filtered_hrefs(soup)
-    audio_count = count_audio_hrefs(hrefs)
-
-    print("")
-    print(INFO_COLOR + ensure_emoji_spacing(f"👋  I found {audio_count} audio links for {save_subpath_default}.\n") + RESET)
-
-    # build output directory
-    out_dir = Path(f'output/{category_name}/{save_subpath_default}')
-    print(INFO_COLOR + f"Saving to: {out_dir}" + RESET)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download audio links (downloader.download_links provides a default chunk_size)
-    total_audio, successful, failed = download_links(hrefs, index_url, out_dir)
-
-    print(INFO_COLOR + ensure_emoji_spacing('\n\n' + '-----------------------------------------------------------') + RESET)
-    print(INFO_COLOR + ensure_emoji_spacing(f'💁\u200d♂️  Total Downloadable files: {total_audio}') + RESET)
-    print(SUCCESS_COLOR + ensure_emoji_spacing(f'✅  Successful: {successful}') + RESET)
-    print(ERROR_COLOR + ensure_emoji_spacing(f"❌  Couldn't download: {failed}") + RESET)
-    print(INFO_COLOR + ensure_emoji_spacing('-----------------------------------------------------------') + RESET)
-
-
-def handle_data_category(data_file: str, category_name: str):
-    """Load a JSON list of {id, href/path, name} and drive the same flow as Star Hits.
-
-    data_file: path to JSON file under data/
-    category_name: top-level category used for output path
+    Parse "1", "1,3,5", "2-4", "all" → list of selected items.
+    Returns [] on "0" / "back".
     """
-    try:
-        data_path = get_resource_path(data_file)
-        with open(data_path, 'r', encoding='utf-8') as f:
-            data_list = json.load(f)
-    except Exception as e:
-        print(ERROR_COLOR + f"Failed to load {data_file}: {e}" + RESET)
-        return
+    raw = raw.strip().lower()
+    if raw in ("0", "back", "b"):
+        return []
+    if raw in ("all", "a"):
+        return list(items)
 
-    # Display list (clear below the banner so banner remains visible)
-    clear_below_banner(BANNER, BANNER_COLOR, RESET)
-    print(MENU_COLOR + f"Available {category_name}:" + RESET)
-    for item in data_list:
-        print(f" {Fore.CYAN}{item.get('id')}{RESET}. {item.get('name')}")
-    print(f" {Fore.CYAN}all{RESET}. Download ALL entries")
-    print(f"")
+    selected = []
+    for part in raw.split(","):
+        part = part.strip()
+        if "-" in part and not part.startswith("-"):
+            try:
+                lo, hi = part.split("-", 1)
+                selected.extend(items[int(lo) - 1 : int(hi)])
+            except (ValueError, IndexError):
+                pass
+        else:
+            try:
+                selected.append(items[int(part) - 1])
+            except (ValueError, IndexError):
+                pass
 
-    sel = prompt_choice("Select number(s)/ranges (e.g. 1,3,5 or 2-4) or 'all' (back/exit): ")
-    if not sel:
-        print(ERROR_COLOR + "No selection made, returning to menu." + RESET)
-        return
-    if sel.lower() in ('back', 'b'):
-        return
-    if sel.lower() in ('exit', '0', 'quit'):
-        goodbye_and_exit()
+    return selected
 
-    # Special case: when viewing the Ringtones list, pressing '6' should open the
-    # prepopulated list from data/new-movies-ringtone.json
-    try:
-        if data_file.endswith('ringtones.json') and sel.strip() == '6':
-            # Delegate to the new-movies JSON file (drill-down)
-            new_file = 'data/new-movies-ringtone.json'
-            # Use a friendly category name when showing the nested list
-            handle_data_category(new_file, 'New Movies Ring Tone')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main app
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TamilMP3Downloader:
+
+    PAGE_SIZE = 10   # albums per page
+
+    def __init__(self):
+        self.isaimini_scraper = IsaiminiScraper(settings.isaimini_url)
+        self.masstamilan_scraper = MassTamilanScraper(settings.get("sources.masstamilan.base_url"))
+        self.downloader = HTTPDownloader(
+            settings.output_dir,
+            max_workers=settings.get("download.max_workers", 3),
+        )
+
+    # ── main loop ──────────────────────────────────────────────────────────
+
+    def run(self):
+        console.clear()
+        _header()
+        console.print()
+
+        while True:
+            _rule("  Main Menu  ")
+            console.print(
+                "  [cyan]1[/]  IsaiminiHQ  [dim]— Latest 2025 / 2026 songs[/]  [bold yellow]⭐ Recommended[/]\n"
+                "  [cyan]2[/]  MassTamilan  [dim]— Latest releases 2025 / 2026[/]\n"
+                "  [cyan]3[/]  FriendsTamilMP3  [dim]— Classic songs  (coming soon)[/]\n"
+                "  [cyan]4[/]  Settings\n"
+                "  [cyan]5[/]  Exit\n"
+            )
+            choice = _ask("Choose", choices=["1", "2", "3", "4", "5"])
+
+            if choice == "1":
+                console.clear()
+                _header()
+                self._source_flow("IsaiminiHQ", self.isaimini_scraper)
+            elif choice == "2":
+                console.clear()
+                _header()
+                self._source_flow("MassTamilan", self.masstamilan_scraper)
+            elif choice == "3":
+                console.clear()
+                _header()
+                console.print("[yellow]  FriendsTamilMP3 support coming soon![/]")
+            elif choice == "4":
+                self._settings_menu()
+            elif choice == "5":
+                console.print("\n[green]👋  Goodbye![/]\n")
+                break
+
+    # ── source selector ─────────────────────────────────────────────────
+
+    def _source_flow(self, source_name: str, scraper):
+        self.scraper = scraper
+        _rule(f"  {source_name}  ")
+
+        # Category selection
+        console.print(
+            "  [cyan]1[/]  Latest  (newest releases)  [bold yellow]⭐[/]\n"
+            "  [cyan]2[/]  2026 songs\n"
+            "  [cyan]3[/]  2025 songs\n"
+            "  [cyan]0[/]  Back\n"
+        )
+        cat_choice = _ask("Category", choices=["0", "1", "2", "3"], default="1")
+        if cat_choice == "0":
             return
-    except Exception:
-        # ignore and continue with normal flow on unexpected errors
-        pass
 
-    selected_items, missing = parse_star_selection(sel, data_list)
-    for mid in missing:
-        print(ERROR_COLOR + f"No item with id {mid}, skipping." + RESET)
-    if not selected_items:
-        print(ERROR_COLOR + f"No valid selections found, returning to menu." + RESET)
-        return
+        cat_map   = {"1": "latest", "2": "2026", "3": "2025"}
+        category  = cat_map[cat_choice]
 
-    for item in selected_items:
-        item_name = item.get('name')
-        # prefer 'href' then 'path'
-        index_url = item.get('href') or item.get('path')
-        if not index_url:
-            print(ERROR_COLOR + f"No URL for '{item_name}', skipping." + RESET)
-            continue
+        # How many pages to scrape
+        pages_str = _ask("Load how many pages of albums? [1–5]", default="2")
+        try:
+            max_pages = max(1, min(5, int(pages_str)))
+        except ValueError:
+            max_pages = 2
 
-        user_path = prompt_choice(f"Enter The Path To Save Files inside '{category_name}/{item_name}': (DEFAULT: {item_name}) (skip/back/exit): ", item_name)
-        if user_path.lower() in ('skip', 's'):
-            print(INFO_COLOR + f"Skipped {item_name}" + RESET)
-            continue
-        if user_path.lower() in ('back', 'b'):
-            break
-        if user_path.lower() in ('exit', '0', 'quit'):
-            goodbye_and_exit()
+        # Fetch albums
+        albums: List[Album] = []
+        with Status(
+            "[bold cyan]  Fetching albums…[/]",
+            spinner="dots",
+            console=console,
+        ):
+            try:
+                self.scraper._init_browser()
+                albums = self.scraper.get_albums(category, max_pages=max_pages)
+            except Exception as e:
+                logger.error(f"Album fetch error: {e}")
 
-        dir_path = Path(f'output/{category_name}/{user_path}')
-        print(INFO_COLOR + '----------------------------------------------')
-        print(INFO_COLOR + f' 🎼   Files will be saved to: {dir_path}')
-        print(INFO_COLOR + '----------------------------------------------' + RESET)
-        dir_path.mkdir(parents=True, exist_ok=True)
+        if not albums:
+            console.print(
+                "[red]  ❌  No albums found. The site may be down or selectors have changed.[/]"
+            )
+            return
 
-        # Reuse show_and_download which fetches index, filters links and downloads
-        show_and_download(index_url, category_name, user_path)
+        # Album browsing loop
+        page = 1
+        while True:
+            console.print()
+            _rule(f"  Albums — {category.upper()}  ")
+            _show_album_table(albums, page, self.PAGE_SIZE)
+
+            total_pages = (len(albums) + self.PAGE_SIZE - 1) // self.PAGE_SIZE
+            nav_hint = ""
+            if total_pages > 1:
+                nav_hint = "  [dim]n=next page  p=prev[/]  "
+
+            raw = _ask(
+                f"Select album(s){nav_hint}  [dim]1…{len(albums)}  1,3  2-5  all  0=back[/]",
+                default="0",
+            )
+            if raw.strip().lower() in ("0", "back", "b"):
+                return
+            if raw.strip().lower() in ("n", "next") and page < total_pages:
+                page += 1;  continue
+            if raw.strip().lower() in ("p", "prev") and page > 1:
+                page -= 1;  continue
+
+            selected = _parse_selection(raw, albums)
+            if not selected:
+                console.print("[yellow]  No valid selection.[/]")
+                continue
+
+            for album in selected:
+                self._download_album_flow(album)
+
+            if not _yn("\n  Download another album?"):
+                return
+
+    # ── album download flow ────────────────────────────────────────────────
+
+    def _download_album_flow(self, album: Album):
+        console.print()
+        console.print(
+            Panel(
+                Text.assemble(
+                    ("📀  ", "yellow"),
+                    (album.display_name, "bold white"),
+                    (f"   {album.year_str}", "dim"),
+                ),
+                border_style="blue",
+                expand=False,
+            )
+        )
+
+        # Fetch songs
+        songs: List[Song] = []
+        with Status(
+            "[bold cyan]  Fetching track list…[/]",
+            spinner="dots",
+            console=console,
+        ):
+            try:
+                songs = self.scraper.get_songs(album)
+            except Exception as e:
+                logger.error(f"Song fetch error for {album.display_name}: {e}")
+
+        if not songs:
+            console.print("[red]  ❌  No songs found for this album.[/]")
+            return
+
+        # Update song_count on album
+        album.song_count = len(songs)
+
+        console.print()
+        _show_song_table(songs)
+        console.print()
+
+        # How to download
+        zips = [s for s in songs if s.is_zip]
+        mp3s = [s for s in songs if not s.is_zip]
+
+        if zips and mp3s:
+            console.print(
+                "  [cyan]1[/]  Download ZIP only  [dim](all songs in one file, fastest)[/]\n"
+                "  [cyan]2[/]  Download individual MP3s  [dim](320 kbps priority)[/]\n"
+                "  [cyan]3[/]  Download both\n"
+                "  [cyan]0[/]  Skip this album\n"
+            )
+            choice = _ask("Download mode", choices=["0", "1", "2", "3"], default="1")
+            if choice == "0":
+                return
+            elif choice == "1":
+                to_download = zips
+            elif choice == "2":
+                to_download = mp3s
+            else:
+                to_download = songs
+        elif zips:
+            if not _yn("  Download ZIP archive?"):
+                return
+            to_download = zips
+        else:
+            if not _yn(f"  Download all {len(mp3s)} MP3s?"):
+                return
+            to_download = mp3s
+
+        # Set album_name on all selected songs
+        for s in to_download:
+            s.album_name = album.safe_dirname
+
+        console.print()
+        _rule(f"  Downloading: {album.display_name}  ")
+
+        results = self.downloader.download_concurrent(
+            to_download,
+            album_name=album.safe_dirname,
+            max_workers=settings.get("download.max_workers", 3),
+        )
+
+        ok  = sum(1 for r in results if r.success)
+        err = len(results) - ok
+        size_total = sum(r.size_downloaded for r in results if r.size_downloaded)
+        size_mb = size_total / (1024 * 1024)
+
+        console.print()
+        _rule()
+        console.print(
+            f"  [bold]Done![/]  "
+            f"[green]✓ {ok} downloaded[/]"
+            + (f"   [red]✗ {err} failed[/]" if err else "")
+            + f"   [yellow]{size_mb:.1f} MB[/]"
+        )
+        console.print(f"  [dim]Saved to:  {settings.output_dir / 'IsaiminiHQ' / album.safe_dirname}[/]")
+
+        # Show failures if any
+        if err:
+            for r in results:
+                if not r.success:
+                    console.print(f"    [red]✗[/] {r.song_name}  [dim]{r.error_message}[/]")
+
+    # ── settings menu ─────────────────────────────────────────────────────
+
+    def _settings_menu(self):
+        _rule("  Settings  ")
+        console.print(
+            f"  [dim]Output directory  :[/]  {settings.output_dir}\n"
+            f"  [dim]Max workers        :[/]  {settings.get('download.max_workers', 3)}\n"
+            f"  [dim]Per-file retries   :[/]  {settings.get('download.retries', 3)}\n"
+        )
+        if _yn("  Change max concurrent downloads?"):
+            w = _ask("  Workers (1–8)", default="3")
+            try:
+                settings.set("download.max_workers", max(1, min(8, int(w))))
+                console.print(f"  [green]✓  Workers set to {settings.get('download.max_workers')}[/]")
+            except ValueError:
+                pass
 
 
-def handle_old_songs():
-    """Show a small submenu for 'Old Songs' and delegate to handle_data_category.
-
-    Options:
-      1 - Old Collections -> data/old/collections.json
-      2 - Old Hits (Singers) -> data/old/singers.json
-    """
-    clear_below_banner(BANNER, BANNER_COLOR, RESET)
-    print(MENU_COLOR + "Old Songs - select a subcategory:" + RESET)
-    print(f" {Fore.CYAN}1{RESET}. Old Collections")
-    print(f" {Fore.CYAN}2{RESET}. Old Hits (Singers)")
-    print(f" {Fore.CYAN}b{RESET}. Back to main menu")
-    print(f"")
-
-    sel = prompt_choice("Enter choice (1-2, b/back): ")
-    if not sel:
-        print(ERROR_COLOR + "No selection made, returning to menu." + RESET)
-        return
-    sel_low = sel.lower()
-    if sel_low in ('b', 'back'):
-        return
-    if sel_low in ('exit', '0', 'quit'):
-        goodbye_and_exit()
-
-    if sel_low == '1':
-        handle_data_category('data/old/collections.json', 'Old Collections')
-    elif sel_low == '2':
-        handle_data_category('data/old/singers.json', 'Old Hits (Singers)')
-    else:
-        print(ERROR_COLOR + f"Invalid choice '{sel}', returning to menu." + RESET)
-
-
-def handle_ringtones_instrumentals():
-    """Submenu for Ringtones and Instrumental Collections.
-
-    Options:
-      1 - Ringtones -> data/ringtones.json
-      2 - Instrumentals -> data/instrumentals.json
-    """
-    clear_below_banner(BANNER, BANNER_COLOR, RESET)
-    print(MENU_COLOR + "Ring Tones / Instrumentals - select a subcategory:" + RESET)
-    print(f" {Fore.CYAN}1{RESET}. Ringtones")
-    print(f" {Fore.CYAN}2{RESET}. Instrumentals")
-    print(f" {Fore.CYAN}b{RESET}. Back to main menu")
-    print(f"")
-
-    sel = prompt_choice("Enter choice (1-2, b/back): ")
-    if not sel:
-        print(ERROR_COLOR + "No selection made, returning to menu." + RESET)
-        return
-    sel_low = sel.lower()
-    if sel_low in ('b', 'back'):
-        return
-    if sel_low in ('exit', '0', 'quit'):
-        goodbye_and_exit()
-
-    if sel_low == '1':
-        handle_data_category('data/ringtones.json', 'Ring Tones')
-    elif sel_low == '2':
-        handle_data_category('data/instrumentals.json', 'Instrumental Collections')
-    else:
-        print(ERROR_COLOR + f"Invalid choice '{sel}', returning to menu." + RESET)
-
+# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    while True:
-        # Show banner and menu, get a valid choice
-        print_banner_and_menu()
-        choice = prompt_choice('Enter choice (1-7) [default 1]: ', '1').lower()
-        if choice in ('0', 'exit', 'quit'):
-            goodbye_and_exit()
-        if choice not in CATEGORIES:
-            print(ERROR_COLOR + f"Invalid choice '{choice}', please try again." + RESET)
-            continue
-
-        category_name = CATEGORIES[choice]
-        print(INFO_COLOR + f"Selected: {category_name}\n" + RESET)
-
-        # Special flows for Star Hits (1), Music Director Hits (2) and Singer Hits (3)
-        if choice in ('1', '2', '3'):
-            mapping = {
-                '1': 'data/star-hits.json',
-                '2': 'data/music-directors-hits.json',
-                '3': 'data/singer-hits.json',
-            }
-            data_file = mapping.get(choice)
-            handle_data_category(data_file, category_name)
-            continue
-
-        # Handle Old Songs subcategories
-        if choice == '4':
-            handle_old_songs()
-            continue
-
-        # Handle Ring tones / Instrumentals subcategories
-        if choice == '5':
-            handle_ringtones_instrumentals()
-            continue
-
-        # Handle By Genre as 'coming soon'
-        if choice == '6':
-            clear_below_banner(BANNER, BANNER_COLOR, RESET)
-            print(COMING_SOON_COLOR + '🚧  By Genre is coming soon. This feature is not implemented yet.' + RESET)
-            _ = prompt_choice('\nPress Enter to return to the main menu...')
-            continue
-
-        # Generic flow for other categories
-        index_url = prompt_choice("Enter 'Index Of' URL (back/exit): ")
-        if not index_url:
-            print(ERROR_COLOR + "No URL provided, returning to menu." + RESET)
-            continue
-        if index_url.lower() in ('back', 'b'):
-            continue
-        if index_url.lower() in ('exit', '0', 'quit'):
-            goodbye_and_exit()
-
-        try:
-            project_name = unquote(index_url.rsplit('/', 2)[1])
-        except Exception:
-            project_name = unquote(index_url.rstrip('/').rsplit('/', 1)[-1])
-
-        user_path = prompt_choice(f"Enter The Path To Save Files inside '{category_name}': (DEFAULT: {project_name}) (back/exit): ", project_name)
-        if user_path.lower() in ('back', 'b'):
-            continue
-        if user_path.lower() in ('exit', '0', 'quit'):
-            goodbye_and_exit()
-
-        dir_path = Path(f'output/{category_name}/{user_path}')
-        print(INFO_COLOR + str(dir_path) + RESET)
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        # Fetch index and download
-        show_and_download(index_url, category_name, user_path)
-
-
-if __name__ == '__main__':
     try:
-        main()
-    except (KeyboardInterrupt, EOFError):
-        goodbye_and_exit()
+        app = TamilMP3Downloader()
+        app.run()
+    except KeyboardInterrupt:
+        console.print("\n[green]👋  Goodbye![/]\n")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Fatal: {e}", exc_info=True)
+        console.print_exception()
+        sys.exit(1)
+    finally:
+        # Always close playwright browser
+        try:
+            app.scraper._close_browser()
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    main()

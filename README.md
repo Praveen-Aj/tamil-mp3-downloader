@@ -1,4 +1,4 @@
-# Tamil MP3 Downloader
+# Tamil MP3 Downloader v3.0
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue"  alt="Platform"/>
   <img src="https://img.shields.io/badge/Python-3.10%2B-brightgreen" alt="python 3.10"/>
@@ -6,47 +6,171 @@
   <img src="https://img.shields.io/github/last-commit/anburocky3/tamil-mp3-downloader/main?label=Last%20updated%20on" alt="Last updated on" />
 </p>
 
-A small, friendly tool to browse and download Tamil MP3 collections in single run. 🎵
+A modern, modular Tamil MP3 downloader with multiple sources and clean architecture. 🎵
 
-### 🚀 Download and run easily
-For windows, just download [`MP3Downloader.exe`](https://github.com/anburocky3/tamil-mp3-downloader/releases/latest/download/tamil-mp3-downloader-v2.0.0.exe) and run the application.
+## ✨ What's New in v3.0
 
-![Screenshot 1](/screenshots/1.png)
+- **🔄 Complete Architecture Rewrite** - Modern, maintainable codebase
+- **🌐 Multiple Sources** - IsaiminiHQ (latest 2024-2025) + more coming
+- **🎯 Production Ready** - Proper error handling, logging, and testing
+- **📦 Modular Design** - Clean separation of concerns
+- **⚡ Fast Downloads** - Progress bars and concurrent downloads
+- **🔧 Easy Configuration** - JSON-based settings
 
-> If you are looking for classic version of this script, check out [README-classic.md](./README-classic.md)
+## 🚀 Quick Start
 
-### ✅ [Download Hindi, Malayalam, Telugu Songs](https://github.com/anburocky3/mp3-downloader/fork)
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/anburocky3/tamil-mp3-downloader.git
+cd tamil-mp3-downloader
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install Playwright browsers
+playwright install
+```
+
+### Run
+
+```bash
+python main.py
+```
+
+## 📋 Features
+
+### ✅ Current Features
+- **IsaiminiHQ Integration** - Latest Tamil movies (2024-2025)
+- **Interactive CLI** - User-friendly menu system
+- **Progress Tracking** - Real-time download progress with tqdm
+- **Error Handling** - Robust error recovery and logging
+- **Organized Output** - Files saved by source/movie
+- **Batch Downloads** - Download multiple albums at once
+
+### 🔄 Coming Soon
+- **FriendsTamilMP3** - Classic songs (2010-2015)
+- **Settings Menu** - Configurable preferences
+- **Resume Downloads** - Interrupted download recovery
+- **Search Functionality** - Find songs across sources
+- **Metadata Tagging** - ID3 tags for MP3s
+
+## 🏗️ Architecture
+
+```
+tamil-mp3-downloader/
+├── main.py                    # Entry point - clean CLI
+├── scrapers/                  # Source-specific scrapers
+│   ├── base.py               # Abstract scraper interface
+│   └── isaimini.py           # IsaiminiHQ implementation
+├── downloaders/               # Download management
+│   ├── base.py               # Abstract downloader
+│   └── http_downloader.py    # HTTP downloads with progress
+├── models/                    # Data models
+│   └── song.py               # Song, Album dataclasses
+├── utils/                     # Utilities
+│   ├── helper.py             # Legacy helpers (kept)
+│   ├── downloader.py         # Legacy downloader (kept)
+│   └── logger.py             # Logging setup
+├── config/                    # Configuration
+│   └── settings.py           # App settings
+├── data/                      # Static data files
+├── output/                    # Download directory
+└── logs/                      # Application logs
+```
+
+## 🎵 Usage
+
+1. **Start the application:**
+   ```bash
+   python main.py
+   ```
+
+2. **Select a source:**
+   ```
+   Select Source:
+   1. IsaiminiHQ (Latest 2024-2025) ⭐
+   2. FriendsTamilMP3 (Classics)
+   3. Settings
+   4. Exit
+   ```
+
+3. **Choose albums to download:**
+   - View available movies/albums
+   - Select by number, range, or 'all'
+   - Example: `1,3,5` or `2-4` or `all`
+
+4. **Confirm and download:**
+   - Review selected songs
+   - Confirm download
+   - Watch progress bars
+   - Files saved to `output/` directory
+
+## 🔧 Configuration
+
+Settings are stored in `config/settings.json`. Default settings:
+
+```json
+{
+  "sources": {
+    "isaimini": {
+      "base_url": "https://www.isaiminihq.com",
+      "enabled": true
+    }
+  },
+  "download": {
+    "output_dir": "output",
+    "chunk_size": 8192,
+    "timeout": 60
+  },
+  "ui": {
+    "page_size": 10,
+    "show_progress": true
+  }
+}
+```
+
+## 🧪 Testing
+
+Run the test suite:
+
+```bash
+python test_new_architecture.py
+```
+
+This validates:
+- ✅ Scraper connectivity
+- ✅ Album discovery
+- ✅ Song extraction
+- ✅ Downloader initialization
+
+## 📦 Dependencies
+
+- `playwright>=1.40.0` - Browser automation for JavaScript sites
+- `requests>=2.28.0` - HTTP requests
+- `beautifulsoup4>=4.11.0` - HTML parsing
+- `colorama>=0.4.5` - Cross-platform colored output
+- `tqdm>=4.64.0` - Progress bars
+- `pydantic>=2.0.0` - Data validation
+
+## ⚠️ Disclaimer
 
 > **Use this script with caution.** We don't support piracy and this project is completely for educational purposes only. Use it with care.🥰💖
 
-#### What's included
+## 📄 License
 
-- Interactive menu-driven CLI ✅
-- Download songs by Singer, Music Director, Star, Old, ringtones/Instrumental Hits 📁
-- Smart handling of nested folders and download progress ⬇️
-- Windows exe file for Windows users. 🧰
+MIT License - see [LICENSE](LICENSE) file for details.
 
+## 🤝 Contributing
 
-### Screenshots
-1. Main menu
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-![Screenshot 1](/screenshots/1.png)
+## 📞 Support
 
-2. Download songs by **Star Hits** like Rajinikanth, Kamal Haasan, Vijay, Suriya etc
-   ![Screenshot 2](/screenshots/2.png)
-
-3. Download songs by **Music Director Hits** like A.R.Rahman, Ilayaraja, Yuvan Shankar Raja etc
-   ![Screenshot 3](/screenshots/3.png)
-
-4. Download songs by **Singer Hits** like Harini Hits, Yuvan Hits, Saindhavi Hits, Ilayaraja Hits, etc.
-
-![Screenshot 4](/screenshots/4.png)
-
-5. Download Old Tamil Mp3 Songs by **Old Tamil Songs** like 80s Hits, 90s Hits, 70s Hits etc
-
-![Screenshot 5](/screenshots/5.png)
-
-6. Download Ringtones/Instrumental Songs by **Ringtones/Instrumental Songs** like Tamil Ringtones, Instrumental Songs etc
+- Create an [issue](https://github.com/anburocky3/tamil-mp3-downloader/issues) for bugs
+- Star the repo if you find it useful ⭐
+- Fork and contribute improvements!
 
 ![Screenshot 6](/screenshots/6.png)
 
