@@ -230,6 +230,11 @@ def _parse_selection(raw: str, items: Sequence[T]) -> List[T]:
     return selected
 
 
+def _is_back_choice(raw: str) -> bool:
+    """Return True when user input means navigate back."""
+    return raw.strip().lower() in ("0", "back", "b")
+
+
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Main app
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -379,12 +384,14 @@ class TamilMP3Downloader:
                 f"Select album(s){nav_hint}  [dim]1â€¦{len(albums)}  1,3  2-5  all  0=back[/]",
                 default="0",
             )
-            if raw.strip().lower() in ("0", "back", "b"):
+            if _is_back_choice(raw):
                 return
             if raw.strip().lower() in ("n", "next") and page < total_pages:
-                page += 1;  continue
+                page += 1
+                continue
             if raw.strip().lower() in ("p", "prev") and page > 1:
-                page -= 1;  continue
+                page -= 1
+                continue
 
             selected = _parse_selection(raw, albums)
             if not selected:
@@ -465,7 +472,7 @@ class TamilMP3Downloader:
         """Search album names across all sources and download selected results."""
         _rule("  Search Albums  ")
         keyword = _ask("Enter movie / album keyword [0=back]", default="").strip()
-        if not keyword or keyword.lower() in ("0", "back", "b"):
+        if not keyword or _is_back_choice(keyword):
             return
 
         pages_str = _ask("Search depth: pages per source [1-5]", default="2")
@@ -495,7 +502,7 @@ class TamilMP3Downloader:
                 f"Select result(s)  [dim]1...{len(results)}  1,3  2-5  all  0=back[/]",
                 default="0",
             )
-            if raw.strip().lower() in ("0", "back", "b"):
+            if _is_back_choice(raw):
                 return
 
             selected = _parse_selection(raw, results)
@@ -707,6 +714,7 @@ class TamilMP3Downloader:
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def main() -> None:
+    app: Optional[TamilMP3Downloader] = None
     try:
         app = TamilMP3Downloader()
         app.run()
@@ -719,10 +727,11 @@ def main() -> None:
         sys.exit(1)
     finally:
         # Always close playwright browser
-        try:
-            app.scraper._close_browser()
-        except Exception:
-            logger.debug("Failed to close scraper browser cleanly.", exc_info=True)
+        if app is not None:
+            try:
+                app.scraper._close_browser()
+            except Exception:
+                logger.debug("Failed to close scraper browser cleanly.", exc_info=True)
 
 
 if __name__ == "__main__":

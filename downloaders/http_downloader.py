@@ -80,14 +80,11 @@ class HTTPDownloader(BaseDownloader):
     def download_song(self, song: Song) -> DownloadResult:
         """Download a single song (blocking, no rich UI)."""
         album_dir = self._album_dir(song.album_name)
-        return self._download_one(song, album_dir)
+        return self._download_with_progress(song, album_dir, pbar=None)
 
     def download_songs(self, songs: List[Song]) -> List[DownloadResult]:
         """Sequential download – used as fallback."""
-        results = []
-        for song in songs:
-            results.append(self.download_song(song))
-        return results
+        return super().download_songs(songs)
 
     def download_concurrent(
         self,
@@ -550,10 +547,6 @@ class HTTPDownloader(BaseDownloader):
         else:
             safe = song.safe_filename
         return dest_dir / (safe or "download.mp3")
-
-    def _download_one(self, song: Song, dest_dir: Path) -> DownloadResult:
-        """Compatibility helper for single-song downloads without explicit tqdm bar."""
-        return self._download_with_progress(song, dest_dir, pbar=None)
 
     def _concurrent_worker(
         self,
