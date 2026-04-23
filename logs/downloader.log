@@ -1,2 +1,0 @@
-2026-04-02 22:13:55,151 - tamil_mp3_downloader - ERROR - Album fetch error: It looks like you are using Playwright Sync API inside the asyncio loop.
-Please use the Async API instead.
