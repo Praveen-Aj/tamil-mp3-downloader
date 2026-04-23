@@ -6,6 +6,8 @@ This document describes the current architecture of the Tamil MP3 Downloader cod
 
 ```text
 tamil-mp3-downloader/
+|-- gui.py
+|-- tui.py
 |-- main.py
 |-- requirements.txt
 |-- VERSION
@@ -38,7 +40,6 @@ tamil-mp3-downloader/
 |   |-- probe_masstamilan.py
 |   `-- tamil_mp3_downloader.spec
 |-- tests/
-|   |-- test_download_legacy.py
 |   `-- test_masstamilan_scraper.py
 |-- docs/
 |   `-- masstamilan_integration.md
@@ -54,11 +55,13 @@ tamil-mp3-downloader/
 
 ```mermaid
 flowchart TB
-    A["main.py (CLI Orchestrator)"] --> B["config/settings.py (persistent settings)"]
+  A["gui.py / tui.py (App Orchestrators)"] --> B["config/settings.py (persistent settings)"]
     A --> C["scrapers/* (source adapters)"]
     A --> D["downloaders/http_downloader.py"]
     A --> E["models/song.py (Album, Song, DownloadResult)"]
     A --> F["utils/logger.py"]
+
+  G["main.py (compatibility shim)"] --> A
 
     C --> E
     D --> E
@@ -85,7 +88,7 @@ flowchart TB
 - `FriendsTamilMP3Scraper`
   - Requests + BeautifulSoup scraper.
   - Uses query-based category pages and song extraction from direct audio links.
-  - Keeps no-op `_init_browser` and `_close_browser` hooks for CLI compatibility.
+  - Keeps no-op `_init_browser` and `_close_browser` hooks for shared scraper compatibility.
 
 ```mermaid
 classDiagram
@@ -109,7 +112,7 @@ classDiagram
 `HTTPDownloader` is the concrete downloader and central download pipeline.
 
 ### Pipeline stages
-1. CLI prepares `Song` objects (album context + tag fields).
+1. GUI/TUI prepares `Song` objects (album context + tag fields).
 2. Downloader chooses mode:
    - concurrent: `download_concurrent(...)`
    - sequential: `download_songs(...)`
@@ -140,26 +143,20 @@ flowchart TD
     L --> M["Update state completed=true"]
 ```
 
-## CLI Flow
+## App Flow
 
-The main CLI loop in `TamilMP3Downloader.run()` dispatches to source flow, search flow, and settings.
+The app flow dispatches to source/category browsing, search, and settings in GUI/TUI entrypoints.
 
 ```mermaid
 flowchart TD
-    A["Start app"] --> B["Main Menu"]
-    B -->|"1 IsaiminiHQ"| C["_source_flow(Isaimini)"]
-    B -->|"2 MassTamilan"| D["_source_flow(MassTamilan)"]
-    B -->|"3 FriendsTamilMP3"| E["_source_flow(FriendsTamilMP3)"]
-    B -->|"4 Search"| F["_search_flow"]
-    B -->|"5 Settings"| G["_settings_menu"]
-    B -->|"6 Exit"| H["Terminate"]
-
-    C --> I["_download_album_flow"]
-    D --> I
-    E --> I
-    F --> I
-    G --> B
-    I --> B
+  A["Start app"] --> B["Source/category selection"]
+  B --> C["Album list"]
+  C --> D["Song fetch"]
+  D --> E["Queue + download"]
+  B --> F["Search"]
+  F --> C
+  B --> G["Settings"]
+  G --> B
 ```
 
 ## Search Flow
@@ -205,7 +202,7 @@ Note: UI shows progress bars during download; the main menu loop waits until cur
 
 ```mermaid
 flowchart LR
-    A["CLI thread"] --> B["download_concurrent"]
+  A["App worker thread"] --> B["download_concurrent"]
     B --> C["ThreadPoolExecutor (N workers)"]
     C --> D["worker 1"]
     C --> E["worker 2"]

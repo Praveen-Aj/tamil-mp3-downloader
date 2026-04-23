@@ -8,7 +8,8 @@ and extracts:
 
 import logging
 import re
-from typing import Dict, List, Optional, Set
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable, Dict, List, Optional, Set
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 import requests
@@ -63,7 +64,12 @@ class FriendsTamilMP3Scraper(BaseScraper):
             logger.warning("FriendsTamilMP3 connection test failed: %s", exc)
             return False
 
-    def get_albums(self, category: str = "latest", max_pages: int = 3) -> List[Album]:
+    def get_albums(
+        self,
+        category: str = "latest",
+        max_pages: int = 3,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[Album]:
         """Get albums for a category.
 
         Categories supported:
@@ -75,17 +81,42 @@ class FriendsTamilMP3Scraper(BaseScraper):
         albums: List[Album] = []
         seen_urls: Set[str] = set()
 
-        for page_url in pages:
-            html = self._fetch_html(page_url)
-            if not html:
-                continue
+        cat = (category or "").strip()
+        # Use parallel fetching when many pages exist (year A-Z scan, Ilaiyaraja A-Z)
+        if len(pages) > 6:
+            completed = 0
+            if progress_cb is not None:
+                progress_cb(0, len(pages))
 
-            page_albums = self._extract_albums_from_page(html=html, category=category)
-            for album in page_albums:
-                if album.url in seen_urls:
+            def _fetch_one(page_url: str) -> List[Album]:
+                html = self._fetch_html(page_url)
+                if not html:
+                    return []
+                return self._extract_albums_from_page(html=html, category=category)
+
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                futures = {pool.submit(_fetch_one, url): url for url in pages}
+                for future in as_completed(futures):
+                    completed += 1
+                    if progress_cb is not None:
+                        progress_cb(completed, len(pages))
+                    for album in future.result():
+                        if album.url not in seen_urls:
+                            seen_urls.add(album.url)
+                            albums.append(album)
+        else:
+            for page_num, page_url in enumerate(pages, start=1):
+                if progress_cb is not None:
+                    progress_cb(page_num, len(pages))
+                html = self._fetch_html(page_url)
+                if not html:
                     continue
-                seen_urls.add(album.url)
-                albums.append(album)
+                page_albums = self._extract_albums_from_page(html=html, category=category)
+                for album in page_albums:
+                    if album.url in seen_urls:
+                        continue
+                    seen_urls.add(album.url)
+                    albums.append(album)
 
         return albums
 
@@ -145,9 +176,11 @@ class FriendsTamilMP3Scraper(BaseScraper):
             pages.append(self._build_page_url({"page": "New Releases"}))
             return pages
 
-        if cat in {"2025", "2026"}:
-            letters = self._ALPHABET[:max_pages]
-            for letter in letters:
+        if cat.isdigit() and len(cat) == 4:
+            # For year-specific queries we must scan all 26 A-Z pages because
+            # albums are sorted alphabetically, not by year. Limiting to the
+            # first N letters would miss every album starting from F onwards.
+            for letter in self._ALPHABET:
                 pages.append(self._build_page_url({"page": "A-Z Movie Songs", "cpage": letter}))
             return pages
 
@@ -158,6 +191,27 @@ class FriendsTamilMP3Scraper(BaseScraper):
             ]
             for item in old_pages[:max_pages]:
                 pages.append(self._build_page_url(item))
+            return pages
+
+        if cat == "stars":
+            pages.append(self._build_page_url({"page": "Star Hits"}))
+            return pages
+
+        if cat == "singers":
+            pages.append(self._build_page_url({"page": "Singer Hits"}))
+            return pages
+
+        if cat == "music-directors":
+            pages.append(self._build_page_url({"page": "Music Director Hits"}))
+            return pages
+
+        if cat == "ilaiyaraja":
+            for letter in self._ALPHABET:
+                pages.append(self._build_page_url({"page": "ILaiyaraja Hits", "cpage": letter}))
+            return pages
+
+        if cat == "ar-rahman":
+            pages.append(self._build_page_url({"page": "A R Rahman Hits"}))
             return pages
 
         pages.append(self._build_page_url({"page": "A-Z Movie Songs", "cpage": "A"}))
@@ -172,6 +226,11 @@ class FriendsTamilMP3Scraper(BaseScraper):
     def _extract_albums_from_page(self, html: str, category: str) -> List[Album]:
         soup = BeautifulSoup(html, "html.parser")
         albums: List[Album] = []
+        cat = (category or "").strip()
+        year_filter = int(cat) if cat.isdigit() and len(cat) == 4 else None
+        total_spage = 0
+        skipped_year = 0
+        skipped_nav = 0
 
         for anchor in soup.find_all("a", href=True):
             href = anchor.get("href", "").strip()
@@ -179,17 +238,25 @@ class FriendsTamilMP3Scraper(BaseScraper):
                 continue
             if "spage=" not in href and "songs2/" not in href.lower():
                 continue
+            total_spage += 1
 
             absolute_url = urljoin(self.base_url + "/", href)
             name = self._album_name_from_anchor(anchor.get_text(" ", strip=True), absolute_url)
             if not name:
                 continue
 
-            year = self._extract_year(name)
-            if category in {"2025", "2026"} and year != int(category):
+            # Extract year from album name first, then from the spage= URL
+            # (spage often encodes year like "Leo+(2026)").
+            year = self._extract_year(name) or self._extract_year(absolute_url)
+            # Strict year filter: only include albums whose year is confirmed to match.
+            if year_filter is not None and year != year_filter:
+                logger.debug("FTP3 skip year: %r  url_year=%s  filter=%s",
+                             name[:50], year, year_filter)
+                skipped_year += 1
                 continue
 
             if self._is_non_album_link(name=name):
+                skipped_nav += 1
                 continue
 
             albums.append(
@@ -202,6 +269,10 @@ class FriendsTamilMP3Scraper(BaseScraper):
                 )
             )
 
+        logger.debug(
+            "FTP3 _extract page: spage_links=%d  skipped_year=%d  skipped_nav=%d  passed=%d  cat=%s",
+            total_spage, skipped_year, skipped_nav, len(albums), cat,
+        )
         return albums
 
     @staticmethod
@@ -243,6 +314,12 @@ class FriendsTamilMP3Scraper(BaseScraper):
         n = name.strip().lower()
         if not n:
             return True
+        # Bare 4-digit year labels (navigation sidebar)
+        if re.fullmatch(r"\d{4}", n):
+            return True
+        # Single letter A-Z or "0-9" range (alphabet navigation)
+        if re.fullmatch(r"[a-z]", n) or n in ("0-9", "a-z", "#"):
+            return True
         ignore_names = {
             "home",
             "chat",
@@ -256,5 +333,16 @@ class FriendsTamilMP3Scraper(BaseScraper):
             "star hits",
             "music director hits",
             "singer hits",
+            "search",
+            "contact",
+            "about",
+            "privacy policy",
+            "disclaimer",
+            "sitemap",
+            "latest songs",
+            "all songs",
+            "tamil songs",
+            "new songs",
+            "top songs",
         }
         return n in ignore_names

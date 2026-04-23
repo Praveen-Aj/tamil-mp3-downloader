@@ -31,21 +31,50 @@ class Settings:
                 "base_url": "https://www.friendstamilmp3.in",
                 "enabled": True,
                 "categories": ["latest", "2026", "2025", "old"]
+            },
+            "kollysongs": {
+                "base_url": "https://www.kollysongs.com",
+                "enabled": True,
+                "categories": ["latest", "2026", "2025", "old", "music-directors"]
             }
         },
         "download": {
-            "output_dir": "output",
+            "output_dir": "C:\\Users\\Praveen\\Downloads\\Songs",
             "chunk_size": 65536,
             "timeout": 90,
             "concurrent_enabled": True,
             "max_workers": 3,
             "retries": 3,
-            "preferred_quality": "320kbps"
+            "preferred_quality": "320kbps",
+            "external_downloader": {
+                "enabled": False,
+                "aria2_path": "aria2c.exe",
+                "detached": True,
+                "queue_mode": True,
+                "max_concurrent": 3
+            }
         },
         "ui": {
             "page_size": 10,
             "show_progress": True,
-            "color_output": True
+            "color_output": True,
+            "preferred_source": "",
+            "cache": {
+                "enabled": True,
+                "ttl_seconds": 21600
+            },
+            "dedupe": {
+                "strategy": "smaller-size"
+            },
+            "top_loading": {
+                "adaptive_enabled": True,
+                "min_albums": 24,
+                "large_cutoff": 40,
+                "window_small": 6,
+                "window_large": 10,
+                "plateau_growth": 1,
+                "plateau_streak": 2
+            }
         },
         "logging": {
             "level": "INFO",

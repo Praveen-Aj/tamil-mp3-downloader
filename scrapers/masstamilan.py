@@ -6,7 +6,7 @@ Masstamilan (including Cloudflare bypass via cloudscraper and browser rendering)
 
 import logging
 import re
-from typing import Optional, List
+from typing import Callable, Optional, List
 from urllib.parse import urljoin
 
 import cloudscraper
@@ -93,52 +93,109 @@ class MassTamilanScraper(BaseScraper):
             logger.warning("Masstamilan _render_page failed, skipping Playwright: %s", e)
             return None
 
-    def get_albums(self, category: str = "latest", max_pages: int = 3) -> List[Album]:
+    def get_albums(
+        self,
+        category: str = "latest",
+        max_pages: int = 3,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[Album]:
         albums: List[Album] = []
         seen: set[str] = set()
+        year_filter: Optional[int] = None
+        if category.isdigit() and len(category) == 4:
+            year_filter = int(category)
+
+        logger.debug("MassTamilan.get_albums: category=%s year_filter=%s pages=%d",
+                     category, year_filter, max_pages)
 
         # Category is not strictly required: masstamilan uses /tamil-songs?page=N
         for page_num in range(1, max_pages + 1):
+            if progress_cb is not None:
+                progress_cb(page_num, max_pages)
             page_url = f"{self.base_url}/tamil-songs" + (f"?page={page_num}" if page_num > 1 else "")
             html = self._fetch_page(page_url) or self._render_page(page_url)
             if not html:
+                logger.debug("MassTamilan: no HTML for page %d", page_num)
                 continue
 
             page_albums = self._parse_album_page(html)
+            passed = 0
+            skipped = 0
             for album in page_albums:
+                # Strict year filter: album must have a confirmed matching year.
+                # Albums with no detectable year are excluded from year-specific queries.
+                if year_filter is not None and album.year != year_filter:
+                    logger.debug("  MassTamilan skip: %r  url=%s  year=%s",
+                                 album.name[:50], album.url[-60:], album.year)
+                    skipped += 1
+                    continue
                 if album.url not in seen:
                     seen.add(album.url)
                     albums.append(album)
+                    passed += 1
+            logger.debug("MassTamilan page %d: raw=%d passed=%d skipped=%d",
+                         page_num, len(page_albums), passed, skipped)
 
         return albums
 
     def _parse_album_page(self, html: str) -> List[Album]:
         soup = BeautifulSoup(html, "html.parser")
         albums: List[Album] = []
+        seen: set[str] = set()
 
-        # Try common card selector
-        for link in soup.select("div.listing-page .list_item a, .list_item a, .album a"):  # fallback selectors
-            href = link.get("href") or ""
-            text = (link.text or "").strip()
+        # Use href-pattern matching (CSS class selectors don't match masstamilan.dev).
+        # Album pages consistently end in «-songs» or «-songs/» in their slug.
+        for link in soup.find_all("a", href=re.compile(r"-songs", re.I)):
+            href = (link.get("href") or "").strip()
+            raw_text = link.get_text(" ", strip=True)
+            # Strip "Starring: ..." and "Music: ..." boilerplate appended in card text
+            text = re.split(r"\s+Starring\s*:", raw_text, maxsplit=1)[0].strip()
+            text = re.split(r"\s+Music\s*:", text, maxsplit=1)[0].strip()
             if not href or not text:
+                continue
+            if self._is_nav_entry(text, href):
                 continue
             if href.startswith("/"):
                 href = urljoin(self.base_url, href)
-            if "/movie" in href or "/song" in href or href.endswith("-songs/"):
-                year = self._extract_year_from_title(text)
-                albums.append(Album(name=text, url=href, year=year, song_count=None, source="masstamilan"))
+            if href in seen:
+                continue
+            seen.add(href)
+            # Year: from anchor text first, then from the URL slug
+            # (e.g. /karuppu-2026-songs/ → 2026 even if title says "Karuppu")
+            year = self._extract_year_from_title(text) or self._extract_year_from_title(href)
+            albums.append(Album(name=text, url=href, year=year, song_count=None, source="masstamilan"))
 
-        # Last fallback: pick all page links to song pages (not robust)
-        if not albums:
-            for link in soup.select("a[href]"):
-                href = link.get("href", "")
-                if href.startswith("/download/") or "/song/" in href:
-                    href = urljoin(self.base_url, href)
-                    text = (link.text or "Download").strip() or "Unknown"
-                    year = self._extract_year_from_title(text)
-                    albums.append(Album(name=text, url=href, year=year, song_count=None, source="masstamilan"))
-
+        logger.debug("MassTamilan _parse_album_page: found %d albums", len(albums))
         return albums
+
+    @staticmethod
+    def _is_nav_entry(text: str, href: str) -> bool:
+        """Return True for navigation/category links that are not movie albums."""
+        n = text.strip().lower()
+        u = href.lower()
+        # Bare 4-digit year
+        if re.fullmatch(r"\d{4}", n):
+            return True
+        # Single letter or 0-9 range (A-Z navigation)
+        if re.fullmatch(r"[a-z]", n) or n in ("0-9", "a-z", "#"):
+            return True
+        # Generic nav/UI text
+        nav_words = {
+            "home", "search", "contact", "about", "login", "register",
+            "privacy policy", "disclaimer", "sitemap", "copyright",
+            "latest songs", "new songs", "all songs", "tamil songs",
+            "new releases", "top songs", "popular", "trending",
+        }
+        if n in nav_words:
+            return True
+        # Generic category names
+        if re.search(r"^tamil \d{4}", n) or re.search(r"^\d{4} tamil", n):
+            return True
+        # Category URL patterns
+        if any(x in u for x in ("/category/", "/tag/", "/genre/",
+                                  "/page/", "?page=", "?cat=")):
+            return True
+        return False
 
     @staticmethod
     def _extract_year_from_title(title: str) -> Optional[int]:

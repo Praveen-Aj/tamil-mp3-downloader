@@ -1,0 +1,145 @@
+2026-04-19 11:59:45,195  INFO      gui: Category changed → Top Songs
+2026-04-19 12:00:02,789  INFO      gui: Source selected: All Sources | category: Top Songs
+2026-04-19 12:00:16,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:00:22,718  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits
+2026-04-19 12:00:36,542  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:00:42,789  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:01:09,005  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:10,234  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Ajith Hits
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats
+2026-04-19 12:01:26,206  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:30,303  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986)
+2026-04-19 12:01:34,636  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,354  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:38,442  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:50,180  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:50,372  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986)
+2026-04-19 12:01:54,935  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:54,950  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:55,009  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Karthik Hits
+2026-04-19 12:01:55,495  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:01:56,621  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:01:56,826  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:08,941  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:02:09,066  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Mohan Hits 2: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:12,903  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:13,650  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:02:16,791  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:18,065  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:19,506  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:19,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies
+2026-04-19 12:02:21,339  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits
+2026-04-19 12:02:25,892  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:26,135  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:28,874  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:29,080  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies
+2026-04-19 12:04:07,534  INFO      gui: Download started: Top Songs — 709 songs from 29 albums — 709 song(s)
+2026-04-19 12:04:07,554  INFO      gui: Downloading [1/709]: Aadiyile Sedhi Solli
+2026-04-19 12:04:10,158  INFO      gui:   Done: Aadiyile Sedhi Solli  (4.6 MB, 2.6s)
+2026-04-19 12:04:10,171  INFO      gui: Downloading [2/709]: Aagaya Suriyanai
+2026-04-19 12:04:12,772  INFO      gui:   Done: Aagaya Suriyanai  (5.0 MB, 2.6s)
+2026-04-19 12:04:12,795  INFO      gui: Downloading [3/709]: Aaha Kanavey Thaana
+2026-04-19 12:04:17,562  INFO      gui:   Done: Aaha Kanavey Thaana  (4.2 MB, 4.8s)
+2026-04-19 12:04:17,565  INFO      gui: Downloading [4/709]: Aalakala Visham
+2026-04-19 12:04:20,215  INFO      gui:   Done: Aalakala Visham  (5.0 MB, 2.6s)
+2026-04-19 12:04:20,220  INFO      gui: Downloading [5/709]: Aalapol Velapol
+2026-04-19 12:04:22,655  INFO      gui:   Done: Aalapol Velapol  (3.8 MB, 2.4s)
+2026-04-19 12:04:22,660  INFO      gui: Downloading [6/709]: Aalolam Paadum
+2026-04-19 12:04:24,859  INFO      gui:   Done: Aalolam Paadum  (4.3 MB, 2.2s)
+2026-04-19 12:04:24,869  INFO      gui: Downloading [7/709]: Aaluma Doluma Aithalangadi
+2026-04-19 12:04:27,640  INFO      gui:   Done: Aaluma Doluma Aithalangadi  (9.9 MB, 2.8s)
+2026-04-19 12:04:27,645  INFO      gui: Downloading [8/709]: Aanenna Pennenna
+2026-04-19 12:04:30,534  INFO      gui:   Done: Aanenna Pennenna  (5.4 MB, 2.9s)
+2026-04-19 12:04:30,539  INFO      gui: Downloading [9/709]: Aaradi Kaatre
+2026-04-19 12:04:33,878  INFO      gui:   Done: Aaradi Kaatre  (5.5 MB, 3.3s)
+2026-04-19 12:04:33,884  INFO      gui: Downloading [10/709]: Aaradi Suvaru Thaan
+2026-04-19 12:04:35,743  INFO      gui:   Done: Aaradi Suvaru Thaan  (4.6 MB, 1.9s)
+2026-04-19 12:04:35,749  INFO      gui: Downloading [11/709]: Aararo Thai Pada
+2026-04-19 12:04:38,413  INFO      gui:   Done: Aararo Thai Pada  (2.2 MB, 2.7s)
+2026-04-19 12:04:38,420  INFO      gui: Downloading [12/709]: Aariya
+2026-04-19 12:04:43,127  INFO      gui:   Done: Aariya  (5.1 MB, 4.7s)
+2026-04-19 12:04:43,131  INFO      gui: Downloading [13/709]: Aasai KeppaKalikku
+2026-04-19 12:04:45,613  INFO      gui:   Done: Aasai KeppaKalikku  (4.9 MB, 2.5s)
+2026-04-19 12:04:45,618  INFO      gui: Downloading [14/709]: Aathorathila Aalamaram
+2026-04-19 12:04:50,470  INFO      gui:   Done: Aathorathila Aalamaram  (4.9 MB, 4.9s)
+2026-04-19 12:04:50,476  INFO      gui: Downloading [15/709]: Aavaram Poomeni
+2026-04-19 12:04:53,113  INFO      gui:   Done: Aavaram Poomeni  (4.2 MB, 2.6s)
+2026-04-19 12:04:53,118  INFO      gui: Downloading [16/709]: Ada Ponnaana
+2026-04-19 12:04:55,960  INFO      gui:   Done: Ada Ponnaana  (4.2 MB, 2.8s)
+2026-04-19 12:04:55,965  INFO      gui: Downloading [17/709]: Ada Veettukku
+2026-04-19 12:04:57,694  INFO      gui:   Done: Ada Veettukku  (4.9 MB, 1.7s)
+2026-04-19 12:04:57,700  INFO      gui: Downloading [18/709]: Ada Yaro Pinpattu
+2026-04-19 12:05:00,477  INFO      gui:   Done: Ada Yaro Pinpattu  (4.2 MB, 2.8s)
+2026-04-19 12:05:00,482  INFO      gui: Downloading [19/709]: Adada Adada Pudichirukku
+2026-04-19 12:05:03,021  INFO      gui:   Done: Adada Adada Pudichirukku  (5.8 MB, 2.5s)
+2026-04-19 12:05:03,024  INFO      gui: Downloading [20/709]: Adadaa Adadaa
+2026-04-19 12:05:05,648  INFO      gui:   Done: Adadaa Adadaa  (4.3 MB, 2.6s)
+2026-04-19 12:05:05,652  INFO      gui: Downloading [21/709]: Adangoppan Mavane
+2026-04-19 12:05:08,339  INFO      gui:   Done: Adangoppan Mavane  (3.9 MB, 2.7s)
+2026-04-19 12:05:08,344  INFO      gui: Downloading [22/709]: Adi Aathadi
+2026-04-19 12:05:10,863  INFO      gui:   Done: Adi Aathadi  (4.2 MB, 2.5s)
+2026-04-19 12:05:10,868  INFO      gui: Downloading [23/709]: Adi Aththaa Athorama Variya
+2026-04-19 12:05:15,047  INFO      gui:   Done: Adi Aththaa Athorama Variya  (1.8 MB, 4.2s)
+2026-04-19 12:05:15,054  INFO      gui: Downloading [24/709]: Adi Nan Pudicha
+2026-04-19 12:05:19,064  INFO      gui:   Done: Adi Nan Pudicha  (4.6 MB, 4.0s)
+2026-04-19 12:05:19,068  INFO      gui: Downloading [25/709]: Adi Vanmathi
+2026-04-19 12:05:21,684  INFO      gui:   Done: Adi Vanmathi  (4.2 MB, 2.6s)
+2026-04-19 12:05:21,690  INFO      gui: Downloading [26/709]: Adi Yaarathu...
+2026-04-19 12:05:24,438  INFO      gui:   Done: Adi Yaarathu...  (4.7 MB, 2.7s)
+2026-04-19 12:05:24,444  INFO      gui: Downloading [27/709]: Aghaya Thamarai
+2026-04-19 12:05:27,266  INFO      gui:   Done: Aghaya Thamarai  (4.6 MB, 2.8s)
+2026-04-19 12:05:27,271  INFO      gui: Downloading [28/709]: Alagiya Vizhigalil
+2026-04-19 12:05:29,860  INFO      gui:   Done: Alagiya Vizhigalil  (4.1 MB, 2.6s)
+2026-04-19 12:05:29,865  INFO      gui: Downloading [29/709]: Alai Adikkuthu
+2026-04-19 12:05:32,727  INFO      gui:   Done: Alai Adikkuthu  (4.8 MB, 2.9s)
+2026-04-19 12:05:32,733  INFO      gui: Downloading [30/709]: Alakinil Vilainthathu Malaiyinil Nanainthathu
+2026-04-19 12:05:36,611  INFO      gui:   Done: Alakinil Vilainthathu Malaiyinil Nanainthathu  (4.3 MB, 3.9s)
+2026-04-19 12:05:36,616  INFO      gui: Downloading [31/709]: Amaithikku Peyarthan Shanthi
+2026-04-19 12:05:38,848  INFO      gui:   Done: Amaithikku Peyarthan Shanthi  (4.8 MB, 2.2s)
+2026-04-19 12:05:38,853  INFO      gui: Downloading [32/709]: Amma Endru
+2026-04-19 12:05:41,558  INFO      gui:   Done: Amma Endru  (4.5 MB, 2.7s)
+2026-04-19 12:05:41,564  INFO      gui: Downloading [33/709]: Ammadi Ithuthan
+2026-04-19 12:05:43,947  INFO      gui:   Done: Ammadi Ithuthan  (4.9 MB, 2.4s)
+2026-04-19 12:05:43,953  INFO      gui: Downloading [34/709]: Ammamma
+2026-04-19 12:05:50,838  INFO      gui:   Done: Ammamma  (5.0 MB, 6.9s)
+2026-04-19 12:05:50,842  INFO      gui: Downloading [35/709]: Anba Sumanthu
+2026-04-19 12:05:53,300  INFO      gui:   Done: Anba Sumanthu  (4.7 MB, 2.5s)
+2026-04-19 12:05:53,303  INFO      gui: Downloading [36/709]: Anbe Anbe
+2026-04-19 12:05:58,231  INFO      gui:   Done: Anbe Anbe  (5.2 MB, 4.9s)
+2026-04-19 12:05:58,237  INFO      gui: Downloading [37/709]: Anbe Neeyenna
+2026-04-19 12:06:00,781  INFO      gui:   Done: Anbe Neeyenna  (4.4 MB, 2.5s)
+2026-04-19 12:06:00,787  INFO      gui: Downloading [38/709]: Anbil Avan
+2026-04-19 12:06:03,517  INFO      gui:   Done: Anbil Avan  (4.9 MB, 2.7s)
+2026-04-19 12:06:03,522  INFO      gui: Downloading [39/709]: Andan Kakka
+2026-04-19 12:06:06,227  INFO      gui:   Done: Andan Kakka  (5.2 MB, 2.7s)
+2026-04-19 12:06:06,232  INFO      gui: Downloading [40/709]: Andavanai Paarkanum
+2026-04-19 12:06:12,324  INFO      gui:   Done: Andavanai Paarkanum  (4.3 MB, 6.1s)
+2026-04-19 12:06:12,329  INFO      gui: Downloading [41/709]: Anju Kajam
+2026-04-19 12:06:22,947  INFO      gui:   Done: Anju Kajam  (4.5 MB, 10.6s)
+2026-04-19 12:06:22,952  INFO      gui: Downloading [42/709]: Annakili Nee
+2026-04-19 12:06:28,954  INFO      gui:   Done: Annakili Nee  (4.8 MB, 6.0s)
+2026-04-19 12:06:28,960  INFO      gui: Downloading [43/709]: Annan Enna Thambi
+2026-04-19 12:06:31,409  INFO      gui:   Done: Annan Enna Thambi  (4.7 MB, 2.4s)
+2026-04-19 12:06:31,414  INFO      gui: Downloading [44/709]: Antha Kanji
+2026-04-19 12:06:34,034  INFO      gui:   Done: Antha Kanji  (4.7 MB, 2.6s)
+2026-04-19 12:06:34,039  INFO      gui: Downloading [45/709]: Antha Uchimalai
+2026-04-19 12:06:38,873  INFO      gui:   Done: Antha Uchimalai  (4.5 MB, 4.8s)
+2026-04-19 12:06:38,878  INFO      gui: Downloading [46/709]: Antha Vaanukku Rendu
+2026-04-19 12:06:41,490  INFO      gui:   Done: Antha Vaanukku Rendu  (4.7 MB, 2.6s)
+2026-04-19 12:06:41,495  INFO      gui: Downloading [47/709]: Antha Vanatha Pola
+2026-04-19 12:06:46,182  INFO      gui:   Done: Antha Vanatha Pola  (4.2 MB, 4.7s)
+2026-04-19 12:06:46,189  INFO      gui: Downloading [48/709]: Anthi Varum
+2026-04-19 12:06:50,873  INFO      gui:   Done: Anthi Varum  (4.9 MB, 4.7s)
+2026-04-19 12:06:50,878  INFO      gui: Downloading [49/709]: Appan Mavane Vaada
+2026-04-19 12:06:53,210  INFO      gui:   Done: Appan Mavane Vaada  (5.9 MB, 2.3s)
+2026-04-19 12:06:53,217  INFO      gui: Downloading [50/709]: April Maathathil
+2026-04-19 12:13:11,907  INFO      gui:   Done: April Maathathil  (7.7 MB, 378.7s)
+2026-04-19 12:13:11,911  INFO      gui: Downloading [51/709]: Arali Vethayil
+2026-04-19 12:13:14,287  INFO      gui:   Done: Arali Vethayil  (4.4 MB, 2.4s)
+2026-04-19 12:13:14,294  INFO      gui: Downloading [52/709]: Arima Arima
+2026-04-19 12:13:17,179  INFO      gui:   Done: Arima Arima  (9.6 MB, 2.9s)
+2026-04-19 12:13:17,185  INFO      gui: Downloading [53/709]: Arumpagi Mottagi Poovagi

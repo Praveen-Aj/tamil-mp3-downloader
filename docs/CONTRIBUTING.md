@@ -21,7 +21,7 @@ Submit a pull request
 Style & tests
 
 - Follow PEP 8 for Python code.
-- Keep CLI behavior backward compatible when possible.
+- Keep GUI/TUI behavior backward compatible when possible.
 - If you add or change functionality, include or update a small test in `tools/` where appropriate.
 
 Versioning and releases
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 - Run the app interactively while developing:
 
 ```cmd
-python main.py
+python gui.py
 ```
 
 Code of Conduct

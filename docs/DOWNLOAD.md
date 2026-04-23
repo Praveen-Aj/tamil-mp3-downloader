@@ -29,7 +29,7 @@ pip install pyinstaller
 4. Build using the helper script:
 
 ```cmd
-build_exe.bat
+scripts\build_exe.bat
 ```
 
 What the build produces
@@ -37,14 +37,14 @@ What the build produces
 - The EXE will be produced in `dist\` and will include the `VERSION` value in its filename, for example:
 
 ```
-dist\tamil-mp3-downloader-v2.0.0.exe
+dist\tamil-mp3-downloader-v3.0.0.exe
 ```
 
-- Run the EXE from a command prompt to see the interactive menu:
+- Run the EXE:
 
 ```cmd
 cd dist
-tamil-mp3-downloader-v2.0.0.exe
+tamil-mp3-downloader-v3.0.0.exe
 ```
 
 Notes & troubleshooting
@@ -58,7 +58,7 @@ Advanced (manual PyInstaller command)
 If you prefer to run PyInstaller directly:
 
 ```cmd
-pyinstaller tamil_mp3_downloader.spec
+python -m PyInstaller scripts\tamil_mp3_downloader.spec --clean
 ```
 
 This uses the included spec which bundles the `data/` and `screenshots/` folders and reads `VERSION` for naming.

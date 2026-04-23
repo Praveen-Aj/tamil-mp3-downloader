@@ -1,226 +1,86 @@
-# Tamil MP3 Downloader v3.0
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue"  alt="Platform"/>
-  <img src="https://img.shields.io/badge/Python-3.10%2B-brightgreen" alt="python 3.10"/>
-  <img src="https://img.shields.io/badge/License-MIT-yellow" alt="mit-license" />
-  <img src="https://img.shields.io/github/last-commit/anburocky3/tamil-mp3-downloader/main?label=Last%20updated%20on" alt="Last updated on" />
-</p>
+# Tamil MP3 Downloader v3.0.0
 
-A modern, modular Tamil MP3 downloader with multiple sources and clean architecture. 🎵
+Modular Tamil MP3 downloader with GUI/TUI clients, multi-source scraping, and concurrent downloads.
 
-## ✨ What's New in v3.0
+## Current Status
 
-- **🔄 Complete Architecture Rewrite** - Modern, maintainable codebase
-- **🌐 Multiple Sources** - IsaiminiHQ (latest 2024-2025) + more coming
-- **🎯 Production Ready** - Proper error handling, logging, and testing
-- **📦 Modular Design** - Clean separation of concerns
-- **⚡ Fast Downloads** - Progress bars and concurrent downloads
-- **🔧 Easy Configuration** - JSON-based settings
+- Active version: `3.0.0`
+- Primary runtime: `gui.py`
+- Optional terminal UI: `tui.py`
+- `main.py` is now a compatibility shim that forwards to GUI startup.
 
-## 🚀 Quick Start
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/anburocky3/tamil-mp3-downloader.git
 cd tamil-mp3-downloader
-
-# Install dependencies
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-
-# Install Playwright browsers
-playwright install
+python gui.py
 ```
 
-### Run
+## Features Available In This Version
 
-```bash
-python main.py
-```
+- Multi-source scraping: IsaiminiHQ, MassTamilan, FriendsTamilMP3
+- Category and album browsing
+- Search flow across sources
+- Concurrent and resumable downloads (`.part` + `.download_state.json`)
+- ID3 tagging via `mutagen`
+- Persistent settings in `config/settings.json`
+- Windows EXE packaging via PyInstaller spec in `scripts/`
 
-## 📋 Features
+## Project Structure
 
-### ✅ Current Features
-- **IsaiminiHQ Integration** - Latest Tamil movies (2024-2025)
-- **Interactive CLI** - User-friendly menu system
-- **Progress Tracking** - Real-time download progress with tqdm
-- **Error Handling** - Robust error recovery and logging
-- **Organized Output** - Files saved by source/movie
-- **Batch Downloads** - Download multiple albums at once
-
-### 🔄 Coming Soon
-- **FriendsTamilMP3** - Classic songs (2010-2015)
-- **Settings Menu** - Configurable preferences
-- **Resume Downloads** - Interrupted download recovery
-- **Search Functionality** - Find songs across sources
-- **Metadata Tagging** - ID3 tags for MP3s
-
-## 🏗️ Architecture
-
-```
+```text
 tamil-mp3-downloader/
-├── main.py                    # Entry point - clean CLI
-├── scrapers/                  # Source-specific scrapers
-│   ├── base.py               # Abstract scraper interface
-│   └── isaimini.py           # IsaiminiHQ implementation
-├── downloaders/               # Download management
-│   ├── base.py               # Abstract downloader
-│   └── http_downloader.py    # HTTP downloads with progress
-├── models/                    # Data models
-│   └── song.py               # Song, Album dataclasses
-├── utils/                     # Utilities
-│   └── logger.py             # Logging setup
-├── config/                    # Configuration
-│   └── settings.py           # App settings
-├── data/                      # Static data files
-├── output/                    # Download directory
-└── logs/                      # Application logs
+|-- gui.py
+|-- tui.py
+|-- main.py
+|-- config/
+|-- data/
+|-- docs/
+|-- downloaders/
+|-- models/
+|-- scrapers/
+|-- scripts/
+|-- tests/
+`-- utils/
 ```
 
-## 🎵 Usage
+## Running Options
 
-1. **Start the application:**
-   ```bash
-   python main.py
-   ```
+- GUI (recommended): `python gui.py`
+- TUI: `python tui.py`
+- Compatibility launcher: `python main.py`
 
-2. **Select a source:**
-   ```
-   Select Source:
-   1. IsaiminiHQ (Latest 2024-2025) ⭐
-   2. FriendsTamilMP3 (Classics)
-   3. Settings
-   4. Exit
-   ```
+## Build EXE (Windows)
 
-3. **Choose albums to download:**
-   - View available movies/albums
-   - Select by number, range, or 'all'
-   - Example: `1,3,5` or `2-4` or `all`
+See `docs/DOWNLOAD.md` for full steps.
 
-4. **Confirm and download:**
-   - Review selected songs
-   - Confirm download
-   - Watch progress bars
-   - Files saved to `output/` directory
+Quick command:
 
-## 🔧 Configuration
-
-Settings are stored in `config/settings.json`. Default settings:
-
-```json
-{
-  "sources": {
-    "isaimini": {
-      "base_url": "https://www.isaiminihq.com",
-      "enabled": true
-    }
-  },
-  "download": {
-    "output_dir": "output",
-    "chunk_size": 8192,
-    "timeout": 60
-  },
-  "ui": {
-    "page_size": 10,
-    "show_progress": true
-  }
-}
+```cmd
+.venv\Scripts\python.exe -m PyInstaller scripts\tamil_mp3_downloader.spec --clean
 ```
 
-## 🧪 Testing
+## Testing
 
-Run the test suite:
+Targeted scraper test currently used in this release line:
 
 ```bash
-python test_new_architecture.py
+pytest tests/test_masstamilan_scraper.py -q
 ```
 
-This validates:
-- ✅ Scraper connectivity
-- ✅ Album discovery
-- ✅ Song extraction
-- ✅ Downloader initialization
+Note: network-facing scraper tests can be skipped/fail depending on upstream site behavior.
 
-## 📦 Dependencies
+## Documentation
 
-- `playwright>=1.40.0` - Browser automation for JavaScript sites
-- `requests>=2.28.0` - HTTP requests
-- `beautifulsoup4>=4.11.0` - HTML parsing
-- `colorama>=0.4.5` - Cross-platform colored output
-- `tqdm>=4.64.0` - Progress bars
-- `pydantic>=2.0.0` - Data validation
+- Architecture: `ARCHITECTURE.md`
+- Roadmap and status: `ROADMAP.md`
+- Build/download guide: `docs/DOWNLOAD.md`
+- Contribution guide: `docs/CONTRIBUTING.md`
 
-## ⚠️ Disclaimer
+## License
 
-> **Use this script with caution.** We don't support piracy and this project is completely for educational purposes only. Use it with care.🥰💖
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📞 Support
-
-- Create an [issue](https://github.com/anburocky3/tamil-mp3-downloader/issues) for bugs
-- Star the repo if you find it useful ⭐
-- Fork and contribute improvements!
-
-![Screenshot 6](/screenshots/6.png)
-
-7. Download specific album songs or all songs from the selections.
-
-![Screenshot 7](/screenshots/7.png)
-
-8. Check the output folder, all the songs will be downloaded here.
-
-![Screenshot 8](/screenshots/8.png)
-
-### Get started 
-
-1. [Fork this repository](https://github.com/anburocky3/tamil-mp3-downloader/fork) and clone it to your local machine:
-```bash
-   # replace yourName with your GitHub username
-   git clone https://github.com/yourName/tamil-mp3-downloader.git
-   cd tamil-mp3-downloader
-```
-2. Make sure you have [Python 3.10+](https://www.python.org/downloads/) installed. You can check by running:
-
-```bash
-   python --version
-   pip install -r requirements.txt
-```
-
-3. Run the app:
-
-```bash
-   python main.py
-```
-
-> Or download a ready-to-run Windows EXE from the Releases page (see [`DOWNLOAD.md`](./DOWNLOAD.md)).
-
-
-### Where files go
-
-- Files are saved to:
-
-  `output/<CategoryName>/<AlbumName>/` 📂
-
-
-License
-
-- [MIT](./LICENSE)
-
-
-### Contribute / Help
-
-- Contribution guidelines, reporting issues, and PR steps live in [`CONTRIBUTING.md`](./CONTRIBUTING.md) — please read before sending changes. 🙏
-
-
-
-### Author:
-- [Anbuselvan Rocky](https://fb.me/anburocky3)
+MIT. See `LICENSE`.

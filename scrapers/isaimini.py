@@ -13,7 +13,7 @@ Improvements over v1:
 import logging
 import re
 import time
-from typing import List, Optional
+from typing import Callable, List, Optional
 from urllib.parse import urljoin
 
 from playwright.sync_api import Page, sync_playwright
@@ -213,7 +213,12 @@ class IsaiminiScraper(BaseScraper):
         finally:
             page.close()
 
-    def get_albums(self, category: str = "latest", max_pages: int = 3) -> List[Album]:
+    def get_albums(
+        self,
+        category: str = "latest",
+        max_pages: int = 3,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[Album]:
         """
         Return albums scraped from up to *max_pages* pages.
 
@@ -225,6 +230,8 @@ class IsaiminiScraper(BaseScraper):
         seen_urls: set[str] = set()
 
         for page_num in range(1, max_pages + 1):
+            if progress_cb is not None:
+                progress_cb(page_num, max_pages)
             page_url = self._category_url(category, page_num)
             page_albums = self._get_albums_from_page(page_url)
             if not page_albums:
@@ -262,19 +269,20 @@ class IsaiminiScraper(BaseScraper):
 
     def _category_url(self, category: str, page_num: int) -> str:
         # Homepage is newest-first on WordPress Tamil music sites
-        # Year-specific pages filter by year explicitly
+        # Year-specific pages filter by year explicitly.
+        # NOTE: /2026-tamil-mp3-songs/ redirects to /isaimini.com/ (dead-end).
+        #       The working year paths shown in the homepage nav are /tamil-songs-YEAR/.
         if category == "latest":
             if page_num == 1:
                 return self.base_url + "/"
             return self.base_url + f"/page/{page_num}/"
 
-        # Year-specific & other categories
-        paths = {
-            "2026": "/2026-tamil-mp3-songs/",
-            "2025": "/2025-tamil-mp3-songs/",
-            "old":  "/tamil-songs-1980/",
-        }
-        base_path = paths.get(category, "/tamil-mp3-songs/")
+        if category.isdigit() and len(category) == 4:
+            base_path = f"/tamil-songs-{category}/"
+        else:
+            base_path = {
+                "old": "/tamil-songs-1980/",
+            }.get(category, "/")
         if page_num == 1:
             return urljoin(self.base_url, base_path)
         return urljoin(self.base_url, f"{base_path}page/{page_num}/")
@@ -284,7 +292,18 @@ class IsaiminiScraper(BaseScraper):
         albums: List[Album] = []
         try:
             resp = page.goto(url, wait_until="networkidle", timeout=30000)
+            status = resp.status if resp else "?"
+            final_url = page.url  # detect silent redirects
+            logger.debug("Isaimini _get_albums_from_page: url=%s  status=%s  final=%s",
+                         url, status, final_url)
             if resp and resp.status == 404:
+                return []
+            # Bail if Playwright was silently redirected away from requested path
+            # (e.g. /2026-tamil-mp3-songs/ → /isaimini.com/ dead-end)
+            req_path = url.split("//", 1)[-1].split("/", 1)[-1].rstrip("/")
+            fin_path = final_url.split("//", 1)[-1].split("/", 1)[-1].rstrip("/")
+            if req_path and fin_path and fin_path != req_path and "/isaimini.com" in final_url:
+                logger.warning("Isaimini redirect detected: %s -> %s (skipping)", url, final_url)
                 return []
 
             # Try the targeted selector first, fall back to generic JS
@@ -297,6 +316,7 @@ class IsaiminiScraper(BaseScraper):
                 pass
 
             data = page.evaluate(_JS_GET_ALBUMS)
+            logger.debug("Isaimini JS raw results: %d items from %s", len(data), url)
 
             # Also try to extract post dates from the page for year info
             date_map: dict[str, int] = {}
@@ -327,13 +347,17 @@ class IsaiminiScraper(BaseScraper):
                     continue
                 # Skip generic category/year listing pages
                 if self._is_category_page(name, item_url):
+                    logger.debug("Isaimini skip category: %r  %s", name, item_url)
                     continue
                 # Year: from post date map → from name/URL text
                 year = date_map.get(item_url) or self._extract_year(name + " " + item_url)
                 albums.append(Album(name=name, url=item_url, year=year, source="isaimini"))
+                logger.debug("Isaimini album: %r  year=%s  url=%s", name, year, item_url)
 
-        except Exception:
-            pass
+            logger.debug("Isaimini _get_albums_from_page: %d albums after filter from %s", len(albums), url)
+
+        except Exception as exc:
+            logger.warning("Isaimini _get_albums_from_page error for %s: %s", url, exc)
         finally:
             page.close()
 
@@ -391,9 +415,25 @@ class IsaiminiScraper(BaseScraper):
 
     @staticmethod
     def _is_category_page(name: str, url: str) -> bool:
-        """Return True for year/category listing pages (not actual movie albums)."""
-        n = name.lower()
+        """Return True for year/category/navigation pages (not actual movie albums)."""
+        n = name.lower().strip()
         u = url.lower()
+
+        # Any bare number (page numbers like "215", year links like "2019")
+        if re.fullmatch(r"\d+", n):
+            return True
+
+        # Single letter or "0-9" — alphabet/numeric navigation
+        if re.fullmatch(r"[a-z]", n):
+            return True
+        if n in ("0-9", "a-z", "#"):
+            return True
+
+        # Pagination / navigation words
+        if n in ("next", "previous", "prev", "more", "load more", "see all",
+                 "older posts", "newer posts"):
+            return True
+
         # Generic year/category name patterns
         generic = [
             r"^tamil \d{4} songs?$",
@@ -403,15 +443,35 @@ class IsaiminiScraper(BaseScraper):
             r"^old tamil songs?$",
             r"^new tamil songs?$",
             r"^tamil mp3 songs?$",
-            r"^tamil \w+ songs?$",   # "Tamil Melody Songs" etc.
+            r"^tamil \w+ songs?$",    # "Tamil Melody Songs" etc.
+            r"^\d{4} songs?$",        # "2019 Songs"
+            r"^\d{4} tamil",          # "2019 Tamil MP3 Songs"
+            r"^latest tamil",
+            r"^all songs?$",
+            r"^home$",
+            r"^search$",
+            r"^contact",
+            r"^about",
+            r"^privacy",
+            r"^disclaimer",
         ]
         for pattern in generic:
             if re.search(pattern, n):
                 return True
-        # Category-like URL patterns
-        if re.search(r"/\d{4}-tamil", u):
+
+        # Category/listing URL patterns
+        if re.search(r"/\d{4}-(tamil|songs?|mp3|hindi|english)", u):
             return True
-        if any(x in u for x in ("/category/", "/tag/", "/genre/", "/type/")):
+        # /tamil-songs-2026/ style (homepage nav year links)
+        if re.search(r"/tamil-songs-\d{4}/?$", u):
+            return True
+        # Bare year as the sole last path segment: /2019/ or /2019
+        # BUT NOT /leo-2023/ or /jailer-2024/ (those are movie pages)
+        path_parts = u.rstrip("/").split("/")
+        if path_parts and re.fullmatch(r"\d{4}", path_parts[-1]):
+            return True
+        if any(x in u for x in ("/category/", "/tag/", "/genre/", "/type/",
+                                  "/page/", "?page=", "?cat=", "?p=&")):
             return True
         return False
 

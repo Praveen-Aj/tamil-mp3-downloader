@@ -1,0 +1,78 @@
+2026-04-19 12:00:16,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:00:16,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:00:22,718  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits
+2026-04-19 12:00:22,718  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Singer%20Hits
+2026-04-19 12:00:36,542  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:00:36,542  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:00:42,789  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:00:42,789  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Music%20Director%20Hits
+2026-04-19 12:01:03,685  DEBUG     scrapers.friendstamilmp3: FTP3 _extract page: spage_links=29  skipped_year=0  skipped_nav=0  passed=29  cat=stars
+2026-04-19 12:01:03,685  DEBUG     scrapers.friendstamilmp3: FTP3 _extract page: spage_links=29  skipped_year=0  skipped_nav=0  passed=29  cat=stars
+2026-04-19 12:01:05,429  DEBUG     scrapers.friendstamilmp3: FTP3 _extract page: spage_links=29  skipped_year=0  skipped_nav=0  passed=29  cat=stars
+2026-04-19 12:01:05,429  DEBUG     scrapers.friendstamilmp3: FTP3 _extract page: spage_links=29  skipped_year=0  skipped_nav=0  passed=29  cat=stars
+2026-04-19 12:01:09,005  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:09,005  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:10,234  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:10,234  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Ajith Hits
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Ajith Hits
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats
+2026-04-19 12:01:24,159  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats
+2026-04-19 12:01:26,206  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:26,206  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Dhanush Hits
+2026-04-19 12:01:30,303  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986)
+2026-04-19 12:01:30,303  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986)
+2026-04-19 12:01:34,636  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:34,636  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,354  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,354  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Melodies: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arya Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:36,355  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Arjun Beats: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:38,442  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:38,442  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:50,180  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:50,180  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeyam Ravi Hits
+2026-04-19 12:01:50,372  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986)
+2026-04-19 12:01:50,372  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986)
+2026-04-19 12:01:54,935  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:54,935  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Jeeva Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:54,950  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:54,950  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 1 (Before 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:55,009  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Karthik Hits
+2026-04-19 12:01:55,009  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 522 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Karthik Hits
+2026-04-19 12:01:55,495  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:01:55,495  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:01:56,621  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:01:56,621  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:01:56,826  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:01:56,826  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Kamal Hits 2 (After 1986): HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:08,941  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:02:08,941  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Madhavan Hits
+2026-04-19 12:02:09,066  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Mohan Hits 2: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:09,066  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Mohan Hits 2: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:12,903  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:12,903  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:13,650  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:02:13,650  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Prashanth Beats
+2026-04-19 12:02:16,791  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:16,791  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Rajini Hits 1 (Before 1986)
+2026-04-19 12:02:18,065  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:18,065  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:19,506  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:19,506  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:19,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies
+2026-04-19 12:02:19,658  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies
+2026-04-19 12:02:21,339  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits
+2026-04-19 12:02:21,339  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits
+2026-04-19 12:02:25,892  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:25,892  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 request failed for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Murali Hits: HTTPSConnectionPool(host='www.friendstamilmp3.in', port=443): Read timed out. (read timeout=30)
+2026-04-19 12:02:26,135  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:26,135  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Surya Hits
+2026-04-19 12:02:28,874  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:28,874  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Beats
+2026-04-19 12:02:29,080  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies
+2026-04-19 12:02:29,080  WARNING   scrapers.friendstamilmp3: FriendsTamilMP3 returned 500 for https://www.friendstamilmp3.in/index.php?page=Star Hits&spage=Vijay Melodies

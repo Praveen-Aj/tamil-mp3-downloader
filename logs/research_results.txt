@@ -1,0 +1,127 @@
+======================================================================
+1. MASSTAMILAN /tamil-songs
+   Status: 403  |  Final URL: https://www.masstamilan.dev/tamil-songs
+   FAILED: <!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=Edge"><meta nam
+
+======================================================================
+2. MASSTAMILAN 2026 year-specific URL candidates
+   https://www.masstamilan.dev/2026-tamil-songs  -> 403  final=https://www.masstamilan.dev/2026-tamil-songs
+   https://www.masstamilan.dev/tamil-songs?year=2026  -> 403  final=https://www.masstamilan.dev/tamil-songs?year=2026
+   https://www.masstamilan.dev/tamil-songs/2026  -> 403  final=https://www.masstamilan.dev/tamil-songs/2026
+
+======================================================================
+3. FRIENDSTAMILMP3 New Releases
+   Status: 200  |  Final URL: https://www.friendstamilmp3.in/index.php?page=New%20Releases
+   Total spage= links: 14
+   [Aneethi (2023)] -> index.php?page=New Releases&spage=Aneethi (2023)
+   [DD Returns (2023)] -> index.php?page=New Releases&spage=DD Returns (2023)
+   [Driver Jamuna (2022)] -> index.php?page=New Releases&spage=Driver Jamuna (2022)
+   [Haraa (2022)] -> index.php?page=New Releases&spage=Haraa (2022)
+   [Jailer (2023)] -> index.php?page=New Releases&spage=Jailer (2023)
+   [Kick (2022)] -> index.php?page=New Releases&spage=Kick (2022)
+   [Kushi (2023)] -> index.php?page=New Releases&spage=Kushi (2023)
+   [LGM (Let's Get Married)] -> index.php?page=New Releases&spage=LGM (Let's Get Married)
+   [Laal Singh Chaddha (2022)] -> index.php?page=New Releases&spage=Laal Singh Chaddha (2022)
+   [Maamannan (2023)] -> index.php?page=New Releases&spage=Maamannan (2023)
+   [Mark Antony (2023)] -> index.php?page=New Releases&spage=Mark Antony (2023)
+   [Pichaikkaran 2] -> index.php?page=New Releases&spage=Pichaikkaran 2
+   [Thelivu - Album] -> index.php?page=New Releases&spage=Thelivu - Album
+   [Va En Thozhi - Album] -> index.php?page=New Releases&spage=Va En Thozhi - Album
+
+======================================================================
+4. FRIENDSTAMILMP3 A-Z / letter A
+   Status: 200  |  Final URL: https://www.friendstamilmp3.in/index.php?page=A-Z%20Movie%20Songs&cpage=A
+   Total spage= links: 696
+   With year: 120  Without year: 576  (17% have detectable year)
+   --- 10 WITH year ---
+   [A (1998)] -> index.php?page=A-Z Movie Songs&spage=A (1998)
+   [Adutha Saattai (2019)] -> index.php?page=A-Z Movie Songs&spage=Adutha Saattai (2019)
+   [Aadai (2019)] -> index.php?page=A-Z Movie Songs&spage=Aadai (2019)
+   [Aadavar (2017)] -> index.php?page=A-Z Movie Songs&spage=Aadavar (2017)
+   [Aelay (2021)] -> index.php?page=A-Z Movie Songs&spage=Aelay (2021)
+   [Aadhaar (2022)] -> index.php?page=A-Z Movie Songs&spage=Aadhaar (2022)
+   [Aadhan (2018)] -> index.php?page=A-Z Movie Songs&spage=Aadhan (2018)
+   [Antony (2017)] -> index.php?page=A-Z Movie Songs&spage=Antony (2017)
+   [Aghavan (2019)] -> index.php?page=A-Z Movie Songs&spage=Aghavan (2019)
+   [Agilan (2022)] -> index.php?page=A-Z Movie Songs&spage=Agilan (2022)
+   --- 10 WITHOUT year ---
+   [Adra Sakka Adra Sakka] -> index.php?page=A-Z Movie Songs&spage=Adra Sakka Adra Sakka
+   [Annnaiyin Aanai] -> index.php?page=A-Z Movie Songs&spage=Annnaiyin Aanai
+   [A Aa E Ee] -> index.php?page=A-Z Movie Songs&spage=A Aa E Ee
+   [Adraa Raja Adida] -> index.php?page=A-Z Movie Songs&spage=Adraa Raja Adida
+   [Antha 7 Naatkal] -> index.php?page=A-Z Movie Songs&spage=Antha 7 Naatkal
+   [A1] -> index.php?page=A-Z Movie Songs&spage=A1
+   [Adukku Malli] -> index.php?page=A-Z Movie Songs&spage=Adukku Malli
+   [Antha Naal] -> index.php?page=A-Z Movie Songs&spage=Antha Naal
+   [ABCD] -> index.php?page=A-Z Movie Songs&spage=ABCD
+   [Antha Oru Nimidam] -> index.php?page=A-Z Movie Songs&spage=Antha Oru Nimidam
+
+======================================================================
+5. ISAIMINIHQ homepage
+   Status: 200  |  Final URL: https://www.isaiminihq.com/
+   Total -songs links: 103
+   [Tamil 2026 Songs] -> /tamil-songs-2026/
+   [Tamil 2025 Songs] -> /tamil-songs-2025/
+   [Tamil 2024 Songs] -> /tamil-songs-2024/
+   [Tamil Yearly Songs] -> /yearly-tamil-songs/
+   [Tamil Devotional Songs] -> /tamil-devotional-songs/
+   [Meesaya Murukku 2] -> /meesaya-murukku-2-2026-songs/
+   [Kara] -> /kara-2026-songs/
+   [Youth (2026)] -> /youth-2026-2026-songs/
+   [Pavazha Malli (Think Indie)] -> /pavazha-malli-think-indie-2026-songs/
+   [KH x RK Reunion] -> /kh-x-rk-reunion-2026-songs/
+   [Dashamakan] -> /dashamakan-2026-songs/
+   [Thiruchitrambalam (Background Scores)] -> /thiruchitrambalam-background-scores-2022-songs/
+   [Manmadhan (Bonus Tracks)] -> /manmadhan-bonus-tracks-2004-songs/
+   [Pookie] -> /pookie-2026-songs/
+   [With Love (Extended Version)] -> /with-love-extended-version-2026-songs/
+
+======================================================================
+6. ISAIMINIHQ 2026 year page
+   Status: 200  |  Final URL: https://www.isaiminihq.com/isaimini.com/
+   Total -songs links: 23
+   [Chithha] -> /chithha-songs
+   [Good Night] -> /good-night-songs
+   [Jailer] -> /jailer-songs
+   [Adiyae] -> /adiyae-songs
+   [Blue Star] -> /blue-star-songs
+   [Jawan (TAMIL)] -> /jawan-tamil-songs
+   [Jigarthanda DoubleX] -> /jigarthanda-doublex-songs
+   [Jingrudha Dhanga (Trending Version)] -> /jingrudha-dhanga-trending-version-songs
+   [Love Today] -> /love-today-songs
+   [Mark Antony] -> /mark-antony-songs
+   [Na Na Na Na] -> /na-na-na-na-songs
+   [Maamannan] -> /maamannan-songs
+   [Paramporul] -> /paramporul-songs
+   [Takkar] -> /takkar-songs
+   [Viduthalai] -> /viduthalai-songs
+
+======================================================================
+7. ISAIMINIHQ 2025 year page
+   Status: 200  |  Final URL: https://www.isaiminihq.com/isaimini.com/
+   Total -songs links: 23
+   [Chithha] -> /chithha-songs
+   [Good Night] -> /good-night-songs
+   [Jailer] -> /jailer-songs
+   [Adiyae] -> /adiyae-songs
+   [Blue Star] -> /blue-star-songs
+   [Jawan (TAMIL)] -> /jawan-tamil-songs
+   [Jigarthanda DoubleX] -> /jigarthanda-doublex-songs
+   [Jingrudha Dhanga (Trending Version)] -> /jingrudha-dhanga-trending-version-songs
+   [Love Today] -> /love-today-songs
+   [Mark Antony] -> /mark-antony-songs
+   [Na Na Na Na] -> /na-na-na-na-songs
+   [Maamannan] -> /maamannan-songs
+   [Paramporul] -> /paramporul-songs
+   [Takkar] -> /takkar-songs
+   [Viduthalai] -> /viduthalai-songs
+
+======================================================================
+COMPARISON: IsaiminiHQ homepage vs 2026 vs 2025
+  Homepage  total album hrefs: 103
+  2026 page total album hrefs: 23
+  2025 page total album hrefs: 23
+  HP ∩ 2026: 0 common links
+  HP ∩ 2025: 0 common links
+  2026 ∩ 2025: 23 common links
+  => 2026 and 2025 pages are IDENTICAL content

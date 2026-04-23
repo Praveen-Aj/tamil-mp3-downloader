@@ -3,6 +3,48 @@
 This changelog is generated from git history and repository state on branch `songs_downloader`.
 Analyzed range: `723f080` to `238b510` (2026-04-02 to 2026-04-03).
 
+## [Unreleased] - 2026-04-04
+
+### Summary of Latest Status Updates
+
+#### 1) GUI-first runtime and packaging finalization
+- Set GUI app flow as the primary runtime path for this release line.
+- Kept `main.py` as a thin compatibility launcher to avoid old entrypoint breakage.
+- Updated PyInstaller flow to package the GUI entrypoint in windowed mode.
+
+Files modified per feature:
+- `gui.py`
+- `main.py`
+- `scripts/tamil_mp3_downloader.spec`
+
+#### 2) Runtime stability adjustments
+- Avoided caching empty song payloads in GUI fetch flow.
+- Ignored previously cached empty song entries to reduce false "no songs" outcomes.
+- Simplified GUI layout by removing extra preview/duplicate queue panel usage.
+
+Files modified per feature:
+- `gui.py`
+
+#### 3) Test and legacy conflict cleanup
+- Removed obsolete legacy test causing collection/import issues.
+- Kept active scraper test path as the current validated automated check.
+
+Files modified per feature:
+- `tests/test_download_legacy.py` (deleted)
+- `tests/test_masstamilan_scraper.py`
+
+#### 4) Documentation refresh
+- Updated status and usage docs to match current GUI-first behavior.
+- Updated architecture and roadmap notes to remove stale legacy blockers.
+
+Files modified per feature:
+- `README.md`
+- `ROADMAP.md`
+- `ARCHITECTURE.md`
+- `docs/CONTRIBUTING.md`
+- `docs/masstamilan_integration.md`
+- `docs/DOWNLOAD.md`
+
 ## [Unreleased] - 2026-04-03
 
 ### Summary of New Features Added

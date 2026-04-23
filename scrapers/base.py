@@ -3,7 +3,7 @@ Base scraper class for Tamil MP3 sources.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Callable, List, Optional
 from models.song import Album, Song
 
 
@@ -14,7 +14,12 @@ class BaseScraper(ABC):
         self.base_url = base_url.rstrip('/')
 
     @abstractmethod
-    def get_albums(self, category: str = "latest") -> List[Album]:
+    def get_albums(
+        self,
+        category: str = "latest",
+        max_pages: int = 3,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[Album]:
         """
         Get list of available albums/movies.
 

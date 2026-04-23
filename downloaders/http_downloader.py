@@ -79,7 +79,7 @@ class HTTPDownloader(BaseDownloader):
 
     def download_song(self, song: Song) -> DownloadResult:
         """Download a single song (blocking, no rich UI)."""
-        album_dir = self._album_dir(song.album_name)
+        album_dir = self._album_dir(song.album_name, year=song.year)
         return self._download_with_progress(song, album_dir, pbar=None)
 
     def download_songs(self, songs: List[Song]) -> List[DownloadResult]:
@@ -91,6 +91,7 @@ class HTTPDownloader(BaseDownloader):
         songs: List[Song],
         album_name: str,
         max_workers: Optional[int] = None,
+        year: Optional[int] = None,
     ) -> List[DownloadResult]:
         """
         Download all songs concurrently with tqdm progress bars.
@@ -100,9 +101,10 @@ class HTTPDownloader(BaseDownloader):
         songs        : list of Song objects to download
         album_name   : used as the sub-folder name under output_dir
         max_workers  : thread count (default = self.max_workers)
+        year         : release year for organised output/year/album/ path
         """
         workers = max(1, int(max_workers if max_workers is not None else self.max_workers))
-        album_dir = self._album_dir(album_name)
+        album_dir = self._album_dir(album_name, year=year)
         results: List[Optional[DownloadResult]] = [None] * len(songs)
         pending_indices = set(range(len(songs)))
         slot_pool: Queue[int] = Queue()
@@ -191,9 +193,12 @@ class HTTPDownloader(BaseDownloader):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _album_dir(self, album_name: str) -> Path:
+    def _album_dir(self, album_name: str, year: Optional[int] = None) -> Path:
         safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", album_name).strip() or "Unknown"
-        d = self.output_dir / "IsaiminiHQ" / safe
+        if year:
+            d = self.output_dir / str(year) / safe
+        else:
+            d = self.output_dir / safe
         d.mkdir(parents=True, exist_ok=True)
         return d
 
@@ -208,6 +213,29 @@ class HTTPDownloader(BaseDownloader):
     def _state_path(dest_dir: Path) -> Path:
         """Path to the per-album download state file."""
         return dest_dir / ".download_state.json"
+
+    @staticmethod
+    def _norm_name(value: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", value.lower())
+
+    def _find_existing_song_file(self, song: Song, dest_dir: Path) -> Optional[Path]:
+        """Return an existing file path that likely matches this song by normalized name."""
+        target = self._norm_name(song.display_name)
+        if not target or not dest_dir.exists():
+            return None
+
+        patterns = ["*.mp3"]
+        if song.is_zip:
+            patterns = ["*.zip"]
+
+        for pattern in patterns:
+            for p in dest_dir.glob(pattern):
+                try:
+                    if p.is_file() and p.stat().st_size > 0 and self._norm_name(p.stem) == target:
+                        return p
+                except Exception:
+                    continue
+        return None
 
     @staticmethod
     def _safe_int(value: Any) -> int:
@@ -409,7 +437,29 @@ class HTTPDownloader(BaseDownloader):
                 success=True,
                 song_name=song.display_name,
                 file_path=out_path,
-                size_downloaded=sz,
+                size_downloaded=0,
+            )
+
+        # Check for an already-downloaded file with same normalized song name.
+        existing_match = self._find_existing_song_file(song, dest_dir)
+        if existing_match is not None:
+            sz = existing_match.stat().st_size
+            self._update_state_entry(
+                state_path,
+                existing_match.name,
+                {
+                    "url": final_url,
+                    "file_name": existing_match.name,
+                    "downloaded": sz,
+                    "total": sz,
+                    "completed": True,
+                },
+            )
+            return DownloadResult(
+                success=True,
+                song_name=song.display_name,
+                file_path=existing_match,
+                size_downloaded=0,
             )
 
         # ---- streaming GET (resume if partial file exists) ----
