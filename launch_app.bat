@@ -1,7 +1,7 @@
 @echo off
 REM Tamil MP3 Downloader Launcher - No console window
-setlocal enabledelayedexpansion
-cd /d "C:\Users\Praveen\Downloads\Python Scripts\tamil-mp3-downloader"
-REM Use pythonw.exe to run without console window
-start "" ".venv\Scripts\pythonw.exe" "main.py"
+setlocal
+set "APP_DIR=%~dp0"
+cd /d "%APP_DIR%"
+start "" "%APP_DIR%.venv\Scripts\pythonw.exe" "%APP_DIR%main.py"
 exit
