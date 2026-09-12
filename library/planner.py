@@ -3,6 +3,10 @@ Download Planner for the library system.
 
 Provides intelligent download planning with cross-category/source
 deduplication, source ranking, and quality-upgrade detection.
+
+Key guarantee: plan_downloads() over any set of discovered songs — regardless
+of how many categories or sites they came from — produces at most ONE
+download per canonical song, and ZERO downloads for already-owned songs.
 """
 
 import logging
@@ -26,7 +30,8 @@ class SourceSelection:
 
     Attributes:
         song_id: Library song ID
-        song: Original Song object (for UI display)
+        song: Representative Song object (for UI display)
+        source_name: Name of the chosen source
         primary: Primary (best) source
         fallbacks: Fallback sources in priority order
     """
@@ -53,8 +58,8 @@ class UpgradePlan:
     Quality upgrade plan for an existing song.
 
     Attributes:
-        existing: Currently owned song
-        song: New song with better quality
+        existing: Currently owned LibrarySong
+        song: Representative Song object
         source_name: Source to download upgrade from
         new_source: Best source for the upgrade
         quality_gain: kbps improvement
@@ -75,7 +80,7 @@ class DownloadPlan:
         raw_discovered: Total songs discovered before dedup
         unique_canonical: Unique canonical songs after dedup
         owned: Songs already owned (no action needed)
-        new_songs: New songs to download
+        new_songs: New songs to download (one per canonical song)
         upgrades: Quality upgrades for existing songs
     """
     raw_discovered: int = 0
@@ -86,7 +91,7 @@ class DownloadPlan:
 
     @property
     def total_to_download(self) -> int:
-        """Total songs that will be downloaded."""
+        """Total songs that will be downloaded (new + upgrades)."""
         return len(self.new_songs) + len(self.upgrades)
 
     @property
@@ -106,14 +111,23 @@ class DownloadPlanner:
     """
     Plan downloads with cross-category/source deduplication.
 
-    Steps:
-    1. Canonicalize each discovered song
-    2. Check library for existing songs
-    3. Aggregate source variants (per canonical song)
-    4. Select best source per canonical song
-    5. Filter already-owned songs
-    6. Check for quality upgrades
-    7. Generate final download queue
+    Algorithm
+    ---------
+    1. Register all discovered songs via DiscoveryPipeline (idempotent upsert)
+    2. For each *unique* canonical hash in the input batch:
+       a. Load the library song (guaranteed to exist after step 1)
+       b. If OWNED: check upgrade eligibility; else: queue for download
+    3. Source selection uses ALL registered sources (not just the one
+       in this batch), so a song discovered via Site 1 in a previous batch
+       can be downloaded via Site 2 if it has better quality.
+    4. Dedup within the batch is tracked via a `seen_hashes` set, so a
+       song appearing N times in one batch counts as 1 unique canonical song.
+
+    Guarantees
+    ----------
+    - At most 1 download per canonical song per plan call
+    - 0 downloads for OWNED songs (unless quality upgrade threshold met)
+    - Never schedules a downgrade (source quality < library quality)
     """
 
     def __init__(
@@ -149,48 +163,133 @@ class DownloadPlanner:
             category: Category (optional)
 
         Returns:
-            DownloadPlan with deduplication applied
+            DownloadPlan with at most 1 entry per canonical song
         """
         plan = DownloadPlan(raw_discovered=len(discovered_songs))
 
-        # Register all songs in library (discovery pipeline handles dedup)
+        # Register all songs in library (idempotent, thread-safe)
         self._pipeline.register_batch(discovered_songs, source_name, album, category)
 
-        # Track which canonical hashes we've already processed in this batch
+        # Process each *unique* canonical song exactly once
         seen_hashes: set = set()
+        # Track song_ids we've already added to plan to prevent double-counting
+        # when the same canonical ID appears under multiple hashes due to aliasing
+        seen_song_ids: set = set()
 
         for song in discovered_songs:
             identity = song_to_canonical(song, source_name)
 
-            # Skip duplicates within this batch
+            # Skip within-batch duplicates
             if identity.hash in seen_hashes:
-                logger.debug(f"Skipping duplicate in batch: {song.name}")
+                logger.debug(f"Dedup within batch: '{song.name}' (hash already seen)")
                 continue
             seen_hashes.add(identity.hash)
             plan.unique_canonical += 1
 
-            # Retrieve library entry
+            # Retrieve the canonical library entry
             lib_song = self.db.get_song_by_canonical_hash(identity.hash)
             if lib_song is None:
                 logger.warning(f"Song not found in library after registration: {identity}")
                 continue
 
+            # Guard against the same DB song_id appearing via different hashes
+            # (shouldn't happen with SHA256, but be defensive)
+            if lib_song.id in seen_song_ids:
+                logger.debug(f"Dedup: song_id {lib_song.id} already planned")
+                continue
+            seen_song_ids.add(lib_song.id)
+
             if lib_song.state == SongState.OWNED:
-                # Check for upgrade opportunity
                 upgrade = self._check_upgrade(lib_song, song, source_name)
                 if upgrade:
                     plan.upgrades.append(upgrade)
                 else:
                     plan.owned.append(lib_song)
             else:
-                # Song is new or failed — queue for download
+                # NEW, FAILED, QUEUED — queue for download with best source
                 best = self._select_best_source(lib_song.id, song, source_name)
                 if best:
                     plan.new_songs.append(best)
 
         logger.info(
-            f"Download plan: {plan.raw_discovered} raw → {plan.unique_canonical} unique | "
-            f"{len(plan.owned)} owned, {len(plan.new_songs)} new, {len(plan.upgrades)} upgrades"
+            f"Plan ({source_name}/{category}): "
+            f"{plan.raw_discovered} raw → {plan.unique_canonical} unique | "
+            f"{len(plan.owned)} owned, {len(plan.new_songs)} new, "
+            f"{len(plan.upgrades)} upgrades"
+        )
+        return plan
+
+    def plan_downloads_multi_source(
+        self,
+        source_batches: List[dict],
+    ) -> DownloadPlan:
+        """
+        Plan downloads from multiple source batches simultaneously.
+
+        This is the recommended entry point when songs have been discovered
+        from multiple sites/categories.  All registrations happen first, then
+        planning deduplicates across all batches.
+
+        Args:
+            source_batches: List of dicts, each with keys:
+                - songs: List[Song]
+                - source_name: str
+                - album: Optional[Album]
+                - category: Optional[str]
+
+        Returns:
+            DownloadPlan with at most 1 entry per canonical song across all batches
+        """
+        total_raw = sum(len(b["songs"]) for b in source_batches)
+        plan = DownloadPlan(raw_discovered=total_raw)
+
+        # Step 1: Register all batches first
+        for batch in source_batches:
+            self._pipeline.register_batch(
+                batch["songs"],
+                batch["source_name"],
+                batch.get("album"),
+                batch.get("category"),
+            )
+
+        # Step 2: Deduplicate and plan across all batches
+        seen_hashes: set = set()
+        seen_song_ids: set = set()
+
+        for batch in source_batches:
+            source_name = batch["source_name"]
+            for song in batch["songs"]:
+                identity = song_to_canonical(song, source_name)
+
+                if identity.hash in seen_hashes:
+                    continue
+                seen_hashes.add(identity.hash)
+                plan.unique_canonical += 1
+
+                lib_song = self.db.get_song_by_canonical_hash(identity.hash)
+                if lib_song is None:
+                    continue
+
+                if lib_song.id in seen_song_ids:
+                    continue
+                seen_song_ids.add(lib_song.id)
+
+                if lib_song.state == SongState.OWNED:
+                    upgrade = self._check_upgrade(lib_song, song, source_name)
+                    if upgrade:
+                        plan.upgrades.append(upgrade)
+                    else:
+                        plan.owned.append(lib_song)
+                else:
+                    best = self._select_best_source(lib_song.id, song, source_name)
+                    if best:
+                        plan.new_songs.append(best)
+
+        logger.info(
+            f"Multi-source plan: {plan.raw_discovered} raw → "
+            f"{plan.unique_canonical} unique | "
+            f"{len(plan.owned)} owned, {len(plan.new_songs)} new, "
+            f"{len(plan.upgrades)} upgrades"
         )
         return plan
 
@@ -202,27 +301,28 @@ class DownloadPlanner:
         self, song_id: int, original_song: Song, source_name: str
     ) -> Optional[SourceSelection]:
         """
-        Select the best available source for a song.
+        Select the best available source for a song from ALL registered sources.
 
         Priority: availability > quality_kbps > reliability_score > smaller size
 
         Args:
             song_id: Library song ID
-            original_song: Original Song object
-            source_name: Source name
+            original_song: Representative Song object (for display)
+            source_name: Source name of the representative song
 
         Returns:
-            SourceSelection or None if no sources
+            SourceSelection with ranked sources, or None if no sources exist
         """
         sources = self.db.get_sources_for_song(song_id)
         if not sources:
             return None
 
         available = [s for s in sources if s.is_available]
-        if not available:
-            available = sources  # Fallback to all sources
-
-        ranked = sorted(available, key=self._source_ranking_key, reverse=True)
+        ranked = sorted(
+            available if available else sources,
+            key=self._source_ranking_key,
+            reverse=True,
+        )
 
         return SourceSelection(
             song_id=song_id,
@@ -236,11 +336,11 @@ class DownloadPlanner:
         """
         Ranking key for source selection.
 
-        Priority order:
-        1. Availability (available first)
-        2. Quality (higher kbps first)
-        3. Reliability (higher score first)
-        4. Size (smaller first — prefer smaller if same quality)
+        Priority:
+        1. Availability (True > False)
+        2. Quality kbps (higher = better)
+        3. Reliability score (higher = better)
+        4. Size (smaller = preferred when quality is equal)
         """
         return (
             int(source.is_available),
@@ -253,45 +353,51 @@ class DownloadPlanner:
         self, existing: LibrarySong, song: Song, source_name: str
     ) -> Optional[UpgradePlan]:
         """
-        Check if a quality upgrade is possible for an owned song.
+        Check if a quality upgrade is warranted for an owned song.
+
+        Never produces a downgrade: only returns an UpgradePlan when the best
+        available source quality exceeds the library quality by at least
+        `upgrade_quality_threshold` kbps.
 
         Args:
-            existing: Currently owned song
-            song: Newly discovered song
+            existing: Currently owned LibrarySong
+            song: Newly discovered Song
             source_name: Source name
 
         Returns:
-            UpgradePlan if upgrade is worthwhile, None otherwise
+            UpgradePlan if upgrade is warranted, None otherwise
         """
         if existing.quality_kbps is None:
-            return None  # Unknown existing quality — skip
+            return None  # Unknown existing quality — cannot compare
 
-        new_quality = extract_quality_kbps(song)
-        if new_quality is None:
-            return None  # Unknown new quality — skip
-
-        quality_gain = new_quality - existing.quality_kbps
-        if quality_gain < self.upgrade_quality_threshold:
-            return None  # Not enough improvement
-
-        # Find the best source for this song
+        # Find the best quality source available (from ALL registered sources)
         sources = self.db.get_sources_for_song(existing.id)
         if not sources:
             return None
 
-        # Find source matching the new quality
-        matching = [s for s in sources if s.quality_kbps == new_quality and s.is_available]
-        if not matching:
-            matching = sorted(sources, key=self._source_ranking_key, reverse=True)
+        best_source = max(
+            (s for s in sources if s.is_available),
+            key=lambda s: s.quality_kbps or 0,
+            default=None,
+        )
+        if best_source is None:
+            best_source = max(sources, key=lambda s: s.quality_kbps or 0)
 
-        if not matching:
+        best_quality = best_source.quality_kbps or 0
+        quality_gain = best_quality - existing.quality_kbps
+
+        # Never downgrade
+        if quality_gain <= 0:
             return None
 
-        best_source = matching[0]
+        # Only upgrade if improvement meets threshold
+        if quality_gain < self.upgrade_quality_threshold:
+            return None
+
         return UpgradePlan(
             existing=existing,
             song=song,
-            source_name=source_name,
+            source_name=best_source.source_name,
             new_source=best_source,
             quality_gain=quality_gain,
         )

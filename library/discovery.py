@@ -4,12 +4,16 @@ Song Discovery Integration for the library system.
 Provides a pipeline to canonicalize discovered songs from scrapers,
 register them in the library, aggregate source variants, and track
 discovery context — enabling cross-category/source deduplication.
+
+Thread-safety: DiscoveryPipeline uses an RLock to make the
+check-then-upsert sequence atomic across concurrent scraper workers.
 """
 
 import logging
+import threading
 from typing import Optional, List
 
-from library.canonical import CanonicalIdentity, compute_canonical_hash
+from library.canonical import CanonicalIdentity
 from library.database import SQLiteDatabase
 from library.models import LibrarySong, SongSource, DiscoveryContext, SongState
 from models.song import Song, Album
@@ -17,13 +21,13 @@ from models.song import Song, Album
 logger = logging.getLogger(__name__)
 
 
-def song_to_canonical(song: Song, source_name: str) -> CanonicalIdentity:
+def song_to_canonical(song: Song, source_name: str = "") -> CanonicalIdentity:
     """
     Convert a scraper Song to a CanonicalIdentity.
 
     Args:
         song: Song from scraper
-        source_name: Name of source (e.g. 'isaimini')
+        source_name: Name of source (unused — kept for API compatibility)
 
     Returns:
         CanonicalIdentity for the song
@@ -46,16 +50,9 @@ def extract_quality_kbps(song: Song) -> Optional[int]:
         Quality in kbps, or None if unknown
     """
     q = (song.quality or "").lower()
-    if "320" in q:
-        return 320
-    if "256" in q:
-        return 256
-    if "192" in q:
-        return 192
-    if "160" in q:
-        return 160
-    if "128" in q:
-        return 128
+    for kbps in (320, 256, 192, 160, 128):
+        if str(kbps) in q:
+            return kbps
     return None
 
 
@@ -82,7 +79,7 @@ def extract_file_type(song: Song) -> str:
         song: Song object
 
     Returns:
-        File type string (mp3, zip, etc.)
+        File type string (mp3, zip, m4a, flac)
     """
     url_lower = (song.url or "").lower()
     if ".zip" in url_lower:
@@ -100,10 +97,14 @@ class DiscoveryPipeline:
 
     On each call to register_song():
     1. Canonicalize the song
-    2. Check if it already exists in the library
-    3. If new, add as LibrarySong
-    4. Add/update the source variant
-    5. Record discovery context
+    2. Upsert into the library (INSERT OR IGNORE + SELECT fallback)
+    3. Add/update the source variant (idempotent)
+    4. Record discovery context
+
+    Thread-safety:
+        An RLock serializes the full register_song() critical section so
+        concurrent workers discovering the same canonical song from different
+        categories/sources produce exactly one library entry.
     """
 
     def __init__(self, db: SQLiteDatabase):
@@ -114,6 +115,7 @@ class DiscoveryPipeline:
             db: Connected SQLiteDatabase instance
         """
         self.db = db
+        self._lock = threading.RLock()
 
     def register_song(
         self,
@@ -123,7 +125,10 @@ class DiscoveryPipeline:
         category: Optional[str] = None,
     ) -> int:
         """
-        Register a discovered song in the library.
+        Register a discovered song in the library (idempotent & thread-safe).
+
+        The full check-upsert-add_source sequence is wrapped in an RLock so
+        concurrent calls for the same canonical song are serialized safely.
 
         Args:
             song: Discovered Song from scraper
@@ -132,18 +137,13 @@ class DiscoveryPipeline:
             category: Category (e.g. 'latest', 'old') where discovered
 
         Returns:
-            Library song ID
+            Library song ID (stable across repeated calls for same song)
         """
         identity = song_to_canonical(song, source_name)
 
-        # Check if already known
-        existing = self.db.get_song_by_canonical_hash(identity.hash)
-
-        if existing:
-            song_id = existing.id
-            logger.debug(f"Song already in library: {identity} (id={song_id})")
-        else:
-            # Create new library entry
+        with self._lock:
+            # Upsert: add_song uses INSERT OR IGNORE + SELECT fallback —
+            # always returns the canonical song's ID, even under concurrency.
             lib_song = LibrarySong(
                 canonical_hash=identity.hash,
                 title_normalized=identity.title_normalized,
@@ -156,14 +156,14 @@ class DiscoveryPipeline:
                 state=SongState.NEW,
             )
             song_id = self.db.add_song(lib_song)
-            logger.debug(f"Added new song to library: {identity} (id={song_id})")
 
-        # Add source variant (ignore duplicate URL errors)
-        self._add_or_update_source(song_id, song, source_name)
+            # Add source variant (idempotent — INSERT OR IGNORE on (song_id, url))
+            self._add_source(song_id, song, source_name)
 
-        # Record discovery context
+        # Discovery context recorded outside the critical section (not unique-constrained)
         self._record_discovery_context(song_id, source_name, album, category)
 
+        logger.debug(f"Registered song '{identity}' (id={song_id}) from {source_name}")
         return song_id
 
     def register_batch(
@@ -174,7 +174,7 @@ class DiscoveryPipeline:
         category: Optional[str] = None,
     ) -> dict:
         """
-        Register a batch of discovered songs.
+        Register a batch of discovered songs and return deduplication stats.
 
         Args:
             songs: List of discovered Songs
@@ -183,31 +183,35 @@ class DiscoveryPipeline:
             category: Category (optional)
 
         Returns:
-            Statistics dict: {new, existing, total}
+            Statistics dict: {new, existing, total, errors}
         """
         new_count = 0
         existing_count = 0
+        error_count = 0
 
         for song in songs:
             try:
                 identity = song_to_canonical(song, source_name)
-                existing = self.db.get_song_by_canonical_hash(identity.hash)
+                # Check before registering to differentiate new vs existing in stats
+                pre_existing = self.db.get_song_by_canonical_hash(identity.hash)
                 self.register_song(song, source_name, album, category)
-                if existing:
+                if pre_existing is not None:
                     existing_count += 1
                 else:
                     new_count += 1
             except Exception as e:
+                error_count += 1
                 logger.warning(f"Failed to register song '{song.name}': {e}")
 
         stats = {
             "new": new_count,
             "existing": existing_count,
             "total": len(songs),
+            "errors": error_count,
         }
         logger.info(
             f"Batch registered {len(songs)} songs from {source_name}: "
-            f"{new_count} new, {existing_count} existing"
+            f"{new_count} new, {existing_count} existing, {error_count} errors"
         )
         return stats
 
@@ -215,18 +219,19 @@ class DiscoveryPipeline:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _add_or_update_source(
-        self, song_id: int, song: Song, source_name: str
-    ) -> None:
+    def _add_source(self, song_id: int, song: Song, source_name: str) -> int:
         """
-        Add or update a source variant for a song.
+        Add a source variant for a song (idempotent).
 
-        Ignores duplicate (song_id, source_url) pairs silently.
+        Uses INSERT OR IGNORE on (song_id, source_url).  Returns the source ID.
 
         Args:
             song_id: Library song ID
             song: Original song from scraper
             source_name: Source name
+
+        Returns:
+            Source ID (inserted or pre-existing)
         """
         source = SongSource(
             song_id=song_id,
@@ -237,11 +242,7 @@ class DiscoveryPipeline:
             file_type=extract_file_type(song),
             is_available=True,
         )
-        try:
-            self.db.add_source(source)
-        except Exception:
-            # Likely a UNIQUE constraint violation (duplicate URL) — skip silently
-            pass
+        return self.db.add_source(source)
 
     def _record_discovery_context(
         self,

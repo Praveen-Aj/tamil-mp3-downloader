@@ -7,6 +7,7 @@ song management, source tracking, download history, and discovery context.
 
 import logging
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -41,6 +42,9 @@ class SQLiteDatabase:
         self.db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
         self._migrator = DatabaseMigrator(self)
+        # Serialize ALL connection-level access (sqlite3 Connection is not
+        # thread-safe even with check_same_thread=False)
+        self._lock = threading.RLock()
 
     def connect(self) -> None:
         """Establish database connection and run migrations."""
@@ -86,42 +90,57 @@ class SQLiteDatabase:
 
     def add_song(self, song: LibrarySong) -> int:
         """
-        Add a song to the library.
+        Add a song to the library, idempotently and thread-safely.
+
+        Uses INSERT OR IGNORE so concurrent or repeated inserts of the same
+        canonical_hash never raise an IntegrityError.  If the row already
+        exists (race condition or explicit re-registration), the existing ID
+        is returned via a SELECT fallback.
 
         Args:
             song: LibrarySong to add
 
         Returns:
-            ID of inserted song
+            ID of the inserted or pre-existing song
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                INSERT INTO songs (
-                    canonical_hash, title_normalized, artist_normalized, album_normalized,
-                    year, duration_seconds, title, artist, album, state,
-                    quality_kbps, file_size_bytes, library_location_id, file_path,
-                    first_discovered_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                song.canonical_hash,
-                song.title_normalized,
-                song.artist_normalized,
-                song.album_normalized,
-                song.year,
-                song.duration_seconds,
-                song.title,
-                song.artist,
-                song.album,
-                song.state.value,
-                song.quality_kbps,
-                song.file_size_bytes,
-                song.library_location_id,
-                song.file_path,
-                song.first_discovered_at or datetime.now().isoformat(),
-                song.last_seen_at or datetime.now().isoformat(),
-            ))
-            return cursor.lastrowid
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO songs (
+                        canonical_hash, title_normalized, artist_normalized, album_normalized,
+                        year, duration_seconds, title, artist, album, state,
+                        quality_kbps, file_size_bytes, library_location_id, file_path,
+                        first_discovered_at, last_seen_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    song.canonical_hash,
+                    song.title_normalized,
+                    song.artist_normalized,
+                    song.album_normalized,
+                    song.year,
+                    song.duration_seconds,
+                    song.title,
+                    song.artist,
+                    song.album,
+                    song.state.value,
+                    song.quality_kbps,
+                    song.file_size_bytes,
+                    song.library_location_id,
+                    song.file_path,
+                    song.first_discovered_at or datetime.now().isoformat(),
+                    song.last_seen_at or datetime.now().isoformat(),
+                ))
+                # rowcount == 1: inserted; == 0: ignored (row already exists)
+                if cursor.rowcount == 1:
+                    return cursor.lastrowid
+                # Row already existed — retrieve its ID
+                cursor.execute(
+                    "SELECT id FROM songs WHERE canonical_hash = ?",
+                    (song.canonical_hash,)
+                )
+                return cursor.fetchone()[0]
+
 
     def get_song(self, song_id: int) -> Optional[LibrarySong]:
         """
@@ -170,13 +189,14 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute(
-                "UPDATE songs SET state = ?, last_seen_at = ? WHERE id = ?",
-                (state.value, datetime.now().isoformat(), song_id)
-            )
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    "UPDATE songs SET state = ?, last_seen_at = ? WHERE id = ?",
+                    (state.value, datetime.now().isoformat(), song_id)
+                )
+                return cursor.rowcount > 0
 
     def update_song_file(
         self,
@@ -199,19 +219,20 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                UPDATE songs SET
-                    file_path = ?, file_size_bytes = ?, quality_kbps = ?,
-                    library_location_id = ?, state = ?, last_seen_at = ?
-                WHERE id = ?
-            """, (
-                file_path, file_size_bytes, quality_kbps,
-                library_location_id, SongState.OWNED.value,
-                datetime.now().isoformat(), song_id
-            ))
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE songs SET
+                        file_path = ?, file_size_bytes = ?, quality_kbps = ?,
+                        library_location_id = ?, state = ?, last_seen_at = ?
+                    WHERE id = ?
+                """, (
+                    file_path, file_size_bytes, quality_kbps,
+                    library_location_id, SongState.OWNED.value,
+                    datetime.now().isoformat(), song_id
+                ))
+                return cursor.rowcount > 0
 
     def get_songs_by_state(self, state: SongState, limit: Optional[int] = None) -> List[LibrarySong]:
         """
@@ -258,28 +279,41 @@ class SQLiteDatabase:
 
     def add_source(self, source: SongSource) -> int:
         """
-        Add a source variant for a song.
+        Add a source variant for a song, idempotently and thread-safely.
+
+        Uses INSERT OR IGNORE on the (song_id, source_url) unique constraint
+        so duplicate source URLs never raise IntegrityError.  Returns the
+        existing row ID if the URL was already registered.
 
         Args:
             source: SongSource to add
 
         Returns:
-            ID of inserted source
+            ID of inserted or pre-existing source
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                INSERT INTO song_sources (
-                    song_id, source_name, source_url, quality_kbps, file_size_bytes,
-                    file_type, metadata_complete, is_available, reliability_score, discovered_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                source.song_id, source.source_name, source.source_url,
-                source.quality_kbps, source.file_size_bytes, source.file_type,
-                source.metadata_complete, source.is_available, source.reliability_score,
-                source.discovered_at or datetime.now().isoformat(),
-            ))
-            return cursor.lastrowid
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO song_sources (
+                        song_id, source_name, source_url, quality_kbps, file_size_bytes,
+                        file_type, metadata_complete, is_available, reliability_score, discovered_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    source.song_id, source.source_name, source.source_url,
+                    source.quality_kbps, source.file_size_bytes, source.file_type,
+                    source.metadata_complete, source.is_available, source.reliability_score,
+                    source.discovered_at or datetime.now().isoformat(),
+                ))
+                if cursor.rowcount == 1:
+                    return cursor.lastrowid
+                # Already existed — look it up
+                cursor.execute(
+                    "SELECT id FROM song_sources WHERE song_id = ? AND source_url = ?",
+                    (source.song_id, source.source_url)
+                )
+                return cursor.fetchone()[0]
+
 
     def get_sources_for_song(self, song_id: int) -> List[SongSource]:
         """
@@ -348,24 +382,25 @@ class SQLiteDatabase:
         Returns:
             ID of inserted download
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                INSERT INTO downloads (
-                    song_id, song_source_id, planned_at, queued_at, started_at,
-                    completed_at, failed_at, library_location_id, output_path,
-                    file_size_bytes, download_speed_bps, state, error_message,
-                    retry_count, was_upgrade, previous_file_path, previous_quality_kbps
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                download.song_id, download.song_source_id,
-                download.planned_at, download.queued_at, download.started_at,
-                download.completed_at, download.failed_at, download.library_location_id,
-                download.output_path, download.file_size_bytes, download.download_speed_bps,
-                download.state.value, download.error_message, download.retry_count,
-                download.was_upgrade, download.previous_file_path, download.previous_quality_kbps,
-            ))
-            return cursor.lastrowid
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT INTO downloads (
+                        song_id, song_source_id, planned_at, queued_at, started_at,
+                        completed_at, failed_at, library_location_id, output_path,
+                        file_size_bytes, download_speed_bps, state, error_message,
+                        retry_count, was_upgrade, previous_file_path, previous_quality_kbps
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    download.song_id, download.song_source_id,
+                    download.planned_at, download.queued_at, download.started_at,
+                    download.completed_at, download.failed_at, download.library_location_id,
+                    download.output_path, download.file_size_bytes, download.download_speed_bps,
+                    download.state.value, download.error_message, download.retry_count,
+                    download.was_upgrade, download.previous_file_path, download.previous_quality_kbps,
+                ))
+                return cursor.lastrowid
 
     def update_download_state(self, download_id: int, state: DownloadState,
                               error_message: Optional[str] = None) -> bool:
@@ -380,29 +415,30 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            if state == DownloadState.DOWNLOADING:
-                cursor.execute(
-                    "UPDATE downloads SET state = ?, started_at = ? WHERE id = ?",
-                    (state.value, datetime.now().isoformat(), download_id)
-                )
-            elif state == DownloadState.COMPLETED:
-                cursor.execute(
-                    "UPDATE downloads SET state = ?, completed_at = ? WHERE id = ?",
-                    (state.value, datetime.now().isoformat(), download_id)
-                )
-            elif state == DownloadState.FAILED:
-                cursor.execute(
-                    "UPDATE downloads SET state = ?, failed_at = ?, error_message = ? WHERE id = ?",
-                    (state.value, datetime.now().isoformat(), error_message, download_id)
-                )
-            else:
-                cursor.execute(
-                    "UPDATE downloads SET state = ? WHERE id = ?",
-                    (state.value, download_id)
-                )
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                if state == DownloadState.DOWNLOADING:
+                    cursor.execute(
+                        "UPDATE downloads SET state = ?, started_at = ? WHERE id = ?",
+                        (state.value, datetime.now().isoformat(), download_id)
+                    )
+                elif state == DownloadState.COMPLETED:
+                    cursor.execute(
+                        "UPDATE downloads SET state = ?, completed_at = ? WHERE id = ?",
+                        (state.value, datetime.now().isoformat(), download_id)
+                    )
+                elif state == DownloadState.FAILED:
+                    cursor.execute(
+                        "UPDATE downloads SET state = ?, failed_at = ?, error_message = ? WHERE id = ?",
+                        (state.value, datetime.now().isoformat(), error_message, download_id)
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE downloads SET state = ? WHERE id = ?",
+                        (state.value, download_id)
+                    )
+                return cursor.rowcount > 0
 
     def update_download_completed(
         self,
@@ -431,28 +467,29 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                UPDATE downloads SET
-                    state = ?, completed_at = ?,
-                    output_path = ?, file_size_bytes = ?,
-                    download_speed_bps = ?,
-                    was_upgrade = ?, previous_file_path = ?,
-                    previous_quality_kbps = ?,
-                    library_location_id = ?
-                WHERE id = ?
-            """, (
-                DownloadState.COMPLETED.value,
-                datetime.now().isoformat(),
-                output_path, file_size_bytes,
-                download_speed_bps,
-                was_upgrade, previous_file_path,
-                previous_quality_kbps,
-                library_location_id,
-                download_id,
-            ))
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE downloads SET
+                        state = ?, completed_at = ?,
+                        output_path = ?, file_size_bytes = ?,
+                        download_speed_bps = ?,
+                        was_upgrade = ?, previous_file_path = ?,
+                        previous_quality_kbps = ?,
+                        library_location_id = ?
+                    WHERE id = ?
+                """, (
+                    DownloadState.COMPLETED.value,
+                    datetime.now().isoformat(),
+                    output_path, file_size_bytes,
+                    download_speed_bps,
+                    was_upgrade, previous_file_path,
+                    previous_quality_kbps,
+                    library_location_id,
+                    download_id,
+                ))
+                return cursor.rowcount > 0
 
     def get_downloads_for_song(self, song_id: int) -> List[Download]:
         """
@@ -485,18 +522,19 @@ class SQLiteDatabase:
         Returns:
             ID of inserted context
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                INSERT INTO discovery_context (
-                    song_id, source_name, category, album_name, album_url, discovered_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                context.song_id, context.source_name, context.category,
-                context.album_name, context.album_url,
-                context.discovered_at or datetime.now().isoformat(),
-            ))
-            return cursor.lastrowid
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT INTO discovery_context (
+                        song_id, source_name, category, album_name, album_url, discovered_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    context.song_id, context.source_name, context.category,
+                    context.album_name, context.album_url,
+                    context.discovered_at or datetime.now().isoformat(),
+                ))
+                return cursor.lastrowid
 
     def get_discovery_contexts(self, song_id: int) -> List[DiscoveryContext]:
         """
@@ -529,16 +567,17 @@ class SQLiteDatabase:
         Returns:
             ID of inserted location
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                INSERT INTO library_locations (path, name, is_primary, created_at)
-                VALUES (?, ?, ?, ?)
-            """, (
-                location.path, location.name, location.is_primary,
-                location.created_at or datetime.now().isoformat()
-            ))
-            return cursor.lastrowid
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT INTO library_locations (path, name, is_primary, created_at)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    location.path, location.name, location.is_primary,
+                    location.created_at or datetime.now().isoformat()
+                ))
+                return cursor.lastrowid
 
     def get_library_locations(self) -> List[LibraryLocation]:
         """
@@ -575,16 +614,37 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            # First, unset all primary flags
-            cursor.execute("UPDATE library_locations SET is_primary = 0")
-            # Then set the new primary
-            cursor.execute(
-                "UPDATE library_locations SET is_primary = 1 WHERE id = ?",
-                (location_id,)
-            )
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                # First, unset all primary flags
+                cursor.execute("UPDATE library_locations SET is_primary = 0")
+                # Then set the new primary
+                cursor.execute(
+                    "UPDATE library_locations SET is_primary = 1 WHERE id = ?",
+                    (location_id,)
+                )
+                return cursor.rowcount > 0
+
+    def update_source_reliability(self, source_id: int, score: float) -> bool:
+        """
+        Update source reliability score.
+
+        Args:
+            source_id: Source ID
+            score: New reliability score (0.0 to 1.0)
+
+        Returns:
+            True if updated, False otherwise
+        """
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    "UPDATE song_sources SET reliability_score = ? WHERE id = ?",
+                    (max(0.0, min(1.0, score)), source_id)
+                )
+                return cursor.rowcount > 0
 
     # ------------------------------------------------------------------
     # Statistics and maintenance
