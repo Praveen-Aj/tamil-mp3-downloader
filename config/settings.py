@@ -5,6 +5,7 @@ Configuration settings for Tamil MP3 Downloader.
 import copy
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -79,6 +80,18 @@ class Settings:
         "logging": {
             "level": "INFO",
             "file_logging": True
+        },
+        "library": {
+            "enabled": True,
+            "database_path": "",
+            "canonicalization": {
+                "strip_variants": True,
+                "case_insensitive": True,
+                "normalize_whitespace": True
+            },
+            "upgrade_policy": "auto",  # auto, manual, never
+            "upgrade_quality_threshold": 64,  # Only upgrade if quality difference >= 64kbps
+            "multiple_locations": False
         }
     }
 
@@ -168,6 +181,40 @@ class Settings:
     def show_progress(self) -> bool:
         """Return whether progress bars are enabled."""
         return bool(self.get("ui.show_progress", True))
+
+    @property
+    def user_data_dir(self) -> Path:
+        """Get OS-specific user data directory."""
+        if os.name == 'nt':  # Windows
+            data_dir = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+        else:  # Linux/Mac
+            data_dir = Path.home() / '.local' / 'share'
+        app_dir = data_dir / 'tamil-mp3-downloader'
+        app_dir.mkdir(parents=True, exist_ok=True)
+        return app_dir
+
+    @property
+    def library_db_path(self) -> Path:
+        """Get path to library database."""
+        custom_path = self.get("library.database_path", "")
+        if custom_path:
+            return Path(custom_path)
+        return self.user_data_dir / 'library.db'
+
+    @property
+    def library_enabled(self) -> bool:
+        """Check if library system is enabled."""
+        return bool(self.get("library.enabled", True))
+
+    @property
+    def upgrade_policy(self) -> str:
+        """Get quality upgrade policy."""
+        return self.get("library.upgrade_policy", "auto")
+
+    @property
+    def upgrade_quality_threshold(self) -> int:
+        """Get quality upgrade threshold in kbps."""
+        return self.get("library.upgrade_quality_threshold", 64)
 
 
 # Global settings instance

@@ -60,6 +60,13 @@ from scrapers.friendstamilmp3 import FriendsTamilMP3Scraper
 from scrapers.isaimini import IsaiminiScraper
 from scrapers.masstamilan import MassTamilanScraper
 
+# Import library system (may raise RuntimeError if disabled)
+try:
+    from library import initialize_library
+    _library_available = True
+except ImportError:
+    _library_available = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -1142,4 +1149,12 @@ class TamilMP3TUI(App[None]):
 
 
 if __name__ == "__main__":
+    # Initialize library system if available
+    if _library_available:
+        try:
+            initialize_library()
+        except Exception as e:
+            logging.warning(f"Library initialization failed: {e}")
+            # Continue without library system
+
     TamilMP3TUI().run()

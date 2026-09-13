@@ -1025,6 +1025,158 @@ class TestFullPipeline:
         db.close()
 
 
+# ---------------------------------------------------------------------------
+# SCENARIO 8: 3-Core Source Set Integration & Reliability Failover
+# ---------------------------------------------------------------------------
+
+class TestThreeCoreSourceSet:
+    """
+    Test multi-source integration using the approved 3-Core Source Set:
+      1. MassTamilan
+      2. Tamilmp3.in / Kuttyweb
+      3. FriendsTamilMP3
+    """
+
+    def test_three_core_sources_single_song_deduplication(self, tmp_path):
+        db = make_db(tmp_path)
+        planner = DownloadPlanner(db)
+
+        song_a_masstamilan = make_song(
+            "Kalla Nikkiriye", "https://www.masstamilan.dev/kalla-nikkiriye.mp3",
+            quality="320kbps", artist="Govind Vasantha", album_title="Anbil Avan"
+        )
+        song_a_tamilmp3 = make_song(
+            "Kalla Nikkiriye", "https://tamilmp3.in/dl/kalla-nikkiriye.mp3",
+            quality="320kbps", artist="Govind Vasantha", album_title="Anbil Avan"
+        )
+        song_a_friends = make_song(
+            "Kalla Nikkiriye", "https://friendstamilmp3.in/songs/kalla-nikkiriye.mp3",
+            quality="128kbps", artist="Govind Vasantha", album_title="Anbil Avan"
+        )
+
+        plan = planner.plan_downloads_multi_source([
+            {"songs": [song_a_masstamilan], "source_name": "masstamilan", "category": "latest"},
+            {"songs": [song_a_tamilmp3], "source_name": "tamilmp3", "category": "all-songs"},
+            {"songs": [song_a_friends], "source_name": "friendstamilmp3", "category": "movie-songs"},
+        ])
+
+        assert plan.raw_discovered == 3
+        assert plan.unique_canonical == 1
+        assert len(plan.new_songs) == 1
+        
+        selection = plan.new_songs[0]
+        # Verify 3 source variants aggregated under 1 canonical song
+        sources = db.get_sources_for_song(selection.song_id)
+        assert len(sources) == 3
+        source_names = {s.source_name for s in sources}
+        assert source_names == {"masstamilan", "tamilmp3", "friendstamilmp3"}
+
+        db.close()
+
+
+class TestCriticalDuplicateScenario:
+    """
+    PRIMARY BUSINESS REQUIREMENT TEST:
+    Song A discovered across 5 categories × 3 core sources = 15 raw events.
+    Expected:
+      - 15 raw discoveries
+      - exactly ONE canonical Song A
+      - multiple source variants
+      - exactly ONE planned download
+    """
+
+    def test_fifteen_raw_discoveries_yield_one_download(self, tmp_path):
+        db = make_db(tmp_path)
+        planner = DownloadPlanner(db)
+
+        categories = ["Top 2026", "Vijay Hits", "Anirudh Hits", "Movie category", "Singer category"]
+        sources = [
+            ("masstamilan", "https://masstamilan.dev/song-a.mp3", "320kbps"),
+            ("tamilmp3", "https://tamilmp3.in/song-a.mp3", "320kbps"),
+            ("friendstamilmp3", "https://friendstamilmp3.in/song-a.mp3", "128kbps"),
+        ]
+
+        source_batches = []
+        for cat in categories:
+            for s_name, s_url, s_qual in sources:
+                song = make_song(
+                    "Naa Ready", s_url, quality=s_qual, artist="Anirudh", album_title="Leo"
+                )
+                source_batches.append({
+                    "songs": [song],
+                    "source_name": s_name,
+                    "category": cat
+                })
+
+        assert len(source_batches) == 15
+
+        plan = planner.plan_downloads_multi_source(source_batches)
+
+        assert plan.raw_discovered == 15
+        assert plan.unique_canonical == 1
+        assert len(plan.new_songs) == 1
+        assert len(plan.owned) == 0
+        assert len(plan.upgrades) == 0
+
+        # Verify DB contains exactly 1 song row
+        cursor = db._conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM songs")
+        assert cursor.fetchone()[0] == 1
+
+        db.close()
+
+
+class TestSourceReliabilityAndFailover:
+    """
+    Test source reliability score preference & automatic failover:
+    - Prefer higher reliability source when quality is equal.
+    - Automatic failover when primary source becomes unavailable.
+    """
+
+    def test_reliability_score_preference_and_failover(self, tmp_path):
+        db = make_db(tmp_path)
+        planner = DownloadPlanner(db)
+
+        song_src_a = make_song("Aradhya", "https://site-a.com/aradhya.mp3", quality="320kbps")
+        song_src_b = make_song("Aradhya", "https://site-b.com/aradhya.mp3", quality="320kbps")
+
+        # Register both sources
+        planner.plan_downloads_multi_source([
+            {"songs": [song_src_a], "source_name": "site_a"},
+            {"songs": [song_src_b], "source_name": "site_b"},
+        ])
+
+        # Get the registered source variant IDs
+        lib_song = db.get_song_by_canonical_hash(song_to_canonical(song_src_a).hash)
+        sources = db.get_sources_for_song(lib_song.id)
+        assert len(sources) == 2
+
+        source_a = next(s for s in sources if s.source_name == "site_a")
+        source_b = next(s for s in sources if s.source_name == "site_b")
+
+        # Set reliability scores: Site A = 0.98, Site B = 0.70
+        db.update_source_reliability(source_a.id, 0.98)
+        db.update_source_reliability(source_b.id, 0.70)
+
+        # Plan download — must select Site A due to higher reliability
+        plan1 = planner.plan_downloads([song_src_a], "site_a")
+        assert plan1.new_songs[0].primary.source_name == "site_a"
+        assert plan1.new_songs[0].primary.reliability_score == 0.98
+
+        # Mark Site A as unavailable (e.g. site offline)
+        cursor = db._conn.cursor()
+        cursor.execute("UPDATE song_sources SET is_available = 0 WHERE id = ?", (source_a.id,))
+        db._conn.commit()
+
+        # Re-plan download — must automatically failover to Site B!
+        plan2 = planner.plan_downloads([song_src_a], "site_a")
+        assert plan2.new_songs[0].primary.source_name == "site_b"
+        assert plan2.new_songs[0].primary.reliability_score == 0.70
+
+        db.close()
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "--tb=short"])
+

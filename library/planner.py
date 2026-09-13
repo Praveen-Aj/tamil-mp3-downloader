@@ -243,14 +243,18 @@ class DownloadPlanner:
         total_raw = sum(len(b["songs"]) for b in source_batches)
         plan = DownloadPlan(raw_discovered=total_raw)
 
-        # Step 1: Register all batches first
+        # Step 1: Register all batches first (with source failure isolation)
         for batch in source_batches:
-            self._pipeline.register_batch(
-                batch["songs"],
-                batch["source_name"],
-                batch.get("album"),
-                batch.get("category"),
-            )
+            try:
+                self._pipeline.register_batch(
+                    batch["songs"],
+                    batch["source_name"],
+                    batch.get("album"),
+                    batch.get("category"),
+                )
+            except Exception as e:
+                logger.error(f"Source batch failure for '{batch.get('source_name')}': {e}")
+                continue
 
         # Step 2: Deduplicate and plan across all batches
         seen_hashes: set = set()

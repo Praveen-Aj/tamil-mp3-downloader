@@ -48,6 +48,13 @@ import customtkinter as ctk
 from config.settings import settings
 from downloaders.http_downloader import HTTPDownloader
 from models.song import Album, Song
+
+# Import library system (may raise RuntimeError if disabled)
+try:
+    from library import initialize_library
+    _library_available = True
+except ImportError:
+    _library_available = False
 from scrapers.base import BaseScraper
 from scrapers.friendstamilmp3 import FriendsTamilMP3Scraper
 from scrapers.isaimini import IsaiminiScraper
@@ -2398,6 +2405,14 @@ class TamilMP3GUI(ctk.CTk):
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # Initialize library system if available
+    if _library_available:
+        try:
+            initialize_library()
+        except Exception as e:
+            logging.warning(f"Library initialization failed: {e}")
+            # Continue without library system
+
     app = TamilMP3GUI()
     app.mainloop()
 
