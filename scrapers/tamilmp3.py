@@ -126,7 +126,14 @@ class Tamilmp3Scraper(BaseScraper):
                 continue
 
             album_url = urljoin(self.base_url, href)
-            if album_url in seen_urls or album_url.rstrip("/") == self.base_url:
+            clean_url = album_url.rstrip("/").lower()
+            if (
+                album_url in seen_urls
+                or clean_url == self.base_url.lower()
+                or clean_url.endswith("/all-songs")
+                or clean_url.endswith("/tamil-mp3-songs")
+                or clean_url.endswith("/collections")
+            ):
                 continue
             seen_urls.add(album_url)
 
@@ -227,6 +234,7 @@ class Tamilmp3Scraper(BaseScraper):
                 best_bitrate = "320" if "320" in t_info["urls"] else "128"
                 primary_url = t_info["urls"][best_bitrate]
                 primary_size = t_info["sizes"].get(best_bitrate)
+                primary_data_path = t_info["data_paths"].get(best_bitrate) or next(iter(t_info["data_paths"].values()))
 
                 s = Song(
                     name=t_info["name"],
@@ -236,6 +244,7 @@ class Tamilmp3Scraper(BaseScraper):
                     year=t_info["year"],
                     quality=f"{best_bitrate}kbps",
                     size_mb=primary_size,
+                    download_reference=primary_data_path,
                 )
                 # Attach internal data map for token resolution
                 s.download_urls = t_info["data_paths"]
@@ -247,29 +256,47 @@ class Tamilmp3Scraper(BaseScraper):
         return songs
 
     # ── Dynamic Download URL Resolution ─────────────────────────
-    def get_download_url(self, song: Song, quality: str = "320") -> Optional[str]:
+    def get_download_url(self, song: Any, quality: str = "320") -> Optional[str]:
         """
         Generate a fresh signed CDN audio download URL via token.php.
 
         Args:
-            song: Song object
+            song: Song object, SongSource object, or data_path string
             quality: Preferred bitrate ("320" or "128")
 
         Returns:
             Direct audio stream URL, or None if token generation fails or audio probe fails
         """
-        data_paths = getattr(song, "download_urls", {})
-        if isinstance(data_paths, dict) and data_paths:
-            # Pick requested quality or best available fallback
-            data_path = data_paths.get(quality) or data_paths.get("320") or data_paths.get("128") or next(iter(data_paths.values()))
-        elif isinstance(song.url, str) and "token.php" not in song.url:
-            # Fallback path if data_path was stored in url
-            data_path = song.url
-        else:
-            data_path = None
+        data_path = None
+        song_name = "unknown"
+
+        if isinstance(song, str):
+            data_path = song
+            song_name = song
+        elif hasattr(song, "download_reference") and getattr(song, "download_reference"):
+            data_path = getattr(song, "download_reference")
+            song_name = getattr(song, "name", getattr(song, "source_url", "source"))
+        elif hasattr(song, "download_urls") and isinstance(getattr(song, "download_urls"), dict):
+            data_paths = getattr(song, "download_urls")
+            data_path = (
+                data_paths.get(quality)
+                or data_paths.get("320")
+                or data_paths.get("128")
+                or next(iter(data_paths.values()))
+            )
+            song_name = getattr(song, "name", "song")
+        elif hasattr(song, "url") and isinstance(getattr(song, "url"), str):
+            url_str = getattr(song, "url")
+            if "token.php" not in url_str:
+                data_path = url_str
+            song_name = getattr(song, "name", url_str)
+        elif hasattr(song, "source_url") and isinstance(getattr(song, "source_url"), str):
+            src_url = getattr(song, "source_url")
+            if "token.php" not in src_url:
+                data_path = src_url
 
         if not data_path:
-            logger.warning(f"No data-path available for song '{song.name}'")
+            logger.warning(f"No data-path available for song '{song_name}'")
             return None
 
         # Call token.php endpoint to get fresh signed download URL
@@ -286,20 +313,56 @@ class Tamilmp3Scraper(BaseScraper):
                     if self._verify_audio_url(audio_url):
                         return audio_url
                     else:
-                        logger.warning(f"Audio URL probe failed for '{song.name}': {audio_url}")
+                        logger.warning(f"Audio URL verification failed for '{song_name}': {audio_url}")
                         return None
         except Exception as e:
-            logger.error(f"Token generation failed for '{song.name}': {e}")
+            logger.error(f"Token generation failed for '{song_name}': {e}")
 
         return None
 
     def _verify_audio_url(self, url: str) -> bool:
-        """Verify that an audio URL is reachable and returns an audio/mime type."""
+        """
+        Verify that an audio URL is reachable and resolves to actual audio data.
+
+        Strategy:
+        1. Attempt HEAD request. If HEAD returns 200/206 with reliable audio Content-Type, accept.
+        2. If HEAD fails, is unsupported, or doesn't confirm audio:
+           Perform a bounded Range GET request (bytes=0-1023, stream=True).
+        3. Verify HTTP status is 200 or 206 and headers/magic bytes indicate audio content.
+        4. Return False if verification cannot be established (never pretend unverified passed).
+        """
+        AUDIO_TYPES = ("audio", "mpeg", "octet-stream", "zip", "media")
+
+        # 1. Attempt HEAD request
         try:
             head_r = self._session.head(url, timeout=5, allow_redirects=True)
-            if head_r.status_code == 200:
+            if head_r.status_code in (200, 206):
                 content_type = head_r.headers.get("Content-Type", "").lower()
-                return "audio" in content_type or "mpeg" in content_type or "octet-stream" in content_type or "zip" in content_type
+                if any(t in content_type for t in AUDIO_TYPES):
+                    return True
         except Exception as e:
-            logger.debug(f"Audio URL head probe exception: {e}")
-        return True  # Fallback to True if HEAD requests are blocked by CDN edge
+            logger.debug(f"Tamilmp3 _verify_audio_url HEAD probe failed for {url}: {e}")
+
+        # 2. Bounded Range GET request fallback
+        try:
+            headers = dict(self._session.headers)
+            headers["Range"] = "bytes=0-1023"
+            with self._session.get(url, headers=headers, timeout=5, stream=True) as get_r:
+                if get_r.status_code in (200, 206):
+                    content_type = get_r.headers.get("Content-Type", "").lower()
+                    if any(t in content_type for t in AUDIO_TYPES):
+                        return True
+
+                    # Read magic bytes
+                    chunk = get_r.raw.read(512) if hasattr(get_r, "raw") else get_r.content[:512]
+                    if chunk:
+                        if (
+                            chunk.startswith(b"ID3")
+                            or chunk.startswith(b"PK\x03\x04")
+                            or (len(chunk) >= 2 and chunk[0] == 0xFF and (chunk[1] & 0xE0) == 0xE0)
+                        ):
+                            return True
+        except Exception as e:
+            logger.debug(f"Tamilmp3 _verify_audio_url Range GET probe failed for {url}: {e}")
+
+        return False

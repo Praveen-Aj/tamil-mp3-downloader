@@ -166,6 +166,7 @@ class SongSource:
         song_id: ID of the canonical song
         source_name: Name of the source (isaimini, masstamilan, etc.)
         source_url: URL of the source
+        download_reference: Persistent source-specific download descriptor (e.g. data-path)
         quality_kbps: Quality in kbps
         file_size_bytes: File size in bytes
         file_type: File type (mp3, zip, m4a, etc.)
@@ -179,6 +180,7 @@ class SongSource:
     song_id: Optional[int] = None
     source_name: str = ""
     source_url: str = ""
+    download_reference: Optional[str] = None
     quality_kbps: Optional[int] = None
     file_size_bytes: Optional[int] = None
     file_type: Optional[str] = None
@@ -191,11 +193,13 @@ class SongSource:
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> 'SongSource':
         """Create SongSource from database row."""
+        keys = row.keys() if hasattr(row, 'keys') else []
         return cls(
             id=row['id'],
             song_id=row['song_id'],
             source_name=row['source_name'],
             source_url=row['source_url'],
+            download_reference=row['download_reference'] if 'download_reference' in keys else None,
             quality_kbps=row['quality_kbps'],
             file_size_bytes=row['file_size_bytes'],
             file_type=row['file_type'],

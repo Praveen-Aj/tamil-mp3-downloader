@@ -46,6 +46,7 @@ class SourceConfig:
 class SourceRuntimeState:
     """Dynamic runtime health and reliability metrics for a source."""
     health_status: SourceHealth = SourceHealth.ENABLED_HEALTHY
+    active_domain_index: int = 0
     last_successful_check: Optional[datetime] = None
     last_failure: Optional[datetime] = None
     last_error: Optional[str] = None
@@ -69,6 +70,11 @@ class RegisteredSource:
         if not config.enabled:
             self.state.health_status = SourceHealth.DISABLED
 
+        # Ensure scraper is set up with active domain
+        if self.scraper and self.config.domains:
+            domain_idx = self.state.active_domain_index % len(self.config.domains)
+            self.scraper.base_url = self.config.domains[domain_idx]
+
     @property
     def name(self) -> str:
         return self.config.name
@@ -80,6 +86,14 @@ class RegisteredSource:
     @property
     def enabled(self) -> bool:
         return self.config.enabled
+
+    @property
+    def active_domain(self) -> str:
+        """Get current active domain for the source."""
+        if not self.config.domains:
+            return ""
+        idx = self.state.active_domain_index % len(self.config.domains)
+        return self.config.domains[idx]
 
     @property
     def is_usable(self) -> bool:
@@ -102,11 +116,11 @@ class RegisteredSource:
         # Recovery transition
         if self.config.enabled:
             if self.state.health_status in (SourceHealth.ENABLED_UNAVAILABLE, SourceHealth.ENABLED_DEGRADED):
-                logger.info(f"Source '{self.name}' recovered: {self.state.health_status.value} -> ENABLED_HEALTHY")
+                logger.info(f"Source '{self.name}' recovered: {self.state.health_status.value} -> ENABLED_HEALTHY (active domain: {self.active_domain})")
                 self.state.health_status = SourceHealth.ENABLED_HEALTHY
 
     def record_failure(self, error_msg: str, timestamp: Optional[datetime] = None) -> None:
-        """Record an operation or health check failure."""
+        """Record an operation or health check failure, performing domain failover if alternate domains exist."""
         now = timestamp or datetime.now()
         self.state.last_failure = now
         self.state.last_error = error_msg
@@ -114,8 +128,21 @@ class RegisteredSource:
         self.state.consecutive_successes = 0
         self.state.reliability_score = max(0.0, self.state.reliability_score - 0.15)
 
+        num_domains = len(self.config.domains)
+        if num_domains > 1:
+            old_domain = self.active_domain
+            self.state.active_domain_index = (self.state.active_domain_index + 1) % num_domains
+            new_domain = self.active_domain
+            if self.scraper:
+                self.scraper.base_url = new_domain
+            logger.warning(
+                f"Source '{self.name}' domain failover: {old_domain} -> {new_domain} (failure: {error_msg})"
+            )
+
         if self.config.enabled:
-            if self.state.consecutive_failures >= 3:
+            # Mark unavailable after all domains fail at least once
+            max_failures = max(3, num_domains)
+            if self.state.consecutive_failures >= max_failures:
                 self.state.health_status = SourceHealth.ENABLED_UNAVAILABLE
             else:
                 self.state.health_status = SourceHealth.ENABLED_DEGRADED

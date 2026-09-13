@@ -237,6 +237,7 @@ class DiscoveryPipeline:
             song_id=song_id,
             source_name=source_name,
             source_url=song.url,
+            download_reference=getattr(song, "download_reference", None),
             quality_kbps=extract_quality_kbps(song),
             file_size_bytes=extract_file_size_bytes(song),
             file_type=extract_file_type(song),

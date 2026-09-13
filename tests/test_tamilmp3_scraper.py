@@ -127,11 +127,8 @@ def test_tamilmp3_get_download_url_dynamic_token(mock_post, mock_head):
         name="Kalla Nikkiriye",
         url="https://tamilmp3.in/anbil-avan-songs",
         quality="320kbps",
+        download_reference="Tamil Mp3 Songs/2026/Anbil Avan/Anbil Avan 320kbps/Kalla Nikkiriye.mp3",
     )
-    song.download_urls = {
-        "320": "Tamil Mp3 Songs/2026/Anbil Avan/Anbil Avan 320kbps/Kalla Nikkiriye.mp3",
-        "128": "Tamil Mp3 Songs/2026/Anbil Avan/Anbil Avan 128kbps/Kalla Nikkiriye.mp3",
-    }
 
     dl_url = scraper.get_download_url(song, quality="320")
 
@@ -140,9 +137,78 @@ def test_tamilmp3_get_download_url_dynamic_token(mock_post, mock_head):
     mock_head.assert_called_once()
 
 
+@patch("requests.Session.get")
+@patch("requests.Session.head")
+def test_verify_audio_url_honest_strategy(mock_head, mock_get):
+    scraper = Tamilmp3Scraper()
+
+    # Case 1: HEAD returns status 200 with audio/mpeg Content-Type -> Verified True
+    h1 = MagicMock()
+    h1.status_code = 200
+    h1.headers = {"Content-Type": "audio/mpeg"}
+    mock_head.return_value = h1
+
+    assert scraper._verify_audio_url("https://example.com/song.mp3") is True
+
+    # Case 2: HEAD fails (405/500/blocked) but Range GET succeeds with ID3 magic bytes -> Verified True
+    mock_head.side_effect = Exception("HEAD blocked by CDN")
+    
+    g1 = MagicMock()
+    g1.status_code = 206
+    g1.headers = {"Content-Type": "application/octet-stream"}
+    g1.raw.read.return_value = b"ID3\x04\x00\x00\x00"
+    g1.__enter__.return_value = g1
+    mock_get.return_value = g1
+
+    assert scraper._verify_audio_url("https://example.com/song.mp3") is True
+
+    # Case 3: HEAD fails and Range GET returns 404 HTML page -> Verified FALSE (never pretends passed)
+    g2 = MagicMock()
+    g2.status_code = 404
+    g2.headers = {"Content-Type": "text/html"}
+    g2.raw.read.return_value = b"<html>404 Not Found</html>"
+    g2.__enter__.return_value = g2
+    mock_get.return_value = g2
+
+    assert scraper._verify_audio_url("https://example.com/invalid.mp3") is False
+
+
 @pytest.mark.live
 def test_live_tamilmp3_connection():
-    """Optional live integration test."""
+    """Optional live connection check."""
     scraper = Tamilmp3Scraper()
     connected = scraper.test_connection()
     assert connected is True
+
+
+@pytest.mark.live
+def test_live_tamilmp3_full_protocol():
+    """
+    Live integration test verifying:
+    Tamilmp3 page -> actual data-path -> actual token.php request -> fresh signed URL -> bounded Range request audio validation.
+    """
+    scraper = Tamilmp3Scraper()
+    assert scraper.test_connection() is True
+
+    # 1. Get real albums
+    albums = scraper.get_albums(category="latest", max_pages=1)
+    assert len(albums) > 0, "No albums found on live Tamilmp3"
+    target_album = albums[0]
+
+    # 2. Get real songs
+    songs = scraper.get_songs(target_album)
+    assert len(songs) > 0, f"No songs found for album {target_album.url}"
+    target_song = songs[0]
+
+    # Check stable download_reference
+    assert getattr(target_song, "download_reference", None), "Missing download_reference on discovered Song"
+
+    # 3. Generate signed URL via token.php
+    signed_url = scraper.get_download_url(target_song)
+    assert signed_url is not None, "get_download_url failed to return signed URL"
+    assert "http" in signed_url
+
+    # 4. Verify audio stream using Range GET / HEAD validation
+    verified = scraper._verify_audio_url(signed_url)
+    assert verified is True, f"Audio verification failed for live signed URL: {signed_url}"
+

@@ -296,11 +296,11 @@ class SQLiteDatabase:
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR IGNORE INTO song_sources (
-                        song_id, source_name, source_url, quality_kbps, file_size_bytes,
+                        song_id, source_name, source_url, download_reference, quality_kbps, file_size_bytes,
                         file_type, metadata_complete, is_available, reliability_score, discovered_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    source.song_id, source.source_name, source.source_url,
+                    source.song_id, source.source_name, source.source_url, source.download_reference,
                     source.quality_kbps, source.file_size_bytes, source.file_type,
                     source.metadata_complete, source.is_available, source.reliability_score,
                     source.discovered_at or datetime.now().isoformat(),

@@ -126,7 +126,7 @@ class TestDatabaseSchema:
         cursor = db._conn.cursor()
         cursor.execute("SELECT MAX(version) FROM schema_version")
         version = cursor.fetchone()[0]
-        assert version == 1  # Should be at version 1
+        assert version == DatabaseMigrator.CURRENT_VERSION
 
         db.close()
 
@@ -140,7 +140,7 @@ class TestDatabaseSchema:
         cursor = db._conn.cursor()
         cursor.execute("SELECT MAX(version) FROM schema_version")
         version = cursor.fetchone()[0]
-        assert version == 1
+        assert version == DatabaseMigrator.CURRENT_VERSION
 
         # Second connection should not re-run migrations
         db2 = SQLiteDatabase(db_path)
@@ -148,7 +148,7 @@ class TestDatabaseSchema:
         cursor2 = db2._conn.cursor()
         cursor2.execute("SELECT MAX(version) FROM schema_version")
         version2 = cursor2.fetchone()[0]
-        assert version2 == 1
+        assert version2 == DatabaseMigrator.CURRENT_VERSION
 
         db2.close()
         db.close()

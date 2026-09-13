@@ -142,12 +142,55 @@ def test_source_isolation_health_checks():
 
 
 def test_multiple_domains_fallback():
+    """Test domain 1 failure -> domain 2 becomes active -> source remains usable."""
     cfg = SourceConfig(
         name="masstamilan",
         display_name="MassTamilan",
         domains=["https://www.masstamilan.dev", "https://masstamilan.in", "https://masstamilan.com"],
         enabled=True,
     )
-    src = RegisteredSource(cfg)
-    assert len(src.config.domains) == 3
-    assert src.config.domains[0] == "https://www.masstamilan.dev"
+    scraper = DummyScraper(base_url=cfg.domains[0])
+    src = RegisteredSource(cfg, scraper=scraper)
+
+    assert src.active_domain == "https://www.masstamilan.dev"
+    assert scraper.base_url == "https://www.masstamilan.dev"
+
+    # Domain 1 fails -> failover to domain 2
+    src.record_failure("Connection refused on domain 1")
+    assert src.active_domain == "https://masstamilan.in"
+    assert scraper.base_url == "https://masstamilan.in"
+    assert src.is_usable is True
+    assert src.state.health_status == SourceHealth.ENABLED_DEGRADED
+
+    # Domain 2 succeeds -> domain 2 remains active/preferred & recovers to healthy
+    src.record_success()
+    assert src.active_domain == "https://masstamilan.in"
+    assert src.is_usable is True
+    assert src.state.health_status == SourceHealth.ENABLED_HEALTHY
+
+
+def test_all_domains_failed_becomes_unavailable():
+    """Test all domains fail -> source becomes ENABLED_UNAVAILABLE."""
+    cfg = SourceConfig(
+        name="masstamilan",
+        display_name="MassTamilan",
+        domains=["https://domain1.dev", "https://domain2.in", "https://domain3.com"],
+        enabled=True,
+    )
+    scraper = DummyScraper(base_url=cfg.domains[0])
+    src = RegisteredSource(cfg, scraper=scraper)
+
+    # Fail across all 3 domains
+    src.record_failure("Domain 1 down")
+    assert src.active_domain == "https://domain2.in"
+    assert src.is_usable is True
+
+    src.record_failure("Domain 2 down")
+    assert src.active_domain == "https://domain3.com"
+    assert src.is_usable is True
+
+    src.record_failure("Domain 3 down")
+    # All 3 domains failed -> transitions to ENABLED_UNAVAILABLE
+    assert src.state.health_status == SourceHealth.ENABLED_UNAVAILABLE
+    assert src.is_usable is False
+

@@ -23,7 +23,7 @@ class DatabaseMigrator:
     """
 
     # Current schema version
-    CURRENT_VERSION = 1
+    CURRENT_VERSION = 2
 
     # Migration definitions
     MIGRATIONS = {
@@ -158,6 +158,10 @@ class DatabaseMigrator:
             version INTEGER PRIMARY KEY,
             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        """,
+        2: """
+        -- Add download_reference to song_sources
+        ALTER TABLE song_sources ADD COLUMN download_reference TEXT;
         """
     }
 

@@ -24,12 +24,15 @@ import threading
 import pytest
 from pathlib import Path
 
+from unittest.mock import MagicMock, patch
+
 from library.database import SQLiteDatabase
 from library.discovery import DiscoveryPipeline, song_to_canonical
 from library.models import LibrarySong, SongSource, SongState
 from library.planner import DownloadPlanner, DownloadPlan
 from library.registry import DownloadRegistry
 from models.song import Song, Album
+from scrapers.tamilmp3 import Tamilmp3Scraper
 
 
 # ---------------------------------------------------------------------------
@@ -1176,7 +1179,81 @@ class TestSourceReliabilityAndFailover:
         db.close()
 
 
+class TestPersistentDownloadReference:
+    """
+    Validation test for BLOCKER 5:
+    Proves that a persistent download reference stored in SQLite can be used
+    by a fresh scraper instance to generate a signed download URL and resolve audio.
+    """
+
+    def test_persistent_download_reference_workflow(self, tmp_path):
+        db_path = tmp_path / "test_ref.db"
+        db = SQLiteDatabase(db_path)
+        db.connect()
+        pipeline = DiscoveryPipeline(db)
+
+        # 1. Discover Tamilmp3 Song A with a stable download descriptor (data-path)
+        data_path = "Tamil Mp3 Songs/2026/Anbil Avan/Anbil Avan 320kbps/Kalla Nikkiriye.mp3"
+        song = Song(
+            name="Kalla Nikkiriye",
+            url="https://tamilmp3.in/anbil-avan-songs#320",
+            album_name="Anbil Avan",
+            artist="Govind Vasantha",
+            year=2026,
+            quality="320kbps",
+            size_mb=9.3,
+            download_reference=data_path,
+        )
+
+        # 2. Register into SQLite library
+        song_id = pipeline.register_song(song, source_name="tamilmp3")
+        assert song_id > 0
+
+        # 3. Discard the scraper & close DB connection
+        db.close()
+
+        # 4. Re-open DB and read Song A and its SongSource from SQLite
+        new_db = SQLiteDatabase(db_path)
+        new_db.connect()
+
+        lib_song = new_db.get_song(song_id)
+        assert lib_song is not None
+        sources = new_db.get_sources_for_song(song_id)
+        assert len(sources) == 1
+        retrieved_source = sources[0]
+
+        # 5. Obtain persistent download reference from SongSource
+        assert retrieved_source.download_reference == data_path
+
+        # 6. Create a fresh scraper instance
+        fresh_scraper = Tamilmp3Scraper("https://tamilmp3.in")
+
+        # 7. Generate a new signed download URL using retrieved_source
+        with patch("requests.Session.post") as mock_post, patch("requests.Session.head") as mock_head:
+            mock_post_resp = MagicMock()
+            mock_post_resp.status_code = 200
+            mock_post_resp.text = '{"url": "https://dl.tamilmp3.xyz/download.php?path=fresh_signed.mp3"}'
+            mock_post_resp.json.return_value = {"url": "https://dl.tamilmp3.xyz/download.php?path=fresh_signed.mp3"}
+            mock_post.return_value = mock_post_resp
+
+            mock_head_resp = MagicMock()
+            mock_head_resp.status_code = 200
+            mock_head_resp.headers = {"Content-Type": "audio/mpeg"}
+            mock_head.return_value = mock_head_resp
+
+            signed_url = fresh_scraper.get_download_url(retrieved_source)
+
+            # 8. Verify fresh signed URL resolution
+            assert signed_url == "https://dl.tamilmp3.xyz/download.php?path=fresh_signed.mp3"
+            mock_post.assert_called_once()
+            call_kwargs = mock_post.call_args[1]
+            assert call_kwargs["data"]["path"] == data_path
+
+        new_db.close()
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "--tb=short"])
+
 
