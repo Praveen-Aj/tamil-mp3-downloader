@@ -2,6 +2,12 @@
 
 A powerful, library-centric desktop application for discovering, deduplicating, and downloading Tamil music from multiple sources.
 
+> [!CAUTION]
+> **LEGAL & USAGE DISCLAIMER**  
+> This project is a generic **Audio Library Management & Bulk Downloader Framework** developed purely for educational and architectural demonstration purposes (exploring SQLite, Tkinter, and Threading). 
+> It includes source-specific scraping adapters that interact with third-party websites. You are solely responsible for ensuring that your use of this software complies with the terms of service of any third-party websites and local copyright laws. The authors do not host, distribute, or condone the illegal distribution of copyrighted material.
+
+
 ## Current Status
 
 - **Active Version:** `4.0.0`

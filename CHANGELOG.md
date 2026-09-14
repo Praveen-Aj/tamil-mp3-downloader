@@ -1,9 +1,29 @@
-﻿# Changelog
+# Changelog
 
 This changelog is generated from git history and repository state on branch `songs_downloader`.
 Analyzed range: `723f080` to `238b510` (2026-04-02 to 2026-04-03).
 
-## [Unreleased] - 2026-04-04
+## [4.0.0] - 2026-09-14
+
+### Major Architectural Rewrite: Library-Centric V4
+
+This release fundamentally changes the application from a "search-and-download" scraper tool into a robust **Music Library Manager** framework. 
+
+### Added
+- **Canonical SQLite Library**: Discovered songs are deduplicated, securely stored locally, and tracked across sessions.
+- **Source Health Registry**: Dynamic circuit-breaker tracking of scraper health. Sites experiencing HTTP errors automatically fallback to alternate domains.
+- **Download Planner Engine**: Automatically computes quality upgrades (e.g., 128kbps -> 320kbps) and skips songs the user already owns.
+- **CustomTkinter UI Module**: Complete modular UI rewrite featuring Dashboard, Canonical Library View, Discovery Planner, and Source Health visualizers.
+- **Thread-Safe Download Registry**: `threading.RLock`-backed registry guaranteeing concurrency safety and protecting against duplicate downloads of the same file.
+- **Local MP3 Importer**: Ability to scan existing MP3 collections and transparently map them to the canonical database.
+- **Database Migrations**: Idempotent SQL migration engine protecting library schema evolution.
+
+### Changed
+- `main.py` is now the primary CustomTkinter entrypoint instead of `gui.py`.
+- Legacy `gui.py` and `tui.py` moved to `docs/archive`.
+- Downloads are now asynchronous by default via `LibraryService`.
+
+## [3.x] - Legacy Versions
 
 ### Summary of Latest Status Updates
 
