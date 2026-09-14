@@ -103,7 +103,8 @@ class SongDetailsDialog(ctk.CTkToplevel):
 
         if contexts:
             for ctx in contexts:
-                ctx_text = f"• Source: {ctx.source_name} | Category: {ctx.category} | Context: {ctx.context_type}"
+                ctx_detail = f"Album: '{ctx.album_name}'" if ctx.album_name else f"Category: '{ctx.category or 'General'}'"
+                ctx_text = f"• Source: {ctx.source_name} | {ctx_detail}"
                 ctk.CTkLabel(
                     ctx_frame, text=ctx_text, font=ctk.CTkFont(size=11), text_color="#d0d0d0"
                 ).pack(anchor="w", padx=16, pady=2)
@@ -131,7 +132,7 @@ class SongDetailsDialog(ctk.CTkToplevel):
                 src_line = (
                     f"• {src.source_name} — {q_text}\n"
                     f"  URL: {src.source_url or 'N/A'}\n"
-                    f"  Format: {src.audio_format or 'mp3'} | Download Ref: {src.download_reference or 'N/A'}"
+                    f"  Format: {src.file_type or 'mp3'} | Download Ref: {src.download_reference or 'N/A'}"
                 )
                 ctk.CTkLabel(
                     sources_frame,
@@ -160,20 +161,25 @@ class SongDetailsDialog(ctk.CTkToplevel):
 
         reason_text = "No plan evaluated yet."
         if planner_decision:
-            if planner_decision.owned_songs and any(s.song.id == song.id for s in planner_decision.owned_songs):
+            if hasattr(planner_decision, "owned") and any(s.id == song.id for s in planner_decision.owned):
                 reason_text = "Decision: Excluded from download.\nReason: Song is already OWNED in library."
-            elif planner_decision.new_songs:
-                matching = [s for s in planner_decision.new_songs if s.song.id == song.id]
+            elif hasattr(planner_decision, "new_songs") and planner_decision.new_songs:
+                matching = [
+                    s for s in planner_decision.new_songs
+                    if (getattr(s, 'song_id', None) == song.id or getattr(getattr(s, 'song', None), 'id', None) == song.id)
+                ]
                 if matching:
                     ps = matching[0]
-                    target_q = ps.target_quality or "Best available"
-                    src_name = ps.primary.source_name if ps.primary else "None"
+                    target_q = (ps.primary.quality_kbps if ps.primary and ps.primary.quality_kbps else None) or "Best available"
+                    src_name = ps.primary.source_name if ps.primary else (ps.source_name or "None")
                     reason_text = (
                         f"Decision: Selected for download.\n"
                         f"Selected Source: {src_name} ({target_q} kbps)\n"
                         f"Reason: Preferred source and quality matching user criteria."
                     )
-            elif planner_decision.unresolvable:
+            elif getattr(planner_decision, "upgrades", None) and any(u.existing.id == song.id for u in planner_decision.upgrades):
+                reason_text = "Decision: Quality upgrade available.\nReason: Higher bitrate source available."
+            elif not getattr(planner_decision, "new_songs", None) and not getattr(planner_decision, "owned", None):
                 reason_text = "Decision: Cannot download.\nReason: No usable sources or audio URLs available."
 
         ctk.CTkLabel(

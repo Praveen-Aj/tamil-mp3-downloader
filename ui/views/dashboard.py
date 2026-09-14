@@ -35,7 +35,7 @@ class DashboardView(ctk.CTkFrame):
         self.service = service
         self.on_navigate = on_navigate
 
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # ── Title Header ──────────────────────────────────────────────
@@ -139,10 +139,10 @@ class DashboardView(ctk.CTkFrame):
 
     def _build_kpi_cards(self) -> None:
         cards_data = [
-            ("total_songs", "Total Songs", "#1f538d"),
-            ("owned_songs", "Owned Songs", "#1a6b3c"),
-            ("unowned_songs", "Unowned Songs", "#d97706"),
-            ("upgrades_available", "Upgrades Available", "#7c3aed"),
+            ("total_songs", "Total Songs", "#60a5fa"),
+            ("owned_songs", "Owned Songs", "#4ade80"),
+            ("unowned_songs", "Unowned Songs", "#fbbf24"),
+            ("upgrades_available", "Upgrades Available", "#c084fc"),
         ]
 
         for i, (key, title, color) in enumerate(cards_data):

@@ -63,6 +63,7 @@ def local_http_server():
 
 @pytest.fixture
 def temp_service(tmp_path):
+    orig_out_dir = settings.get("download.output_dir", "downloads")
     db_path = tmp_path / "test_library.db"
     service = LibraryService(db_path=db_path)
     out_dir = tmp_path / "downloads"
@@ -70,6 +71,7 @@ def temp_service(tmp_path):
     settings.set("download.output_dir", str(out_dir))
     yield service
     service.db.close()
+    settings.set("download.output_dir", orig_out_dir)
 
 
 class TestAuditFixes:

@@ -105,3 +105,55 @@ class TestLibraryService:
 
         stats_after = temp_service.get_dashboard_stats()
         assert stats_after["active_downloads"] == 0
+
+    def test_dialog_instantiation_and_rendering(self, temp_service):
+        """Verify PlanPreviewDialog and SongDetailsDialog can be instantiated without attribute errors."""
+        import customtkinter as ctk
+        from ui.dialogs.plan_preview import PlanPreviewDialog
+        from ui.dialogs.song_details import SongDetailsDialog
+        from library.models import DiscoveryContext
+
+        root = ctk.CTk()
+        root.withdraw()
+
+        # Add sample song and source
+        song = LibrarySong(
+            title="Aalaporaan Thamizhan",
+            artist="A.R. Rahman",
+            album="Mersal",
+            year=2017,
+            canonical_hash="aalaporaan_dialog_hash",
+        )
+        song_id = temp_service.db.add_song(song)
+        src = SongSource(
+            song_id=song_id,
+            source_name="masstamilan",
+            source_url="https://masstamilan.dev/aalaporaan.mp3",
+            quality_kbps=320,
+        )
+        temp_service.db.add_source(src)
+
+        # 1. Test PlanPreviewDialog
+        plan = temp_service.preview_download_plan([song_id])
+        dlg_plan = PlanPreviewDialog(root, plan=plan, on_confirm=lambda: None)
+        dlg_plan.update_idletasks()
+        assert dlg_plan.winfo_exists()
+        dlg_plan.destroy()
+
+        # 2. Test SongDetailsDialog
+        details = temp_service.get_song_details(song_id)
+        details["contexts"].append(
+            DiscoveryContext(song_id=song_id, source_name="masstamilan", category="latest", album_name="Mersal")
+        )
+        dlg_song = SongDetailsDialog(
+            root,
+            song=details["song"],
+            sources=details["sources"],
+            contexts=details["contexts"],
+            planner_decision=details.get("planner_decision"),
+        )
+        dlg_song.update_idletasks()
+        assert dlg_song.winfo_exists()
+        dlg_song.destroy()
+
+        root.destroy()

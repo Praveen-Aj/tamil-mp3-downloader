@@ -47,7 +47,7 @@ class TamilMP3App(ctk.CTk):
 
         self.title("🎵 Tamil MP3 Downloader — Canonical Library Architecture")
         self.geometry("1400x900")
-        self.minsize(1100, 720)
+        self.minsize(1000, 580)
 
         # Taskbar icon support
         try:
@@ -65,7 +65,9 @@ class TamilMP3App(ctk.CTk):
         # ── Initialize Central Service ──────────────────────────────
         self.service = LibraryService(db_path=db_path)
 
+        self.configure(fg_color="#12121c")
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
         self.grid_columnconfigure(1, weight=1)
 
         # ── 1. Sidebar Navigation ───────────────────────────────────
@@ -86,7 +88,7 @@ class TamilMP3App(ctk.CTk):
 
         # ── 3. Bottom Status Bar ─────────────────────────────────────
         self.status_bar = StatusBar(self)
-        self.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self.status_bar.grid(row=1, column=0, columnspan=2, sticky="nsew")
 
         # Initial view
         self.show_view("dashboard")

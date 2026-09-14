@@ -13,7 +13,7 @@ class StatusBar(ctk.CTkFrame):
     """Bottom status bar displaying global runtime status and metrics."""
 
     def __init__(self, master: Any, **kwargs):
-        super().__init__(master, height=36, corner_radius=0, **kwargs)
+        super().__init__(master, height=36, corner_radius=0, fg_color="#181824", **kwargs)
         self.grid_columnconfigure(3, weight=1)
         self.grid_propagate(False)
 
@@ -24,6 +24,7 @@ class StatusBar(ctk.CTkFrame):
             textvariable=self.stats_var,
             font=ctk.CTkFont(size=11, weight="bold"),
             text_color="#a0aab8",
+            fg_color="transparent",
         )
         self.stats_label.grid(row=0, column=0, padx=(12, 16), pady=6, sticky="w")
 
@@ -34,6 +35,7 @@ class StatusBar(ctk.CTkFrame):
             textvariable=self.sources_var,
             font=ctk.CTkFont(size=11),
             text_color="#4caf50",
+            fg_color="transparent",
         )
         self.sources_label.grid(row=0, column=1, padx=(0, 16), pady=6, sticky="w")
 
@@ -44,6 +46,7 @@ class StatusBar(ctk.CTkFrame):
             textvariable=self.dl_var,
             font=ctk.CTkFont(size=11),
             text_color="#64b5f6",
+            fg_color="transparent",
         )
         self.dl_label.grid(row=0, column=2, padx=(0, 16), pady=6, sticky="w")
 
@@ -55,6 +58,7 @@ class StatusBar(ctk.CTkFrame):
             font=ctk.CTkFont(size=11),
             text_color="#888888",
             anchor="e",
+            fg_color="transparent",
         )
         self.msg_label.grid(row=0, column=3, padx=(16, 12), pady=6, sticky="e")
 

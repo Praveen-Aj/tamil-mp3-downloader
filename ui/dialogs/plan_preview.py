@@ -50,24 +50,17 @@ class PlanPreviewDialog(ctk.CTkToplevel):
             text_color="#90caf9",
         ).grid(row=0, column=0, columnspan=2, padx=14, pady=(10, 6), sticky="w")
 
-        selected_cnt = len(plan.planned_songs)
-        owned_cnt = len(plan.owned_songs)
+        selected_cnt = plan.unique_canonical or (len(plan.new_songs) + len(plan.owned) + len(plan.upgrades))
+        owned_cnt = len(plan.owned)
         new_cnt = len(plan.new_songs)
-        unavail_cnt = len(plan.unresolvable)
-        
-        # Check quality upgrades count
-        upgrades_cnt = sum(
-            1 for ps in plan.new_songs
-            if ps.song.state == "OWNED" or (ps.song.quality_kbps and ps.target_quality and ps.target_quality > ps.song.quality_kbps)
-        )
-        actual_dl_cnt = new_cnt
+        upgrades_cnt = len(plan.upgrades)
+        actual_dl_cnt = plan.total_to_download if hasattr(plan, "total_to_download") else (new_cnt + upgrades_cnt)
 
         summary_text = (
             f"Selected Songs:      {selected_cnt:>5}\n"
             f"Already Owned:       {owned_cnt:>5}\n"
-            f"New Downloads:       {new_cnt - upgrades_cnt:>5}\n"
+            f"New Downloads:       {new_cnt:>5}\n"
             f"Quality Upgrades:    {upgrades_cnt:>5}\n"
-            f"Unavailable:         {unavail_cnt:>5}\n"
             f"-------------------------------\n"
             f"Actual Downloads:    {actual_dl_cnt:>5}"
         )
@@ -126,39 +119,50 @@ class PlanPreviewDialog(ctk.CTkToplevel):
         vsb.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=vsb.set)
 
-        # Populate rows
+        # Populate rows: New Downloads
         for ps in plan.new_songs:
-            is_upgrade = ps.song.quality_kbps and ps.target_quality and ps.target_quality > ps.song.quality_kbps
-            action_str = "Upgrade" if is_upgrade else "New Download"
-            src_name = ps.primary.source_name if ps.primary else "-"
-            q_str = f"{ps.target_quality} kbps" if ps.target_quality else "Best"
+            title = ps.song.name if hasattr(ps.song, "name") else getattr(ps.song, "title", str(ps.song))
+            artist = getattr(ps.song, "artist", None) or getattr(ps.song, "album_name", "-") or "-"
+            src_name = ps.primary.source_name if ps.primary else (ps.source_name or "-")
+            q_str = ps.primary.quality_str if ps.primary else "Best"
 
             self.tree.insert(
                 "",
                 "end",
-                values=(ps.song.title, ps.song.artist, action_str, src_name, q_str),
+                values=(title, artist, "New Download", src_name, q_str),
                 tags=("download",),
             )
 
-        for ps in plan.owned_songs:
+        # Populate rows: Upgrades
+        for up in plan.upgrades:
+            title = up.song.name if hasattr(up.song, "name") else up.existing.title
+            artist = getattr(up.song, "artist", None) or up.existing.artist or "-"
+            src_name = up.source_name or (up.new_source.source_name if up.new_source else "-")
+            q_str = up.new_source.quality_str if up.new_source else "320kbps"
+
             self.tree.insert(
                 "",
                 "end",
-                values=(ps.song.title, ps.song.artist, "Skipped (Owned)", "-", f"{ps.song.quality_kbps or '?'} kbps"),
+                values=(title, artist, f"Upgrade (+{up.quality_gain}k)", src_name, q_str),
+                tags=("upgrade",),
+            )
+
+        # Populate rows: Owned Songs
+        for s in plan.owned:
+            title = s.title if hasattr(s, "title") else (s.song.name if hasattr(s, "song") else str(s))
+            artist = getattr(s, "artist", "-") or "-"
+            q_val = getattr(s, "quality_kbps", "?")
+
+            self.tree.insert(
+                "",
+                "end",
+                values=(title, artist, "Skipped (Owned)", "-", f"{q_val} kbps"),
                 tags=("owned",),
             )
 
-        for s in plan.unresolvable:
-            self.tree.insert(
-                "",
-                "end",
-                values=(s.title, s.artist, "Unavailable", "-", "N/A"),
-                tags=("unavail",),
-            )
-
         self.tree.tag_configure("download", foreground="#81c784")
+        self.tree.tag_configure("upgrade", foreground="#ba68c8")
         self.tree.tag_configure("owned", foreground="#888888")
-        self.tree.tag_configure("unavail", foreground="#e57373")
 
         # ── 3. Buttons Bar ─────────────────────────────────────────────
         btn_frame = ctk.CTkFrame(self, height=50, corner_radius=0)
