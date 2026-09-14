@@ -1,16 +1,17 @@
 """
-Tamil MP3 Downloader — Modular UI Application (Phase 1).
+Tamil MP3 Downloader — Modular UI Application.
 
 Main application entry window mounting SidebarNav, dynamic View container, and StatusBar.
 Encapsulates all UI views:
-- Dashboard (Phase 2)
-- Library (Phase 3)
-- Discover (Phase 5)
-- Discovery Results (Phase 6)
-- Downloads (Phase 8)
-- Import (Phase 9)
-- Sources (Phase 10)
-- Settings (Phase 11)
+- Dashboard
+- Add Music (Universal URL & Playlist Import)
+- Library (Canonical SQLite Library)
+- Discover (Regional Discovery)
+- Review Results (Conflict & Match Review)
+- Downloads (Downloads Manager Queue)
+- Sources (Source Health Dashboard)
+- Settings (Settings Center)
+- Help (Help & User Guide)
 """
 
 import logging
@@ -19,6 +20,7 @@ from typing import Dict, Any, Optional
 
 import customtkinter as ctk
 
+from ui import theme
 from ui.components.sidebar import SidebarNav
 from ui.components.status_bar import StatusBar
 from ui.services.library_service import LibraryService
@@ -47,9 +49,9 @@ class TamilMP3App(ctk.CTk):
     def __init__(self, db_path: Optional[Path] = None) -> None:
         super().__init__()
 
-        self.title("🎵 Tamil MP3 Downloader — Canonical Library Architecture")
+        self.title("🎵 Tamil MP3 Downloader — Desktop Music Downloader & Library Manager")
         self.geometry("1400x900")
-        self.minsize(1000, 580)
+        self.minsize(1000, 600)
 
         # Taskbar icon support
         try:
@@ -67,7 +69,7 @@ class TamilMP3App(ctk.CTk):
         # ── Initialize Central Service ──────────────────────────────
         self.service = LibraryService(db_path=db_path)
 
-        self.configure(fg_color="#12121c")
+        self.configure(fg_color=theme.BG_APP)
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -131,6 +133,7 @@ class TamilMP3App(ctk.CTk):
         self.views["downloads"] = DownloadsView(
             self.view_container,
             service=self.service,
+            on_navigate_add_music=lambda: self.show_view("add_music"),
         )
 
         self.views["import"] = ImportView(
@@ -162,6 +165,7 @@ class TamilMP3App(ctk.CTk):
             self.views[self.current_view_name].grid_forget()
 
         self.current_view_name = view_name
+        self.sidebar.set_active(view_name)
         target_view = self.views[view_name]
         target_view.grid(row=0, column=0, sticky="nsew")
 
@@ -172,14 +176,21 @@ class TamilMP3App(ctk.CTk):
         self.refresh_status_bar()
 
     def refresh_status_bar(self) -> None:
-        """Update global status bar metrics."""
+        """Update global status bar metrics and sidebar badge counters."""
         stats = self.service.get_dashboard_stats()
+        active_dl = stats.get("active_downloads", 0)
+        unowned_cnt = stats.get("ready_downloads", 0)
+
         self.status_bar.update_stats(
             total=stats.get("total_songs", 0),
             owned=stats.get("owned_songs", 0),
             healthy_sources=stats.get("healthy_sources", "3/3"),
-            active_dl=stats.get("active_downloads", 0),
+            active_dl=active_dl,
         )
+
+        # Update sidebar notification badge pills
+        self.sidebar.update_badge("downloads", active_dl)
+        self.sidebar.update_badge("results", min(unowned_cnt, 99))
 
     def _on_discovery_complete(self, results: Dict[str, Any]) -> None:
         """Callback when discovery finishes — switch to Results View."""

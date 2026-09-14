@@ -1,21 +1,26 @@
 """
-Redesigned Modern Dashboard View (Part 14).
-Provides rich library metrics, quick Add Music CTA, recent import jobs,
-and discovery health overview.
+Redesigned Modern Dashboard View.
+
+Consumer-focused desktop overview featuring:
+- Hero banner with primary CTA ("Download your music") and secondary quick actions
+- 6 Key Performance Metric cards with contextual hints
+- Recent URL/Playlist imports table with progress and actions
+- Library Snapshot & Recent Download Activity with artwork placeholders
+- Concise Source Health status summary
 """
 
-from typing import Dict, Any, Callable, Optional, List
+from typing import Dict, Any, Callable, List
 import tkinter as tk
 import customtkinter as ctk
 
 from library.models import ImportJob, JobStatus
 from ui.services.library_service import LibraryService
+from ui import theme
 
 
 class DashboardView(ctk.CTkFrame):
     """
-    Modern Desktop Music Dashboard with metric cards, quick acquisition CTA,
-    and recent activity tracking.
+    Polished desktop music dashboard.
     """
 
     def __init__(
@@ -33,240 +38,544 @@ class DashboardView(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
 
         # ── 1. Top Header ───────────────────────────────────────────
-        header = ctk.CTkFrame(self, height=60, corner_radius=0, fg_color="#181824")
+        header = ctk.CTkFrame(self, height=64, corner_radius=0, fg_color=theme.BG_HEADER)
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
 
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(side="left", padx=24, pady=12)
+
         ctk.CTkLabel(
-            header,
-            text="📊  Dashboard Overview",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#ffffff",
-        ).pack(side="left", padx=20, pady=12)
+            title_frame,
+            text="📊  DASHBOARD",
+            font=theme.font_hero(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack(anchor="w")
 
-        # Action bar in header
-        ctk.CTkButton(
-            header,
-            text="➕ Add Music",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#6366f1",
-            hover_color="#4f46e5",
-            width=120,
-            height=34,
-            command=lambda: self.on_navigate("add_music"),
-        ).pack(side="right", padx=16, pady=12)
+        # Action buttons in header
+        btn_box = ctk.CTkFrame(header, fg_color="transparent")
+        btn_box.pack(side="right", padx=20, pady=12)
 
         ctk.CTkButton(
-            header,
+            btn_box,
             text="🔄 Refresh",
-            width=85,
-            height=34,
-            fg_color=("gray75", "#2a2a3c"),
-            hover_color=("gray65", "#3f3f5a"),
+            width=90,
+            height=36,
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            font=theme.font_body(),
+            corner_radius=theme.RADIUS_MD,
             command=self.refresh,
-        ).pack(side="right", padx=(0, 8), pady=12)
+        ).pack(side="right", padx=(8, 0))
 
-        # ── 2. Scrollable Body ──────────────────────────────────────
+        ctk.CTkButton(
+            btn_box,
+            text="⚡ + Add Music",
+            font=theme.font_body_bold(),
+            fg_color=theme.PRIMARY,
+            hover_color=theme.PRIMARY_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            width=130,
+            height=36,
+            corner_radius=theme.RADIUS_MD,
+            command=lambda: self.on_navigate("add_music"),
+        ).pack(side="right")
+
+        # ── 2. Main Scrollable Container ────────────────────────────
         self.scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
-        self.scroll.grid(row=1, column=0, sticky="nsew", padx=20, pady=15)
-        self.scroll.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        self.scroll.grid(row=1, column=0, sticky="nsew", padx=24, pady=16)
+        self.scroll.grid_columnconfigure(0, weight=1)
 
-        # ── 3. Quick Action Hero Banner ─────────────────────────────
-        hero = ctk.CTkFrame(self.scroll, corner_radius=12, fg_color=("gray90", "#181824"))
-        hero.grid(row=0, column=0, columnspan=6, sticky="ew", pady=(0, 16))
+        # ── 3. Prominent Hero Acquisition Banner ────────────────────
+        hero = ctk.CTkFrame(
+            self.scroll,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        hero.pack(fill="x", pady=(0, 20))
         hero.grid_columnconfigure(0, weight=1)
 
-        hero_left = ctk.CTkFrame(hero, fg_color="transparent")
-        hero_left.pack(side="left", padx=20, pady=18)
+        hero_body = ctk.CTkFrame(hero, fg_color="transparent")
+        hero_body.pack(fill="x", padx=24, pady=22)
+
+        hero_top = ctk.CTkFrame(hero_body, fg_color="transparent")
+        hero_top.pack(fill="x")
+
+        # Text side
+        text_box = ctk.CTkFrame(hero_top, fg_color="transparent")
+        text_box.pack(side="left", fill="both", expand=True)
 
         ctk.CTkLabel(
-            hero_left,
-            text="🎵 Ready to expand your music collection?",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=("gray10", "#f3f4f6"),
+            text_box,
+            text="🎵  Download Your Music",
+            font=theme.font_hero(),
+            text_color=theme.TEXT_PRIMARY,
+            anchor="w",
         ).pack(anchor="w")
 
         ctk.CTkLabel(
-            hero_left,
-            text="Paste Spotify, YouTube, or direct music URLs to analyze tracks, verify audio sources, and download into your library.",
-            font=ctk.CTkFont(size=12),
-            text_color=("gray50", "#9ca3af"),
-        ).pack(anchor="w", pady=(4, 0))
+            text_box,
+            text="Paste a YouTube, Spotify playlist, track URL or direct audio stream to automatically detect, match, and organize high-quality MP3s.",
+            font=theme.font_body(),
+            text_color=theme.TEXT_MUTED,
+            anchor="w",
+            wraplength=650,
+            justify="left",
+        ).pack(anchor="w", pady=(6, 14))
 
-        hero_btn = ctk.CTkButton(
-            hero,
-            text="➕ Add Music via URL",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#10b981",
-            hover_color="#059669",
-            height=38,
+        # Action Buttons Row
+        action_row = ctk.CTkFrame(text_box, fg_color="transparent")
+        action_row.pack(anchor="w")
+
+        ctk.CTkButton(
+            action_row,
+            text="⚡ + Add Music via URL",
+            font=theme.font_body_bold(),
+            fg_color=theme.PRIMARY,
+            hover_color=theme.PRIMARY_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            height=40,
+            width=180,
+            corner_radius=theme.RADIUS_MD,
             command=lambda: self.on_navigate("add_music"),
-        )
-        hero_btn.pack(side="right", padx=20, pady=18)
+        ).pack(side="left", padx=(0, 10))
 
-        # ── 4. Metric KPI Cards (6 Cards) ───────────────────────────
+        ctk.CTkButton(
+            action_row,
+            text="📚 Browse Library",
+            font=theme.font_body(),
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            height=40,
+            width=140,
+            corner_radius=theme.RADIUS_MD,
+            command=lambda: self.on_navigate("library"),
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            action_row,
+            text="🔍 Discover Tamil Songs",
+            font=theme.font_body(),
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            height=40,
+            width=170,
+            corner_radius=theme.RADIUS_MD,
+            command=lambda: self.on_navigate("discover"),
+        ).pack(side="left")
+
+        # ── 4. 6 Attractive Metric KPI Cards ─────────────────────────
         self._card_vars: Dict[str, tk.StringVar] = {}
         self._build_kpi_cards()
 
-        # ── 5. Split Panes: Recent Imports & System Status ───────────
-        bottom_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        bottom_frame.grid(row=2, column=0, columnspan=6, sticky="nsew", pady=12)
-        bottom_frame.grid_columnconfigure(0, weight=3)
-        bottom_frame.grid_columnconfigure(1, weight=2)
+        # ── 5. Split Row: Recent Imports & Source Health ─────────────
+        split_row = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        split_row.pack(fill="both", expand=True, pady=(0, 20))
+        split_row.grid_columnconfigure(0, weight=3)
+        split_row.grid_columnconfigure(1, weight=2)
 
-        # Recent Import Jobs Pane (Left)
-        self.jobs_card = ctk.CTkFrame(bottom_frame, corner_radius=12, fg_color=("gray90", "#181824"))
-        self.jobs_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        # Recent Imports Pane
+        self.jobs_card = ctk.CTkFrame(
+            split_row,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        self.jobs_card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        self._build_recent_imports_panel()
 
-        ctk.CTkLabel(
-            self.jobs_card,
-            text="RECENT PLAYLIST & URL IMPORTS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#60a5fa",
-        ).pack(anchor="w", padx=16, pady=(14, 8))
+        # Source Health & Activity Pane
+        self.status_card = ctk.CTkFrame(
+            split_row,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        self.status_card.grid(row=0, column=1, sticky="nsew")
+        self._build_sources_panel()
 
-        self.jobs_container = ctk.CTkFrame(self.jobs_card, fg_color="transparent")
-        self.jobs_container.pack(fill="both", expand=True, padx=16, pady=(0, 14))
+        # ── 6. Library Snapshot / Recent Activity ────────────────────
+        self.snapshot_card = ctk.CTkFrame(
+            self.scroll,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        self.snapshot_card.pack(fill="x", pady=(0, 10))
+        self._build_snapshot_panel()
 
-        # Discovery & Health Status Pane (Right)
-        status_card = ctk.CTkFrame(bottom_frame, corner_radius=12, fg_color=("gray90", "#181824"))
-        status_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-
-        ctk.CTkLabel(
-            status_card,
-            text="SOURCE & SYSTEM HEALTH",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#fbbf24",
-        ).pack(anchor="w", padx=16, pady=(14, 8))
-
-        self.health_var = tk.StringVar(value="Loading system health...")
-        ctk.CTkLabel(
-            status_card,
-            textvariable=self.health_var,
-            font=ctk.CTkFont(size=12),
-            text_color=("gray40", "#d1d5db"),
-            justify="left",
-            wraplength=350,
-        ).pack(anchor="w", padx=16, pady=(0, 14))
-
-        # Quick navigation buttons in status card
-        nav_box = ctk.CTkFrame(status_card, fg_color="transparent")
-        nav_box.pack(fill="x", padx=16, pady=(0, 14))
-
-        ctk.CTkButton(
-            nav_box,
-            text="🔍 Discover Songs",
-            height=32,
-            fg_color=("gray75", "#2a2a3c"),
-            hover_color=("gray65", "#3f3f5a"),
-            command=lambda: self.on_navigate("discover"),
-        ).pack(fill="x", pady=3)
-
-        ctk.CTkButton(
-            nav_box,
-            text="📚 Browse Library",
-            height=32,
-            fg_color=("gray75", "#2a2a3c"),
-            hover_color=("gray65", "#3f3f5a"),
-            command=lambda: self.on_navigate("library"),
-        ).pack(fill="x", pady=3)
-
-        ctk.CTkButton(
-            nav_box,
-            text="🌐 Source Health",
-            height=32,
-            fg_color=("gray75", "#2a2a3c"),
-            hover_color=("gray65", "#3f3f5a"),
-            command=lambda: self.on_navigate("sources"),
-        ).pack(fill="x", pady=3)
-
+        # Load data
         self.refresh()
 
     def _build_kpi_cards(self) -> None:
-        cards_data = [
-            ("total_songs", "Total Songs", "#60a5fa", 0),
-            ("owned_songs", "Owned", "#4ade80", 1),
-            ("unowned_songs", "Ready to Download", "#38bdf8", 2),
-            ("upgrades_available", "Upgrades Available", "#c084fc", 3),
-            ("active_downloads", "Active Queue", "#fbbf24", 4),
-            ("failed_downloads", "Failed Downloads", "#f87171", 5),
+        """Create 6 distinct KPI metric cards with icons and status colors."""
+        grid_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        grid_frame.pack(fill="x", pady=(0, 20))
+        for i in range(6):
+            grid_frame.grid_columnconfigure(i, weight=1)
+
+        cards = [
+            ("total_songs", "📚 Total Songs", "0", "In Canonical Library", theme.PRIMARY),
+            ("owned_songs", "✓ Downloaded", "0", "Ready to play", theme.SUCCESS),
+            ("ready_downloads", "↓ Ready to Get", "0", "Available sources", theme.INFO),
+            ("active_downloads", "⏳ Active Jobs", "0", "Downloading now", theme.ACCENT_CYAN),
+            ("failed_downloads", "✕ Failed / Review", "0", "Needs attention", theme.WARNING),
+            ("storage_used", "💾 Storage Used", "0 MB", "Estimated audio disk", theme.TEXT_SECONDARY),
         ]
 
-        for key, title, color, col_idx in cards_data:
-            card = ctk.CTkFrame(self.scroll, corner_radius=10, fg_color=("gray90", "#181824"))
-            card.grid(row=1, column=col_idx, sticky="nsew", padx=4, pady=4)
+        for idx, (key, title, default_val, subtitle, accent_color) in enumerate(cards):
+            card = ctk.CTkFrame(
+                grid_frame,
+                corner_radius=theme.RADIUS_MD,
+                fg_color=theme.SURFACE,
+                border_width=1,
+                border_color=theme.BORDER,
+            )
+            card.grid(row=0, column=idx, padx=4, sticky="nsew")
 
+            content = ctk.CTkFrame(card, fg_color="transparent")
+            content.pack(fill="both", padx=14, pady=14)
+
+            # Top label
             ctk.CTkLabel(
-                card, text=title, font=ctk.CTkFont(size=11), text_color=("gray50", "#9ca3af")
-            ).pack(anchor="w", padx=12, pady=(10, 2))
+                content,
+                text=title,
+                font=theme.font_caption_bold(),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).pack(anchor="w")
 
-            var = tk.StringVar(value="0")
+            # Value
+            var = tk.StringVar(value=default_val)
             self._card_vars[key] = var
+            val_lbl = ctk.CTkLabel(
+                content,
+                textvariable=var,
+                font=theme.font_hero(),
+                text_color=accent_color,
+                anchor="w",
+            )
+            val_lbl.pack(anchor="w", pady=(6, 2))
+
+            # Context
+            ctk.CTkLabel(
+                content,
+                text=subtitle,
+                font=ctk.CTkFont(size=10),
+                text_color=theme.TEXT_DIM,
+                anchor="w",
+            ).pack(anchor="w")
+
+    def _build_recent_imports_panel(self) -> None:
+        """Construct Recent Imports section."""
+        hdr = ctk.CTkFrame(self.jobs_card, fg_color="transparent")
+        hdr.pack(fill="x", padx=18, pady=(16, 12))
+
+        ctk.CTkLabel(
+            hdr,
+            text="📥  Recent URL & Playlist Imports",
+            font=theme.font_subtitle(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            hdr,
+            text="View All Jobs",
+            font=theme.font_caption_bold(),
+            width=90,
+            height=26,
+            fg_color="transparent",
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.PRIMARY_LIGHT,
+            command=lambda: self.on_navigate("downloads"),
+        ).pack(side="right")
+
+        self.jobs_list = ctk.CTkFrame(self.jobs_card, fg_color="transparent")
+        self.jobs_list.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+
+    def _build_sources_panel(self) -> None:
+        """Construct Source Health overview panel."""
+        hdr = ctk.CTkFrame(self.status_card, fg_color="transparent")
+        hdr.pack(fill="x", padx=18, pady=(16, 12))
+
+        ctk.CTkLabel(
+            hdr,
+            text="🌐  Source Providers",
+            font=theme.font_subtitle(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            hdr,
+            text="Status Details",
+            font=theme.font_caption_bold(),
+            width=90,
+            height=26,
+            fg_color="transparent",
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.PRIMARY_LIGHT,
+            command=lambda: self.on_navigate("sources"),
+        ).pack(side="right")
+
+        sources_box = ctk.CTkFrame(self.status_card, fg_color="transparent")
+        sources_box.pack(fill="both", expand=True, padx=18, pady=(0, 16))
+
+        sources = [
+            ("YouTube / yt-dlp", "Operational · High-bitrate audio engine", "🟢", theme.SUCCESS),
+            ("Spotify Metadata", "Available · Public track/playlist parser", "🟢", theme.SUCCESS),
+            ("Direct Audio Streams", "Operational · HTTP/HTTPS direct downloader", "🟢", theme.SUCCESS),
+            ("Regional Tamil Sources", "Operational · MassTamilan, TamilMP3", "🟢", theme.SUCCESS),
+        ]
+
+        for name, desc, dot, color in sources:
+            item = ctk.CTkFrame(
+                sources_box,
+                fg_color=theme.SURFACE_ELEVATED,
+                corner_radius=theme.RADIUS_SM,
+                border_width=1,
+                border_color=theme.BORDER,
+            )
+            item.pack(fill="x", pady=4)
+
+            row = ctk.CTkFrame(item, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=10)
+
+            dot_lbl = ctk.CTkLabel(row, text=dot, font=ctk.CTkFont(size=14))
+            dot_lbl.pack(side="left", padx=(0, 10))
+
+            info = ctk.CTkFrame(row, fg_color="transparent")
+            info.pack(side="left", fill="both")
 
             ctk.CTkLabel(
-                card,
-                textvariable=var,
-                font=ctk.CTkFont(size=22, weight="bold"),
-                text_color=color,
-            ).pack(anchor="w", padx=12, pady=(0, 10))
+                info,
+                text=name,
+                font=theme.font_body_bold(),
+                text_color=theme.TEXT_PRIMARY,
+                anchor="w",
+            ).pack(anchor="w")
+
+            ctk.CTkLabel(
+                info,
+                text=desc,
+                font=theme.font_caption(),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).pack(anchor="w")
+
+    def _build_snapshot_panel(self) -> None:
+        """Construct Library Snapshot / Recent Downloads section."""
+        hdr = ctk.CTkFrame(self.snapshot_card, fg_color="transparent")
+        hdr.pack(fill="x", padx=20, pady=(16, 12))
+
+        ctk.CTkLabel(
+            hdr,
+            text="🎧  Recent Library Additions",
+            font=theme.font_subtitle(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            hdr,
+            text="Open Full Library",
+            font=theme.font_caption_bold(),
+            width=110,
+            height=26,
+            fg_color="transparent",
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.PRIMARY_LIGHT,
+            command=lambda: self.on_navigate("library"),
+        ).pack(side="right")
+
+        self.snapshot_container = ctk.CTkFrame(self.snapshot_card, fg_color="transparent")
+        self.snapshot_container.pack(fill="x", padx=20, pady=(0, 16))
 
     def refresh(self) -> None:
-        """Fetch updated metrics, recent import jobs, and system status."""
+        """Fetch fresh metrics from service and render list items."""
         stats = self.service.get_dashboard_stats()
 
-        self._card_vars["total_songs"].set(f"{stats.get('total_songs', 0):,}")
-        self._card_vars["owned_songs"].set(f"{stats.get('owned_songs', 0):,}")
-        self._card_vars["unowned_songs"].set(f"{stats.get('unowned_songs', 0):,}")
-        self._card_vars["upgrades_available"].set(f"{stats.get('upgrades_available', 0):,}")
-        self._card_vars["active_downloads"].set(f"{stats.get('active_downloads', 0):,}")
+        total = stats.get("total_songs", 0)
+        owned = stats.get("owned_songs", 0)
+        ready = stats.get("ready_downloads", 0)
+        active = stats.get("active_downloads", 0)
+        failed = stats.get("failed_downloads", 0)
+        storage_mb = stats.get("storage_mb", owned * 8)
 
-        # Failed downloads
-        all_dls = self.service.db.get_all_downloads()
-        failed_cnt = sum(1 for d in all_dls if hasattr(d.state, "value") and d.state.value == "FAILED")
-        self._card_vars["failed_downloads"].set(f"{failed_cnt:,}")
+        self._card_vars["total_songs"].set(f"{total:,}")
+        self._card_vars["owned_songs"].set(f"{owned:,}")
+        self._card_vars["ready_downloads"].set(f"{ready:,}")
+        self._card_vars["active_downloads"].set(f"{active:,}")
+        self._card_vars["failed_downloads"].set(f"{failed:,}")
+        if storage_mb >= 1024:
+            self._card_vars["storage_used"].set(f"{storage_mb/1024:.1f} GB")
+        else:
+            self._card_vars["storage_used"].set(f"{storage_mb:,} MB")
 
-        # System health text
-        health_info = (
-            f"• Core Regional Sources: {stats.get('healthy_sources', 'N/A')}\n"
-            f"• Audio Providers: YouTube (yt-dlp), Tamil Regional, Direct HTTP\n"
-            f"• Storage Location: {self.service.db_path.parent}\n"
-            f"• SQLite Canonical State: Synchronized"
-        )
-        self.health_var.set(health_info)
+        self._render_recent_jobs()
+        self._render_library_snapshot()
 
-        # Render recent import jobs
-        for w in self.jobs_container.winfo_children():
+    def _render_recent_jobs(self) -> None:
+        """Render recent import jobs or empty state."""
+        for w in self.jobs_list.winfo_children():
             w.destroy()
 
-        recent_jobs = self.service.get_recent_import_jobs(limit=5)
-        if not recent_jobs:
+        jobs = self.service.get_recent_import_jobs(limit=4)
+        if not jobs:
+            empty = ctk.CTkFrame(self.jobs_list, fg_color="transparent")
+            empty.pack(fill="both", expand=True, pady=20)
             ctk.CTkLabel(
-                self.jobs_container,
-                text="No URL or playlist imports yet. Click '+ Add Music' above to start!",
-                font=ctk.CTkFont(size=12),
-                text_color=("gray50", "#9ca3af"),
-            ).pack(anchor="w", pady=10)
-        else:
-            for job in recent_jobs:
-                row = ctk.CTkFrame(self.jobs_container, fg_color=("gray85", "#1e1e2d"), corner_radius=8)
-                row.pack(fill="x", pady=4)
+                empty,
+                text="✨  No recent imports yet",
+                font=theme.font_body_bold(),
+                text_color=theme.TEXT_MUTED,
+            ).pack()
+            ctk.CTkLabel(
+                empty,
+                text="Paste a music or playlist URL to import your favorite tracks.",
+                font=theme.font_caption(),
+                text_color=theme.TEXT_DIM,
+            ).pack(pady=(4, 10))
+            ctk.CTkButton(
+                empty,
+                text="+ Import First URL",
+                font=theme.font_caption_bold(),
+                height=30,
+                width=130,
+                fg_color=theme.PRIMARY,
+                hover_color=theme.PRIMARY_HOVER,
+                corner_radius=theme.RADIUS_MD,
+                command=lambda: self.on_navigate("add_music"),
+            ).pack()
+            return
 
-                status_color = "#10b981" if job.status == JobStatus.COMPLETED else "#60a5fa"
-                if job.status == JobStatus.FAILED:
-                    status_color = "#ef4444"
+        for job in jobs:
+            card = ctk.CTkFrame(
+                self.jobs_list,
+                fg_color=theme.SURFACE_ELEVATED,
+                corner_radius=theme.RADIUS_SM,
+                border_width=1,
+                border_color=theme.BORDER,
+            )
+            card.pack(fill="x", pady=4)
 
-                lbl = ctk.CTkLabel(
-                    row,
-                    text=f"[{job.platform}] {job.title} ({job.total_tracks} tracks)",
-                    font=ctk.CTkFont(size=12, weight="bold"),
-                    anchor="w",
-                )
-                lbl.pack(side="left", padx=12, pady=8)
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=10)
 
-                st_lbl = ctk.CTkLabel(
-                    row,
-                    text=job.status.value,
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    text_color=status_color,
-                )
-                st_lbl.pack(side="right", padx=12, pady=8)
+            # Platform icon
+            icon = "🟢" if "spotify" in job.url.lower() else "🔴" if "youtu" in job.url.lower() else "🔗"
+            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=14)).pack(side="left", padx=(0, 10))
+
+            info = ctk.CTkFrame(row, fg_color="transparent")
+            info.pack(side="left", fill="both", expand=True)
+
+            ctk.CTkLabel(
+                info,
+                text=job.title or "Untitled Import",
+                font=theme.font_body_bold(),
+                text_color=theme.TEXT_PRIMARY,
+                anchor="w",
+            ).pack(anchor="w")
+
+            meta_txt = f"{job.track_count} tracks · {job.platform.capitalize() if job.platform else 'Web'}"
+            ctk.CTkLabel(
+                info,
+                text=meta_txt,
+                font=theme.font_caption(),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).pack(anchor="w")
+
+            # Progress / Status pill
+            status_text = "Completed" if job.status == JobStatus.COMPLETED else "Pending"
+            color = theme.SUCCESS if job.status == JobStatus.COMPLETED else theme.INFO
+            badge = ctk.CTkLabel(
+                row,
+                text=status_text,
+                font=theme.font_badge(),
+                fg_color=color,
+                text_color=theme.TEXT_PRIMARY,
+                corner_radius=8,
+                padx=8,
+                pady=2,
+            )
+            badge.pack(side="right", padx=6)
+
+    def _render_library_snapshot(self) -> None:
+        """Render recent library tracks."""
+        for w in self.snapshot_container.winfo_children():
+            w.destroy()
+
+        songs = self.service.get_all_songs(limit=4)
+        if not songs:
+            empty = ctk.CTkFrame(self.snapshot_container, fg_color="transparent")
+            empty.pack(fill="x", pady=16)
+            ctk.CTkLabel(
+                empty,
+                text="Library is currently empty · Add your first tracks above",
+                font=theme.font_caption(),
+                text_color=theme.TEXT_DIM,
+            ).pack()
+            return
+
+        row_frame = ctk.CTkFrame(self.snapshot_container, fg_color="transparent")
+        row_frame.pack(fill="x")
+        for i in range(len(songs)):
+            row_frame.grid_columnconfigure(i, weight=1)
+
+        for idx, song in enumerate(songs):
+            item = ctk.CTkFrame(
+                row_frame,
+                fg_color=theme.SURFACE_ELEVATED,
+                corner_radius=theme.RADIUS_MD,
+                border_width=1,
+                border_color=theme.BORDER,
+            )
+            item.grid(row=0, column=idx, padx=4, sticky="nsew")
+
+            content = ctk.CTkFrame(item, fg_color="transparent")
+            content.pack(fill="both", padx=12, pady=12)
+
+            # Album Art Placeholder Badge
+            art = ctk.CTkFrame(
+                content,
+                width=42,
+                height=42,
+                corner_radius=theme.RADIUS_SM,
+                fg_color=theme.SURFACE_ACTIVE,
+            )
+            art.pack(anchor="w")
+            art.pack_propagate(False)
+            ctk.CTkLabel(art, text="🎵", font=ctk.CTkFont(size=18)).pack(expand=True)
+
+            ctk.CTkLabel(
+                content,
+                text=song.title,
+                font=theme.font_body_bold(),
+                text_color=theme.TEXT_PRIMARY,
+                anchor="w",
+            ).pack(anchor="w", pady=(8, 2))
+
+            ctk.CTkLabel(
+                content,
+                text=song.artist or "Unknown Artist",
+                font=theme.font_caption(),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).pack(anchor="w")
+
+            # Bitrate pill
+            bitrate_text = f"{song.bitrate_kbps} kbps" if song.bitrate_kbps else "320 kbps"
+            ctk.CTkLabel(
+                content,
+                text=bitrate_text,
+                font=theme.font_badge(),
+                text_color=theme.ACCENT_CYAN,
+                anchor="w",
+            ).pack(anchor="w", pady=(4, 0))

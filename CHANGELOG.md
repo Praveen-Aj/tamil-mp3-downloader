@@ -14,12 +14,14 @@ This release elevates the application into a universal music acquisition platfor
 - **Pluggable Audio Provider Architecture**: Abstract `AudioProvider` interface decoupling metadata extraction from stream resolution, with core implementations for `YouTubeProvider` (powered by `yt-dlp`), `TamilRegionalProvider`, and `DirectAudioProvider`.
 - **Multi-Factor Track Matching (`TrackMatcher`)**: Fuzzy matching combining normalized sequence matching, token set overlap, and duration delta scoring with tiered classifications (`HIGH`, `MEDIUM`, `LOW`, `NO_MATCH`).
 - **Persistent Resumable Playlist Jobs**: SQLite-backed `import_jobs` and `import_job_items` allowing multi-track playlist downloads to resume safely across application restarts.
-- **Modernized UI**:
-  - `AddMusicView`: Dedicated URL analysis view with platform badges, breakdown pills, and track review table.
-  - `DashboardView`: Redesigned modern dashboard with 6 KPI metric cards, quick "+ Add Music" hero bar, and recent jobs pane.
-  - `DownloadsView`: Live aggregate progress bar ("72 / 87 completed") and batch pause/resume/retry controls.
-  - `SettingsView`: Categorized settings for General, Library, Downloads, Providers, and Metadata.
-  - `HelpView`: Built-in documentation center covering getting started, matching, providers, and legal disclaimers.
+- **Complete Visual & UX Redesign**:
+  - Centralized design system (`ui/theme.py`) featuring rich obsidian/navy dark palette, semantic status colors, and consistent typography tokens.
+  - Redesigned sidebar with categorized navigation (LIBRARY, DOWNLOADS, SYSTEM) and live notification badge pills.
+  - Centerpiece Add Music experience featuring large import field, platform chips, and full Playlist Result UI with individual checkboxes, bulk filters, search, and prominent Download Selected CTA.
+  - Real Download Manager queue with aggregate progress, speed, ETA, and individual track cards with inline actions (Pause, Resume, Retry, Open Folder).
+  - Review Results center featuring conflict cards with reason pills, candidate comparisons, and inspector actions.
+  - Consumer-friendly Source Health status dashboard with response times and expandable diagnostics.
+  - Tabbed/grouped Settings center and interactive Help & User Guide center.
 - **Automatic ID3 Tagging & Artwork Injection**: Mutagen integration writing ID3v2.3 tags and embedding cover artwork into completed audio files.
 
 ### Changed

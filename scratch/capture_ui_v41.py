@@ -1,6 +1,18 @@
 """
 Authentic UI capture script using Win32 PrintWindow.
 Captures live rendered pixels of all primary views and states in Tamil MP3 Downloader v4.1.0.
+
+Produces the exact 10 required screenshots under screenshots/ui-validation/:
+01-dashboard.png
+02-add-music.png
+03-playlist-results.png
+04-library.png
+05-song-details.png
+06-downloads.png
+07-review-results.png
+08-source-health.png
+09-settings.png
+10-help-guide.png
 """
 
 import ctypes
@@ -152,6 +164,7 @@ def populate_demo_data(app: TamilMP3App):
 
     demo_items = [
         ImportJobItem(
+            id=101,
             job_id="job-demo-tamil-hits",
             track_index=1,
             title="Arabic Kuthu",
@@ -164,6 +177,7 @@ def populate_demo_data(app: TamilMP3App):
             match_explanation="Already owned in library at 320 kbps",
         ),
         ImportJobItem(
+            id=102,
             job_id="job-demo-tamil-hits",
             track_index=2,
             title="Naa Ready",
@@ -176,6 +190,7 @@ def populate_demo_data(app: TamilMP3App):
             match_explanation="Already owned in library at 320 kbps",
         ),
         ImportJobItem(
+            id=103,
             job_id="job-demo-tamil-hits",
             track_index=3,
             title="Hukum - Thalaivar Alappara",
@@ -189,6 +204,7 @@ def populate_demo_data(app: TamilMP3App):
             match_explanation="High confidence (96%): title & duration match closely",
         ),
         ImportJobItem(
+            id=104,
             job_id="job-demo-tamil-hits",
             track_index=4,
             title="Chinna Chinna Aasai",
@@ -202,6 +218,7 @@ def populate_demo_data(app: TamilMP3App):
             match_explanation="High confidence (94%): title & duration match closely",
         ),
         ImportJobItem(
+            id=105,
             job_id="job-demo-tamil-hits",
             track_index=5,
             title="Munbe Vaa",
@@ -215,6 +232,7 @@ def populate_demo_data(app: TamilMP3App):
             match_explanation="Medium confidence (74%): live version detected",
         ),
         ImportJobItem(
+            id=106,
             job_id="job-demo-tamil-hits",
             track_index=6,
             title="Rare Acoustic Jam Session",
@@ -228,11 +246,32 @@ def populate_demo_data(app: TamilMP3App):
     ]
     db.add_import_job_items(demo_items)
 
+    # Seed a download record for downloads manager
+    dl = Download(
+        id=1,
+        song_id=song_ids[0],
+        song_source_id=1,
+        output_path="C:/Users/Praveen/Music/Arabic_Kuthu.mp3",
+        state=DownloadState.COMPLETED,
+        file_size_bytes=10485760,
+    )
+    db.add_download(dl)
+
+    dl2 = Download(
+        id=2,
+        song_id=song_ids[1],
+        song_source_id=2,
+        output_path="C:/Users/Praveen/Music/Naa_Ready.mp3",
+        state=DownloadState.DOWNLOADING,
+        file_size_bytes=9437184,
+    )
+    db.add_download(dl2)
+
     return song_ids, demo_job, demo_items
 
 
 def main():
-    print("Launching TamilMP3App for live pixel capture...")
+    print("Launching TamilMP3App for authentic UI validation capture...")
     app = TamilMP3App()
     app.geometry("1366x768")
     app.update()
@@ -247,43 +286,31 @@ def main():
     # 1. Dashboard
     app.show_view("dashboard")
     app.update()
-    time.sleep(0.3)
+    time.sleep(0.4)
     capture_window_win32(hwnd, OUTPUT_DIR / "01-dashboard.png")
 
-    # 2. Add Music (Initial idle state)
+    # 2. Add Music (Initial empty state)
     app.show_view("add_music")
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "02-add-music-initial.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "02-add-music.png")
 
-    # 3. Add Music (Analyzed playlist state)
+    # 3. Playlist Results (Add Music with analyzed playlist)
     add_music_view = app.views["add_music"]
     add_music_view.url_entry.delete(0, "end")
     add_music_view.url_entry.insert(0, demo_job.url)
-    add_music_view._render_analysis(demo_job, demo_items)
+    add_music_view._render_playlist_ui(demo_job, demo_items)
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "03-add-music-analyzed.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "03-playlist-results.png")
 
     # 4. Library
     app.show_view("library")
     app.update()
-    time.sleep(0.3)
+    time.sleep(0.4)
     capture_window_win32(hwnd, OUTPUT_DIR / "04-library.png")
 
-    # 5. Discover
-    app.show_view("discover")
-    app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "05-discover.png")
-
-    # 6. Results
-    app.show_view("results")
-    app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "06-discovery-results.png")
-
-    # 7. Song Details Modal
+    # 5. Song Details Modal
     details = app.service.get_song_details(song_ids[0])
     dlg_song = SongDetailsDialog(
         app,
@@ -293,46 +320,43 @@ def main():
         planner_decision=details.get("planner_decision"),
     )
     dlg_song.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "07-song-details.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "05-song-details.png")
     dlg_song.destroy()
     app.update()
 
-    # 8. Download Plan Modal
-    plan = app.service.preview_download_plan(song_ids[2:4])
-    dlg_plan = PlanPreviewDialog(app, plan=plan, on_confirm=lambda: None)
-    dlg_plan.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "08-download-plan.png")
-    dlg_plan.destroy()
-    app.update()
-
-    # 9. Downloads Queue (with aggregate progress)
+    # 6. Downloads Manager
     app.show_view("downloads")
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "09-downloads.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "06-downloads.png")
 
-    # 10. Source Health
+    # 7. Review Results View
+    app.show_view("results")
+    app.update()
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "07-review-results.png")
+
+    # 8. Source Health
     app.show_view("sources")
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "10-sources.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "08-source-health.png")
 
-    # 11. Settings
+    # 9. Settings
     app.show_view("settings")
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "11-settings.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "09-settings.png")
 
-    # 12. Help & User Guide
+    # 10. Help & User Guide
     app.show_view("help")
     app.update()
-    time.sleep(0.3)
-    capture_window_win32(hwnd, OUTPUT_DIR / "12-help.png")
+    time.sleep(0.4)
+    capture_window_win32(hwnd, OUTPUT_DIR / "10-help-guide.png")
 
     app.destroy()
-    print("All authentic screenshots captured successfully!")
+    print("All 10 authentic screenshots captured successfully!")
 
 
 if __name__ == "__main__":

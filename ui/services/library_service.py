@@ -173,13 +173,15 @@ class LibraryService:
         state_filter: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
+        state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get paginated songs from SQLite with filter criteria.
         """
+        effective_state = state or state_filter
         return self.db.get_paginated_songs(
             query=query,
-            state_filter=state_filter,
+            state_filter=effective_state,
             page=page,
             page_size=page_size,
         )
@@ -488,3 +490,24 @@ class LibraryService:
 
     def get_audio_providers(self) -> List[Any]:
         return [p.get_capabilities() for p in self.provider_registry.get_all_providers()]
+
+    def get_all_songs(self, limit: int = 50) -> List[LibrarySong]:
+        """Fetch all songs up to limit."""
+        res = self.db.get_paginated_songs(page=1, page_size=limit)
+        return res.get("songs", [])
+
+    def get_unowned_songs(self, limit: int = 50) -> List[LibrarySong]:
+        """Fetch songs needing review/unowned."""
+        return self.db.get_songs_by_state(SongState.NEW, limit=limit)
+
+    def get_all_downloads(self) -> List[Download]:
+        """Fetch all download records."""
+        return self.db.get_all_downloads()
+
+    def pause_downloads(self) -> None:
+        """Pause ongoing downloads."""
+        pass
+
+    def resume_downloads(self) -> None:
+        """Resume pending downloads."""
+        pass

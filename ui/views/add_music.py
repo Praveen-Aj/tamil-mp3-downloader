@@ -1,97 +1,136 @@
 """
 Universal URL & Playlist Import View ("ADD MUSIC").
-Primary acquisition interface for pasting URLs, analyzing playlists,
-evaluating match confidence, and planning downloads.
+
+Centerpiece acquisition interface for pasting URLs, analyzing playlists,
+filtering track selections, and scheduling downloads into the canonical library.
 """
 
 import logging
 import threading
-from tkinter import ttk
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Set
+import tkinter as tk
 import customtkinter as ctk
 
 from library.models import ImportJob, ImportJobItem, ItemState, JobStatus
 from ui.services.library_service import LibraryService
+from ui import theme
 
 logger = logging.getLogger(__name__)
 
 
 class AddMusicView(ctk.CTkFrame):
     """
-    Primary Add Music view providing Universal URL analysis,
-    multi-factor candidate matching, and playlist plan review.
+    Centerpiece Acquisition View:
+    - Hero URL input with platform chips
+    - Step-by-step analysis progress
+    - Rich Playlist Result UI with individual track cards, checkboxes, and bulk controls
+    - Selection counters and Download Selected CTA
     """
 
-    STATE_COLORS = {
-        ItemState.OWNED: ("#065f46", "#34d399"),          # Green
-        ItemState.READY: ("#1e3a8a", "#60a5fa"),          # Blue
-        ItemState.DOWNLOADING: ("#075985", "#38bdf8"),    # Sky
-        ItemState.COMPLETED: ("#065f46", "#10b981"),      # Emerald
-        ItemState.NEEDS_REVIEW: ("#78350f", "#fbbf24"),   # Amber
-        ItemState.NO_SOURCE: ("#881337", "#f87171"),      # Red
-        ItemState.FAILED: ("#7f1d1d", "#ef4444"),         # Rose
-        ItemState.AUTH_REQUIRED: ("#581c87", "#c084fc"),  # Purple
-        ItemState.SKIPPED: ("#374151", "#9ca3af"),        # Gray
+    STATE_BADGES = {
+        ItemState.OWNED: ("✓ Already in Library", theme.SUCCESS_BG, theme.SUCCESS_LIGHT),
+        ItemState.READY: ("↓ Ready to Download", theme.INFO_BG, theme.INFO_LIGHT),
+        ItemState.DOWNLOADING: ("⏳ Downloading...", theme.INFO_BG, theme.INFO),
+        ItemState.COMPLETED: ("✓ Downloaded", theme.SUCCESS_BG, theme.SUCCESS),
+        ItemState.NEEDS_REVIEW: ("⚠ Review Match", theme.WARNING_BG, theme.WARNING_LIGHT),
+        ItemState.NO_SOURCE: ("✕ Unavailable", theme.ERROR_BG, theme.ERROR_LIGHT),
+        ItemState.FAILED: ("✕ Download Failed", theme.ERROR_BG, theme.ERROR_LIGHT),
+        ItemState.AUTH_REQUIRED: ("🔒 Auth Required", theme.SURFACE_MUTED, theme.TEXT_MUTED),
+        ItemState.SKIPPED: ("⏭ Skipped", theme.SURFACE_MUTED, theme.TEXT_MUTED),
     }
 
     def __init__(
         self,
-        master: ctk.CTkFrame,
+        master: Any,
         service: LibraryService,
         on_navigate_downloads: Optional[Callable[[], None]] = None,
         **kwargs
     ):
-        super().__init__(master, fg_color="transparent", **kwargs)
+        super().__init__(master, fg_color="transparent", corner_radius=0, **kwargs)
         self.service = service
         self.on_navigate_downloads = on_navigate_downloads
 
         self._active_job: Optional[ImportJob] = None
-        self._active_items: List[ImportJobItem] = []
+        self._all_items: List[ImportJobItem] = []
+        self._filtered_items: List[ImportJobItem] = []
+        self._selected_item_ids: Set[int] = set()
         self._is_analyzing = False
+
+        self._item_checkbox_vars: Dict[int, tk.BooleanVar] = {}
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         self._build_ui()
 
     def _build_ui(self) -> None:
         """Construct view layout."""
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
-
         # ── 1. Top Header ───────────────────────────────────────────
-        header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=25, pady=(20, 10))
+        header = ctk.CTkFrame(self, height=64, corner_radius=0, fg_color=theme.BG_HEADER)
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_propagate(False)
 
-        title = ctk.CTkLabel(
-            header_frame,
-            text="➕ ADD MUSIC",
-            font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=("gray10", "#f3f4f6"),
+        hdr_box = ctk.CTkFrame(header, fg_color="transparent")
+        hdr_box.pack(side="left", padx=24, pady=12)
+
+        ctk.CTkLabel(
+            hdr_box,
+            text="⚡  ADD MUSIC",
+            font=theme.font_hero(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            hdr_box,
+            text="Universal Music & Playlist Downloader",
+            font=theme.font_caption(),
+            text_color=theme.TEXT_MUTED,
+        ).pack(side="left", padx=16, pady=(4, 0))
+
+        # ── 2. Centerpiece Import Area ──────────────────────────────
+        import_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
         )
-        title.pack(side="left")
+        import_card.grid(row=1, column=0, sticky="ew", padx=24, pady=(16, 12))
+        import_card.grid_columnconfigure(0, weight=1)
 
-        subtitle = ctk.CTkLabel(
-            header_frame,
-            text="Paste a song, album, or playlist URL to analyze and download.",
-            font=ctk.CTkFont(size=13),
-            text_color=("gray50", "#9ca3af"),
-        )
-        subtitle.pack(side="left", padx=15, pady=(4, 0))
+        body = ctk.CTkFrame(import_card, fg_color="transparent")
+        body.pack(fill="x", padx=24, pady=20)
 
-        # ── 2. URL Input Card ────────────────────────────────────────
-        input_card = ctk.CTkFrame(self, fg_color=("gray90", "#181824"), corner_radius=12)
-        input_card.grid(row=1, column=0, sticky="ew", padx=25, pady=10)
-        input_card.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            body,
+            text="Paste a song, album, playlist, or direct music link",
+            font=theme.font_subtitle(),
+            text_color=theme.TEXT_PRIMARY,
+            anchor="w",
+        ).pack(anchor="w")
 
-        input_row = ctk.CTkFrame(input_card, fg_color="transparent")
-        input_row.pack(fill="x", padx=20, pady=(18, 12))
+        ctk.CTkLabel(
+            body,
+            text="Supports public Spotify playlists, YouTube videos & playlists, regional Tamil sources, and direct audio streams.",
+            font=theme.font_caption(),
+            text_color=theme.TEXT_MUTED,
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 14))
+
+        # URL Input & Analyze Button Row
+        input_row = ctk.CTkFrame(body, fg_color="transparent")
+        input_row.pack(fill="x")
         input_row.grid_columnconfigure(0, weight=1)
 
         self.url_entry = ctk.CTkEntry(
             input_row,
-            placeholder_text="Paste a song, album, playlist, or supported music URL...",
-            height=44,
+            placeholder_text="https://open.spotify.com/playlist/... or https://www.youtube.com/watch?v=...",
+            height=48,
             font=ctk.CTkFont(size=14),
-            border_color=("gray70", "#2d2d3f"),
-            fg_color=("white", "#1e1e2d"),
+            border_color=theme.BORDER,
+            fg_color=theme.SURFACE_MUTED,
+            text_color=theme.TEXT_PRIMARY,
+            corner_radius=theme.RADIUS_MD,
         )
         self.url_entry.grid(row=0, column=0, sticky="ew", padx=(0, 12))
         self.url_entry.bind("<Return>", lambda e: self._on_analyze_clicked())
@@ -99,177 +138,134 @@ class AddMusicView(ctk.CTkFrame):
         self.analyze_btn = ctk.CTkButton(
             input_row,
             text="⚡ Analyze URL",
-            height=44,
-            width=150,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#6366f1",
-            hover_color="#4f46e5",
+            height=48,
+            width=160,
+            font=theme.font_body_bold(),
+            fg_color=theme.PRIMARY,
+            hover_color=theme.PRIMARY_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            corner_radius=theme.RADIUS_MD,
             command=self._on_analyze_clicked,
         )
         self.analyze_btn.grid(row=0, column=1)
 
-        # Platform badges pill row
-        badge_row = ctk.CTkFrame(input_card, fg_color="transparent")
-        badge_row.pack(fill="x", padx=20, pady=(0, 15))
+        # Platform Chip Badges
+        chips_row = ctk.CTkFrame(body, fg_color="transparent")
+        chips_row.pack(fill="x", pady=(14, 0))
 
-        lbl_sup = ctk.CTkLabel(
-            badge_row,
+        ctk.CTkLabel(
+            chips_row,
             text="Supported Platforms:",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=("gray50", "#9ca3af"),
-        )
-        lbl_sup.pack(side="left", padx=(0, 8))
+            font=theme.font_badge(),
+            text_color=theme.TEXT_DIM,
+        ).pack(side="left", padx=(0, 8))
 
         platforms = [
-            ("🟢 Spotify", "#10b981"),
-            ("🟢 YouTube", "#ef4444"),
-            ("🟢 YouTube Music", "#f59e0b"),
-            ("🟢 Tamil Music Sources", "#6366f1"),
-            ("🟢 Direct Audio Links", "#06b6d4"),
+            ("🟢 Spotify", theme.SUCCESS),
+            ("🔴 YouTube", theme.ERROR),
+            ("🟡 YouTube Music", theme.WARNING),
+            ("🟣 Direct Audio", theme.ACCENT_CYAN),
+            ("🔵 Regional Sources", theme.SECONDARY),
         ]
         for name, color in platforms:
-            pill = ctk.CTkLabel(
-                badge_row,
+            chip = ctk.CTkLabel(
+                chips_row,
                 text=name,
-                font=ctk.CTkFont(size=11),
+                font=theme.font_badge(),
                 text_color=color,
+                fg_color=theme.SURFACE_ELEVATED,
+                corner_radius=6,
+                padx=8,
+                pady=2,
             )
-            pill.pack(side="left", padx=6)
+            chip.pack(side="left", padx=4)
 
-        # Progress / Status label
+        # Progress / Status feedback label
         self.status_lbl = ctk.CTkLabel(
-            input_card,
+            body,
             text="",
-            font=ctk.CTkFont(size=12),
-            text_color=("gray40", "#a1a1aa"),
-        )
-        self.status_lbl.pack(anchor="w", padx=20, pady=(0, 12))
-
-        # ── 3. Content / Analysis Body ──────────────────────────────
-        self.body_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.body_frame.grid(row=2, column=0, sticky="nsew", padx=25, pady=(10, 20))
-        self.body_frame.grid_columnconfigure(0, weight=1)
-        self.body_frame.grid_rowconfigure(1, weight=1)
-
-        # Overview Analysis Card
-        self.overview_card = ctk.CTkFrame(self.body_frame, fg_color=("gray90", "#181824"), corner_radius=12)
-        self.overview_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        self.overview_card.grid_columnconfigure(1, weight=1)
-        self.overview_card.grid_remove()  # Hidden until analysis finishes
-
-        # Thumbnail / Icon
-        self.art_label = ctk.CTkLabel(
-            self.overview_card,
-            text="🎵",
-            font=ctk.CTkFont(size=40),
-            width=70,
-            height=70,
-            fg_color=("gray80", "#262638"),
-            corner_radius=8,
-        )
-        self.art_label.grid(row=0, column=0, rowspan=2, padx=15, pady=15)
-
-        # Info column
-        self.info_title = ctk.CTkLabel(
-            self.overview_card,
-            text="",
-            font=ctk.CTkFont(size=18, weight="bold"),
+            font=theme.font_caption(),
+            text_color=theme.TEXT_MUTED,
             anchor="w",
         )
-        self.info_title.grid(row=0, column=1, sticky="w", padx=10, pady=(15, 2))
+        self.status_lbl.pack(anchor="w", pady=(10, 0))
 
-        self.info_stats = ctk.CTkLabel(
-            self.overview_card,
-            text="",
-            font=ctk.CTkFont(size=13),
-            text_color=("gray50", "#9ca3af"),
-            anchor="w",
+        # ── 3. Content Area: Empty State OR Playlist Result UI ──────
+        self.content_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.content_container.grid(row=2, column=0, sticky="nsew", padx=24, pady=(0, 16))
+        self.content_container.grid_columnconfigure(0, weight=1)
+        self.content_container.grid_rowconfigure(0, weight=1)
+        self.tree = self.content_container
+
+        # Initialize Default Empty State
+        self._build_empty_state()
+
+    def _build_empty_state(self) -> None:
+        """Render initial empty state with visual guidance."""
+        for w in self.content_container.winfo_children():
+            w.destroy()
+
+        empty_card = ctk.CTkFrame(
+            self.content_container,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
         )
-        self.info_stats.grid(row=1, column=1, sticky="w", padx=10, pady=(0, 15))
+        empty_card.pack(fill="both", expand=True)
 
-        # Actions column
-        self.actions_box = ctk.CTkFrame(self.overview_card, fg_color="transparent")
-        self.actions_box.grid(row=0, column=2, rowspan=2, padx=15, pady=15, sticky="e")
+        center = ctk.CTkFrame(empty_card, fg_color="transparent")
+        center.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.dl_ready_btn = ctk.CTkButton(
-            self.actions_box,
-            text="📥 Download Ready Tracks",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#10b981",
-            hover_color="#059669",
-            height=38,
-            command=self._on_download_ready,
-        )
-        self.dl_ready_btn.pack(side="top", pady=2)
+        icon = ctk.CTkLabel(center, text="🎧", font=ctk.CTkFont(size=48))
+        icon.pack(pady=(0, 12))
 
-        self.retry_btn = ctk.CTkButton(
-            self.actions_box,
-            text="🔄 Retry Failed Only",
-            font=ctk.CTkFont(size=12),
-            fg_color=("gray75", "#2a2a3c"),
-            hover_color=("gray65", "#3f3f5a"),
-            height=32,
-            command=self._on_retry_failed,
-        )
-        self.retry_btn.pack(side="top", pady=4)
+        ctk.CTkLabel(
+            center,
+            text="No Music or Playlist Analyzed Yet",
+            font=theme.font_title(),
+            text_color=theme.TEXT_PRIMARY,
+        ).pack()
 
-        # ── 4. Track List Table ──────────────────────────────────────
-        table_container = ctk.CTkFrame(self.body_frame, fg_color=("gray95", "#181824"), corner_radius=12)
-        table_container.grid(row=1, column=0, sticky="nsew")
-        table_container.grid_columnconfigure(0, weight=1)
-        table_container.grid_rowconfigure(0, weight=1)
+        ctk.CTkLabel(
+            center,
+            text="Paste any YouTube song or Spotify playlist link into the field above to detect tracks,\nverify audio sources, and start downloading.",
+            font=theme.font_body(),
+            text_color=theme.TEXT_MUTED,
+            justify="center",
+        ).pack(pady=(6, 18))
 
-        columns = ("#", "title", "artist", "duration", "provider", "match", "status")
-        self.tree = ttk.Treeview(table_container, columns=columns, show="headings", selectmode="browse")
+        examples_row = ctk.CTkFrame(center, fg_color="transparent")
+        examples_row.pack()
 
-        self.tree.heading("#", text="#")
-        self.tree.heading("title", text="Track Title")
-        self.tree.heading("artist", text="Artist / Uploader")
-        self.tree.heading("duration", text="Duration")
-        self.tree.heading("provider", text="Audio Source")
-        self.tree.heading("match", text="Confidence")
-        self.tree.heading("status", text="Status")
+        ex_urls = [
+            ("Try Sample Spotify Link", "https://open.spotify.com/playlist/37i9dQZF1DX4gzssQ6Thw3"),
+            ("Try Sample YouTube Link", "https://www.youtube.com/watch?v=kJQP7kiw5Fk"),
+        ]
+        for label, url_text in ex_urls:
+            btn = ctk.CTkButton(
+                examples_row,
+                text=label,
+                font=theme.font_caption_bold(),
+                height=32,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.SURFACE_HOVER,
+                text_color=theme.PRIMARY_LIGHT,
+                corner_radius=theme.RADIUS_MD,
+                command=lambda u=url_text: self._set_url_and_analyze(u),
+            )
+            btn.pack(side="left", padx=6)
 
-        self.tree.column("#", width=45, anchor="center")
-        self.tree.column("title", width=280, anchor="w")
-        self.tree.column("artist", width=180, anchor="w")
-        self.tree.column("duration", width=80, anchor="center")
-        self.tree.column("provider", width=140, anchor="center")
-        self.tree.column("match", width=110, anchor="center")
-        self.tree.column("status", width=120, anchor="center")
-
-        scroll = ttk.Scrollbar(table_container, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew", padx=(10, 0), pady=10)
-        scroll.grid(row=0, column=1, sticky="ns", padx=(0, 10), pady=10)
-
-        # Configure style
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure(
-            "Treeview",
-            background="#1e1e2d",
-            foreground="#e4e4e7",
-            fieldbackground="#1e1e2d",
-            rowheight=32,
-            font=("Segoe UI", 10),
-            borderwidth=0,
-        )
-        style.configure(
-            "Treeview.Heading",
-            background="#181824",
-            foreground="#a1a1aa",
-            font=("Segoe UI", 10, "bold"),
-            relief="flat",
-        )
-        style.map("Treeview", background=[("selected", "#3b82f6")])
+    def _set_url_and_analyze(self, url: str) -> None:
+        self.url_entry.delete(0, "end")
+        self.url_entry.insert(0, url)
+        self._on_analyze_clicked()
 
     def _on_analyze_clicked(self) -> None:
         """Trigger URL analysis in background thread."""
         url = self.url_entry.get().strip()
         if not url:
-            self.status_lbl.configure(text="⚠️ Please paste a valid URL.", text_color="#fbbf24")
+            self.status_lbl.configure(text="⚠️ Please paste a valid music or playlist URL.", text_color=theme.WARNING)
             return
 
         if self._is_analyzing:
@@ -277,7 +273,10 @@ class AddMusicView(ctk.CTkFrame):
 
         self._is_analyzing = True
         self.analyze_btn.configure(state="disabled", text="⏳ Analyzing...")
-        self.status_lbl.configure(text="Connecting to platform and resolving tracklist...", text_color="#60a5fa")
+        self.status_lbl.configure(
+            text="Detecting source... Contacting platform and resolving metadata...",
+            text_color=theme.INFO,
+        )
 
         def _worker():
             try:
@@ -285,9 +284,9 @@ class AddMusicView(ctk.CTkFrame):
                     self.after(0, lambda m=msg: self.status_lbl.configure(text=m))
 
                 job, items = self.service.analyze_music_url(url, progress_cb=_prog)
-                self.after(0, lambda: self._render_analysis(job, items))
+                self.after(0, lambda: self._render_playlist_ui(job, items))
             except Exception as e:
-                logger.error(f"Error during analysis: {e}", exc_info=True)
+                logger.error(f"Error during URL analysis: {e}", exc_info=True)
                 self.after(0, lambda err=str(e): self._render_error(err))
             finally:
                 self.after(0, self._reset_analyze_button)
@@ -300,107 +299,407 @@ class AddMusicView(ctk.CTkFrame):
 
     def _render_error(self, err_msg: str) -> None:
         self.status_lbl.configure(
-            text=f"❌ Analysis failed: {err_msg}",
-            text_color="#ef4444",
+            text=f"❌ Unable to analyze URL: {err_msg}",
+            text_color=theme.ERROR,
         )
 
-    def _render_analysis(self, job: ImportJob, items: List[ImportJobItem]) -> None:
-        """Render resolved playlist and track breakdown."""
+    def _render_playlist_ui(self, job: ImportJob, items: List[ImportJobItem]) -> None:
+        """Render the complete, interactive Playlist Result UI."""
         self._active_job = job
-        self._active_items = items
+        self._all_items = items
+        self._filtered_items = list(items)
 
-        # Populate summary card
-        self.overview_card.grid()
-        self.info_title.configure(text=f"{job.platform} {job.content_type}: {job.title}")
+        # Preselect tracks that are ready or need review (unowned)
+        self._selected_item_ids = {
+            item.id for item in items
+            if item.state in [ItemState.READY, ItemState.NEEDS_REVIEW] and item.id
+        }
+
+        self.status_lbl.configure(
+            text=f"✓ Analysis complete! Found {len(items)} tracks in {job.title}",
+            text_color=theme.SUCCESS,
+        )
+
+        for w in self.content_container.winfo_children():
+            w.destroy()
+
+        result_card = ctk.CTkFrame(
+            self.content_container,
+            corner_radius=theme.RADIUS_LG,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        result_card.pack(fill="both", expand=True)
+        result_card.grid_columnconfigure(0, weight=1)
+        result_card.grid_rowconfigure(2, weight=1)
+
+        # ── A. Playlist Metadata Header ─────────────────────────────
+        meta_header = ctk.CTkFrame(result_card, fg_color="transparent")
+        meta_header.grid(row=0, column=0, sticky="ew", padx=20, pady=(16, 12))
+        meta_header.grid_columnconfigure(1, weight=1)
+
+        # Art / Platform Badge
+        art_box = ctk.CTkFrame(
+            meta_header,
+            width=58,
+            height=58,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE_ELEVATED,
+        )
+        art_box.grid(row=0, column=0, rowspan=2, padx=(0, 14), sticky="w")
+        art_box.pack_propagate(False)
+        p_icon = "🟢" if "spotify" in job.platform.lower() else "🔴" if "youtube" in job.platform.lower() else "🎵"
+        ctk.CTkLabel(art_box, text=p_icon, font=ctk.CTkFont(size=26)).pack(expand=True)
+
+        # Title & Counts
+        title_text = f"{job.title} ({job.platform.capitalize()} {job.content_type.capitalize()})"
+        ctk.CTkLabel(
+            meta_header,
+            text=title_text,
+            font=theme.font_title(),
+            text_color=theme.TEXT_PRIMARY,
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w")
 
         owned_cnt = sum(1 for i in items if i.state == ItemState.OWNED)
         ready_cnt = sum(1 for i in items if i.state == ItemState.READY)
         review_cnt = sum(1 for i in items if i.state == ItemState.NEEDS_REVIEW)
-        no_src_cnt = sum(1 for i in items if i.state == ItemState.NO_SOURCE)
-        failed_cnt = sum(1 for i in items if i.state == ItemState.FAILED)
+        failed_cnt = sum(1 for i in items if i.state in [ItemState.FAILED, ItemState.NO_SOURCE])
 
-        summary_text = (
-            f"📊 {len(items)} tracks total  •  "
-            f"✓ {owned_cnt} in library  •  "
-            f"✓ {ready_cnt} ready to download  •  "
-            f"⚠ {review_cnt} need review  •  "
-            f"✕ {no_src_cnt + failed_cnt} unavailable"
+        stats_str = (
+            f"📊 {len(items)} tracks  ·  "
+            f"✓ {owned_cnt} already in library  ·  "
+            f"↓ {ready_cnt} ready to download  ·  "
+            f"⚠ {review_cnt} need review  ·  "
+            f"✕ {failed_cnt} unavailable"
         )
-        self.info_stats.configure(text=summary_text)
-        self.status_lbl.configure(text=f"Analysis complete for: {job.title}", text_color="#10b981")
+        ctk.CTkLabel(
+            meta_header,
+            text=stats_str,
+            font=theme.font_caption_bold(),
+            text_color=theme.TEXT_SECONDARY,
+            anchor="w",
+        ).grid(row=1, column=1, sticky="w", pady=(2, 0))
 
-        # Update button text
-        self.dl_ready_btn.configure(text=f"📥 Download {ready_cnt} Ready Tracks")
+        # ── B. Selection & Filter Toolbar ───────────────────────────
+        toolbar = ctk.CTkFrame(result_card, fg_color=theme.SURFACE_ELEVATED, corner_radius=theme.RADIUS_MD)
+        toolbar.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
 
-        # Populate table
-        for r in self.tree.get_children():
-            self.tree.delete(r)
+        tb_inner = ctk.CTkFrame(toolbar, fg_color="transparent")
+        tb_inner.pack(fill="x", padx=12, pady=8)
 
-        for item in items:
-            dur_str = f"{item.duration_seconds // 60}:{item.duration_seconds % 60:02d}" if item.duration_seconds else "--:--"
-            conf_str = f"{int(item.match_confidence * 100)}%" if item.match_confidence else "--"
-            self.tree.insert(
-                "",
-                "end",
-                iid=str(item.id or item.track_index),
-                values=(
-                    item.track_index,
-                    item.title,
-                    item.artist or "--",
-                    dur_str,
-                    item.selected_provider or "--",
-                    conf_str,
-                    item.state.value,
-                ),
+        # Selection buttons
+        ctk.CTkButton(
+            tb_inner,
+            text="Select All",
+            font=theme.font_caption_bold(),
+            height=28,
+            width=80,
+            fg_color=theme.SURFACE,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            command=self._select_all_items,
+        ).pack(side="left", padx=(0, 4))
+
+        ctk.CTkButton(
+            tb_inner,
+            text="Select None",
+            font=theme.font_caption_bold(),
+            height=28,
+            width=85,
+            fg_color=theme.SURFACE,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            command=self._select_no_items,
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            tb_inner,
+            text="Invert",
+            font=theme.font_caption_bold(),
+            height=28,
+            width=65,
+            fg_color=theme.SURFACE,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            command=self._invert_selection,
+        ).pack(side="left", padx=4)
+
+        # Search filter
+        self.search_entry = ctk.CTkEntry(
+            tb_inner,
+            placeholder_text="Filter tracks by title/artist...",
+            height=28,
+            width=220,
+            font=theme.font_caption(),
+            fg_color=theme.SURFACE_MUTED,
+            border_color=theme.BORDER,
+        )
+        self.search_entry.pack(side="left", padx=12)
+        self.search_entry.bind("<KeyRelease>", lambda e: self._apply_filters())
+
+        # State filter dropdown
+        self.filter_var = tk.StringVar(value="All Tracks")
+        filter_opt = ctk.CTkOptionMenu(
+            tb_inner,
+            values=["All Tracks", "Ready to Download", "Needs Review", "Already Owned", "Unavailable"],
+            variable=self.filter_var,
+            font=theme.font_caption(),
+            height=28,
+            width=150,
+            fg_color=theme.SURFACE,
+            button_color=theme.SURFACE_HOVER,
+            command=lambda e: self._apply_filters(),
+        )
+        filter_opt.pack(side="left", padx=4)
+
+        # ── C. Interactive Track Rows (Scrollable) ───────────────────
+        self.track_scroll = ctk.CTkScrollableFrame(
+            result_card,
+            fg_color="transparent",
+            corner_radius=0,
+        )
+        self.track_scroll.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 10))
+        self.track_scroll.grid_columnconfigure(0, weight=1)
+
+        # ── D. Sticky Bottom Action Footer ───────────────────────────
+        footer = ctk.CTkFrame(result_card, height=54, fg_color=theme.BG_HEADER, corner_radius=theme.RADIUS_MD)
+        footer.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 16))
+        footer.grid_propagate(False)
+
+        self.selected_count_lbl = ctk.CTkLabel(
+            footer,
+            text="",
+            font=theme.font_body_bold(),
+            text_color=theme.TEXT_PRIMARY,
+        )
+        self.selected_count_lbl.pack(side="left", padx=20)
+
+        self.dl_selected_btn = ctk.CTkButton(
+            footer,
+            text="📥 Download Selected Tracks",
+            font=theme.font_body_bold(),
+            height=38,
+            width=220,
+            fg_color=theme.SUCCESS,
+            hover_color=theme.SUCCESS_BG,
+            text_color=theme.TEXT_PRIMARY,
+            command=self._on_download_selected,
+        )
+        self.dl_selected_btn.pack(side="right", padx=16, pady=8)
+
+        self._render_track_rows()
+        self._update_selection_counter()
+
+    def _render_track_rows(self) -> None:
+        """Render track row cards for filtered items."""
+        for w in self.track_scroll.winfo_children():
+            w.destroy()
+
+        self._item_checkbox_vars.clear()
+
+        for idx, item in enumerate(self._filtered_items):
+            row_card = ctk.CTkFrame(
+                self.track_scroll,
+                fg_color=theme.SURFACE_ELEVATED,
+                corner_radius=theme.RADIUS_SM,
+                border_width=1,
+                border_color=theme.BORDER,
             )
+            row_card.pack(fill="x", pady=3)
 
-    def _on_download_ready(self) -> None:
-        """Start downloading ready tracks."""
-        if not self._active_job or not self._active_items:
+            inner = ctk.CTkFrame(row_card, fg_color="transparent")
+            inner.pack(fill="x", padx=12, pady=8)
+
+            # Checkbox
+            var = tk.BooleanVar(value=(item.id in self._selected_item_ids))
+            self._item_checkbox_vars[item.id] = var
+
+            cb = ctk.CTkCheckBox(
+                inner,
+                text="",
+                variable=var,
+                width=24,
+                checkbox_width=20,
+                checkbox_height=20,
+                corner_radius=4,
+                border_color=theme.BORDER_LIGHT,
+                fg_color=theme.PRIMARY,
+                command=lambda i=item.id, v=var: self._on_item_toggled(i, v),
+            )
+            cb.pack(side="left", padx=(0, 10))
+
+            # Track number
+            ctk.CTkLabel(
+                inner,
+                text=f"{item.track_index:02d}",
+                font=theme.font_caption_bold(),
+                text_color=theme.TEXT_DIM,
+                width=24,
+                anchor="center",
+            ).pack(side="left", padx=(0, 10))
+
+            # Title & Artist
+            info_box = ctk.CTkFrame(inner, fg_color="transparent")
+            info_box.pack(side="left", fill="both", expand=True)
+
+            ctk.CTkLabel(
+                info_box,
+                text=item.title,
+                font=theme.font_body_bold(),
+                text_color=theme.TEXT_PRIMARY,
+                anchor="w",
+            ).pack(anchor="w")
+
+            dur_str = f"{item.duration_seconds // 60}:{item.duration_seconds % 60:02d}" if item.duration_seconds else "--:--"
+            meta_str = f"{item.artist or 'Unknown Artist'}  ·  {dur_str}"
+            ctk.CTkLabel(
+                info_box,
+                text=meta_str,
+                font=theme.font_caption(),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).pack(anchor="w")
+
+            # Provider Badge
+            if item.selected_provider:
+                p_badge = ctk.CTkLabel(
+                    inner,
+                    text=item.selected_provider,
+                    font=theme.font_badge(),
+                    text_color=theme.ACCENT_CYAN,
+                    fg_color=theme.SURFACE_MUTED,
+                    corner_radius=6,
+                    padx=8,
+                    pady=2,
+                )
+                p_badge.pack(side="left", padx=8)
+
+            # Match Confidence Chip
+            if item.match_confidence is not None:
+                conf_pct = int(item.match_confidence * 100)
+                conf_color = theme.SUCCESS if conf_pct >= 85 else theme.WARNING if conf_pct >= 65 else theme.ERROR
+                conf_chip = ctk.CTkLabel(
+                    inner,
+                    text=f"{conf_pct}% match",
+                    font=theme.font_badge(),
+                    text_color=conf_color,
+                    fg_color=theme.SURFACE_MUTED,
+                    corner_radius=6,
+                    padx=8,
+                    pady=2,
+                )
+                conf_chip.pack(side="left", padx=8)
+
+            # State Pill
+            label, bg_col, text_col = self.STATE_BADGES.get(
+                item.state,
+                (item.state.value, theme.SURFACE_MUTED, theme.TEXT_MUTED)
+            )
+            state_pill = ctk.CTkLabel(
+                inner,
+                text=label,
+                font=theme.font_badge(),
+                fg_color=bg_col,
+                text_color=text_col,
+                corner_radius=8,
+                padx=10,
+                pady=4,
+            )
+            state_pill.pack(side="right", padx=(8, 0))
+
+    def _on_item_toggled(self, item_id: int, var: tk.BooleanVar) -> None:
+        if var.get():
+            self._selected_item_ids.add(item_id)
+        else:
+            self._selected_item_ids.discard(item_id)
+        self._update_selection_counter()
+
+    def _update_selection_counter(self) -> None:
+        sel_count = len(self._selected_item_ids)
+        total_count = len(self._all_items)
+        self.selected_count_lbl.configure(
+            text=f"Selected: {sel_count} of {total_count} tracks"
+        )
+        self.dl_selected_btn.configure(
+            text=f"📥 Download Selected ({sel_count})",
+            state="normal" if sel_count > 0 else "disabled",
+        )
+
+    def _select_all_items(self) -> None:
+        for item in self._all_items:
+            self._selected_item_ids.add(item.id)
+            if item.id in self._item_checkbox_vars:
+                self._item_checkbox_vars[item.id].set(True)
+        self._update_selection_counter()
+
+    def _select_no_items(self) -> None:
+        self._selected_item_ids.clear()
+        for var in self._item_checkbox_vars.values():
+            var.set(False)
+        self._update_selection_counter()
+
+    def _invert_selection(self) -> None:
+        for item in self._all_items:
+            if item.id in self._selected_item_ids:
+                self._selected_item_ids.remove(item.id)
+                if item.id in self._item_checkbox_vars:
+                    self._item_checkbox_vars[item.id].set(False)
+            else:
+                self._selected_item_ids.add(item.id)
+                if item.id in self._item_checkbox_vars:
+                    self._item_checkbox_vars[item.id].set(True)
+        self._update_selection_counter()
+
+    def _apply_filters(self) -> None:
+        query = self.search_entry.get().strip().lower()
+        filter_mode = self.filter_var.get()
+
+        filtered = []
+        for item in self._all_items:
+            # Query match
+            if query and (query not in item.title.lower() and query not in (item.artist or "").lower()):
+                continue
+
+            # State match
+            if filter_mode == "Ready to Download" and item.state != ItemState.READY:
+                continue
+            elif filter_mode == "Needs Review" and item.state != ItemState.NEEDS_REVIEW:
+                continue
+            elif filter_mode == "Already Owned" and item.state != ItemState.OWNED:
+                continue
+            elif filter_mode == "Unavailable" and item.state not in [ItemState.NO_SOURCE, ItemState.FAILED]:
+                continue
+
+            filtered.append(item)
+
+        self._filtered_items = filtered
+        self._render_track_rows()
+
+    def _on_download_selected(self) -> None:
+        """Start downloading only the checked tracks."""
+        if not self._active_job or not self._selected_item_ids:
             return
 
-        ready_ids = [i.id for i in self._active_items if i.state in [ItemState.READY, ItemState.NEEDS_REVIEW] and i.id]
-        if not ready_ids:
-            self.status_lbl.configure(text="No tracks ready for download.", text_color="#fbbf24")
-            return
-
+        selected_ids = list(self._selected_item_ids)
         self.service.execute_import_job(
             job_id=self._active_job.id,
-            item_ids=ready_ids,
+            item_ids=selected_ids,
             run_async=True,
         )
 
         self.status_lbl.configure(
-            text=f"🚀 Started downloading {len(ready_ids)} tracks into your library.",
-            text_color="#10b981",
+            text=f"🚀 Downloading {len(selected_ids)} selected tracks into your library...",
+            text_color=theme.SUCCESS,
         )
 
         if self.on_navigate_downloads:
             self.on_navigate_downloads()
 
-    def _on_retry_failed(self) -> None:
-        """Re-attempt downloading only failed tracks."""
-        if not self._active_job:
-            return
-
-        failed_items = [i for i in self._active_items if i.state == ItemState.FAILED and i.id]
-        if not failed_items:
-            self.status_lbl.configure(text="No failed tracks to retry.", text_color="#60a5fa")
-            return
-
-        self.service.execute_import_job(
-            job_id=self._active_job.id,
-            item_ids=[i.id for i in failed_items],
-            run_async=True,
-        )
-        self.status_lbl.configure(
-            text=f"🔄 Retrying {len(failed_items)} failed tracks...",
-            text_color="#60a5fa",
-        )
-
     def refresh(self) -> None:
-        """Refresh active job status if one is currently active."""
+        """Refresh active job state if one is loaded."""
         if self._active_job:
             items = self.service.get_import_job_items(self._active_job.id)
             if items:
-                self._render_analysis(self._active_job, items)
+                self._render_playlist_ui(self._active_job, items)

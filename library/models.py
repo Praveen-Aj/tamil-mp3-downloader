@@ -149,6 +149,16 @@ class LibrarySong:
         return self.state == SongState.DOWNLOADING
 
     @property
+    def bitrate_kbps(self) -> Optional[int]:
+        """Alias for quality_kbps."""
+        return self.quality_kbps
+
+    @property
+    def source_site(self) -> Optional[str]:
+        """Default or source site name."""
+        return getattr(self, "_source_site", "Library")
+
+    @property
     def display_name(self) -> str:
         """Get display name with artist."""
         if self.artist:
@@ -316,6 +326,21 @@ class Download:
         """Check if download failed."""
         return self.state == DownloadState.FAILED
 
+    @property
+    def filename(self) -> Optional[str]:
+        if self.output_path:
+            import os
+            return os.path.basename(self.output_path)
+        return None
+
+    @property
+    def destination_path(self) -> Optional[str]:
+        return self.output_path
+
+    @property
+    def source_name(self) -> str:
+        return getattr(self, "_source_name", "Audio Stream")
+
 
 @dataclass
 class DiscoveryContext:
@@ -409,6 +434,10 @@ class ImportJob:
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
         )
+
+    @property
+    def track_count(self) -> int:
+        return self.total_tracks
 
 
 @dataclass

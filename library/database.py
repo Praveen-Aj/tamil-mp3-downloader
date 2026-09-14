@@ -310,7 +310,7 @@ class SQLiteDatabase:
             base_sql = "FROM songs WHERE 1=1"
             params: List[Any] = []
 
-            if query.strip():
+            if query and query.strip():
                 search_pat = f"%{query.strip()}%"
                 base_sql += " AND (title LIKE ? OR artist LIKE ? OR album LIKE ?)"
                 params.extend([search_pat, search_pat, search_pat])

@@ -14,12 +14,15 @@ A modern, library-centric desktop application for acquiring, organizing, and man
 
 ## Key Features
 
-- **Universal Music URL Import:** Paste links from Spotify (playlists, albums, tracks), YouTube, YouTube Music, Tamil regional sources, or direct audio streams.
+- **Universal Music URL Import:** Paste links from Spotify (playlists, albums, tracks), YouTube, YouTube Music, Tamil regional sources, or direct audio streams into the new centerpiece Add Music view.
+- **Interactive Playlist Result UI:** Review analyzed playlists with track selection checkboxes, status filter dropdowns, and batch one-click downloading.
+- **Full Desktop Download Manager:** Live aggregate queue progress, transfer speeds, ETA timers, and file explorer actions.
 - **Audio Provider Abstraction & Matching:** Uses `TrackMatcher` to find and score the closest matching audio stream across multiple providers with fuzzy title and duration similarity.
 - **Persistent Resumable Playlist Jobs:** Multi-track playlist downloads survive application restarts and allow single-click retries of failed tracks.
 - **Canonical SQLite Library:** Central database automatically deduplicates tracks, tracks owned files, and prevents duplicate downloads.
 - **Automatic ID3v2.3 Tagging:** Embeds Title, Artist, Album, Year, Track Number, and Cover Artwork directly into downloaded audio files.
 - **Local Library Import:** Existing MP3 directories can be scanned into the canonical library as `OWNED` via `Library → Import Existing Files`.
+- **Modern Dark Design System:** Curated obsidian/navy aesthetic with semantic indicators, categorized navigation, and live notification badge pills.
 
 ## Quick Start
 
