@@ -67,6 +67,14 @@ class SQLiteDatabase:
             logger.error(f"Failed to connect to database: {e}")
             raise
 
+    def execute_write(self, sql: str, params: tuple = ()) -> bool:
+        """Execute a write SQL query in a thread-safe transaction."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(sql, params)
+                return cursor.rowcount > 0
+
     def close(self) -> None:
         """Close database connection."""
         if self._conn:
@@ -203,8 +211,8 @@ class SQLiteDatabase:
         song_id: int,
         file_path: str,
         file_size_bytes: int,
-        quality_kbps: int,
-        library_location_id: int,
+        quality_kbps: Optional[int] = None,
+        library_location_id: int = 1,
     ) -> bool:
         """
         Update song file information after download.
@@ -272,6 +280,59 @@ class SQLiteDatabase:
             LIMIT ?
         """, (search_pattern, search_pattern, search_pattern, limit))
         return [LibrarySong.from_row(row) for row in cursor.fetchall()]
+
+    def get_paginated_songs(
+        self,
+        query: str = "",
+        state_filter: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """
+        Get paginated songs from SQLite with thread lock protection.
+
+        Args:
+            query: Search string for title, artist, album
+            state_filter: "ALL", "OWNED", "UNOWNED"
+            page: 1-indexed page number
+            page_size: Rows per page
+
+        Returns:
+            Dict containing list of songs, total items count, total pages count
+        """
+        offset = (page - 1) * page_size
+        with self._lock:
+            cursor = self._conn.cursor()
+            base_sql = "FROM songs WHERE 1=1"
+            params: List[Any] = []
+
+            if query.strip():
+                search_pat = f"%{query.strip()}%"
+                base_sql += " AND (title LIKE ? OR artist LIKE ? OR album LIKE ?)"
+                params.extend([search_pat, search_pat, search_pat])
+
+            if state_filter == "OWNED":
+                base_sql += " AND state = 'OWNED'"
+            elif state_filter == "UNOWNED":
+                base_sql += " AND state = 'NEW'"
+
+            cursor.execute(f"SELECT COUNT(*) {base_sql}", params)
+            total_items = cursor.fetchone()[0]
+            total_pages = max(1, (total_items + page_size - 1) // page_size)
+
+            query_sql = f"SELECT * {base_sql} ORDER BY id DESC LIMIT ? OFFSET ?"
+            query_params = list(params) + [page_size, offset]
+            cursor.execute(query_sql, query_params)
+
+            songs = [LibrarySong.from_row(row) for row in cursor.fetchall()]
+
+            return {
+                "songs": songs,
+                "total_items": total_items,
+                "total_pages": total_pages,
+                "page": page,
+                "page_size": page_size,
+            }
 
     # ------------------------------------------------------------------
     # Source operations
@@ -507,6 +568,26 @@ class SQLiteDatabase:
             (song_id,)
         )
         return [Download.from_row(row) for row in cursor.fetchall()]
+
+    def get_download(self, download_id: int) -> Optional[Download]:
+        """Get a download by ID."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT * FROM downloads WHERE id = ?", (download_id,))
+        row = cursor.fetchone()
+        return Download.from_row(row) if row else None
+
+    def get_all_downloads(self) -> List[Download]:
+        """Get all downloads."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT * FROM downloads ORDER BY id DESC")
+        return [Download.from_row(row) for row in cursor.fetchall()]
+
+    def get_source_by_id(self, source_id: int) -> Optional[SongSource]:
+        """Get a song source by ID."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT * FROM song_sources WHERE id = ?", (source_id,))
+        row = cursor.fetchone()
+        return SongSource.from_row(row) if row else None
 
     # ------------------------------------------------------------------
     # Discovery context operations

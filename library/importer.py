@@ -2,8 +2,9 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional, List, Callable, Dict, Any
+from typing import Optional, List, Callable, Dict, Any, Tuple
 
+from dataclasses import dataclass, field
 from library.canonical import CanonicalIdentity
 from library.models import LibrarySong, SongState
 
@@ -17,6 +18,27 @@ try:
     _MUTAGEN_AVAILABLE = True
 except ImportError:
     _MUTAGEN_AVAILABLE = False
+
+
+@dataclass
+class ImportResult:
+    """Statistics result model for import operations."""
+    scanned: int = 0
+    imported: int = 0     # New canonical songs added
+    matched: int = 0      # Existing songs updated to OWNED
+    unmatched: int = 0    # Metadata incomplete
+    failed: int = 0       # Read/file errors
+    conflicts: int = 0    # Conflicting metadata records
+
+    def to_dict(self) -> Dict[str, int]:
+        return {
+            "scanned": self.scanned,
+            "imported": self.imported,
+            "matched": self.matched,
+            "unmatched": self.unmatched,
+            "failed": self.failed,
+            "conflicts": self.conflicts,
+        }
 
 
 class LibraryImporter:
@@ -69,7 +91,7 @@ class LibraryImporter:
         album = ""
         year = None
         duration_seconds = None
-        quality_kbps = 320  # Default assumption for local library
+        quality_kbps: Optional[int] = None  # Store None for unknown bitrate — DO NOT assume 320 kbps
 
         file_size_bytes = file_path.stat().st_size if file_path.exists() else 0
 
@@ -102,7 +124,11 @@ class LibraryImporter:
 
         # Fallback filename cleanup if title contains quality or track numbers
         if title == file_path.stem:
-            # Clean filename: e.g. "01 - Kalla Nikkiriye 320kbps" -> "Kalla Nikkiriye"
+            # Check filename for bitrate hint if mutagen failed to detect
+            q_match = re.search(r"\b(320|128)\s*kbps\b", title, flags=re.I)
+            if q_match and quality_kbps is None:
+                quality_kbps = int(q_match.group(1))
+
             clean = re.sub(r"^\d+[\s\-\.]+", "", title).strip()
             clean = re.sub(r"\s*(320|128)kbps.*", "", clean, flags=re.I).strip()
             if clean:
@@ -124,7 +150,7 @@ class LibraryImporter:
             "file_size_bytes": file_size_bytes,
         }
 
-    def import_file(self, file_path: Path, location_id: Optional[int] = None) -> Optional[int]:
+    def import_file(self, file_path: Path, location_id: Optional[int] = None) -> Tuple[Optional[int], bool]:
         """
         Import a single local MP3 file into the canonical library with state=OWNED.
 
@@ -133,7 +159,7 @@ class LibraryImporter:
             location_id: Optional LibraryLocation ID
 
         Returns:
-            Library song ID if registered successfully, None otherwise
+            Tuple of (song_id or None, is_new_import: bool)
         """
         try:
             meta = self.extract_metadata(file_path)
@@ -143,6 +169,10 @@ class LibraryImporter:
                 album=meta["album"],
                 year=meta["year"],
             )
+
+            # Check if canonical song already exists in SQLite
+            existing = self.db.get_song_by_canonical_hash(identity.hash)
+            is_new = existing is None
 
             # Create or update canonical song in DB
             lib_song = LibrarySong(
@@ -163,7 +193,6 @@ class LibraryImporter:
             )
 
             song_id = self.db.add_song(lib_song)
-            # Update file path & state to OWNED if it already existed in NEW state
             self.db.update_song_file(
                 song_id=song_id,
                 file_path=str(file_path),
@@ -172,12 +201,12 @@ class LibraryImporter:
                 library_location_id=location_id or 1,
             )
 
-            logger.info(f"Imported local MP3 '{identity}' (song_id={song_id}) as OWNED")
-            return song_id
+            logger.info(f"Imported local MP3 '{identity}' (song_id={song_id}, is_new={is_new}) as OWNED")
+            return song_id, is_new
 
         except Exception as e:
             logger.error(f"Failed to import local MP3 {file_path}: {e}")
-            return None
+            return None, False
 
     def import_directory(
         self,
@@ -194,28 +223,25 @@ class LibraryImporter:
             progress_cb: Optional progress callback (current, total)
 
         Returns:
-            Statistics dict: {total, imported, failed}
+            Statistics dictionary conforming to ImportResult model schema.
         """
+        res = ImportResult()
         mp3_files = self.scan_directory(directory)
-        total = len(mp3_files)
-        imported = 0
-        failed = 0
+        res.scanned = len(mp3_files)
 
         for i, file_path in enumerate(mp3_files, start=1):
             if progress_cb:
-                progress_cb(i, total)
+                progress_cb(i, res.scanned)
 
-            song_id = self.import_file(file_path, location_id=location_id)
+            song_id, is_new = self.import_file(file_path, location_id=location_id)
             if song_id is not None:
-                imported += 1
+                if is_new:
+                    res.imported += 1
+                else:
+                    res.matched += 1
             else:
-                failed += 1
+                res.failed += 1
 
-        stats = {
-            "total": total,
-            "imported": imported,
-            "failed": failed,
-        }
-        logger.info(f"Import directory complete: {stats}")
-        return stats
+        logger.info(f"Import directory complete: {res.to_dict()}")
+        return res.to_dict()
 

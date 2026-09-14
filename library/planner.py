@@ -134,6 +134,7 @@ class DownloadPlanner:
         self,
         db: "SQLiteDatabase",
         upgrade_quality_threshold: int = 64,
+        source_priority: Optional[List[str]] = None,
     ):
         """
         Initialize download planner.
@@ -141,9 +142,11 @@ class DownloadPlanner:
         Args:
             db: Connected SQLiteDatabase instance
             upgrade_quality_threshold: Min kbps gain to trigger upgrade (default 64)
+            source_priority: Ordered list of preferred source names (e.g. ["masstamilan", "tamilmp3", "friendstamilmp3"])
         """
         self.db = db
         self.upgrade_quality_threshold = upgrade_quality_threshold
+        self.source_priority = source_priority or ["masstamilan", "tamilmp3", "friendstamilmp3"]
         self._pipeline = DiscoveryPipeline(db)
 
     def plan_downloads(
@@ -172,28 +175,22 @@ class DownloadPlanner:
 
         # Process each *unique* canonical song exactly once
         seen_hashes: set = set()
-        # Track song_ids we've already added to plan to prevent double-counting
-        # when the same canonical ID appears under multiple hashes due to aliasing
         seen_song_ids: set = set()
 
         for song in discovered_songs:
             identity = song_to_canonical(song, source_name)
 
-            # Skip within-batch duplicates
             if identity.hash in seen_hashes:
                 logger.debug(f"Dedup within batch: '{song.name}' (hash already seen)")
                 continue
             seen_hashes.add(identity.hash)
             plan.unique_canonical += 1
 
-            # Retrieve the canonical library entry
             lib_song = self.db.get_song_by_canonical_hash(identity.hash)
             if lib_song is None:
                 logger.warning(f"Song not found in library after registration: {identity}")
                 continue
 
-            # Guard against the same DB song_id appearing via different hashes
-            # (shouldn't happen with SHA256, but be defensive)
             if lib_song.id in seen_song_ids:
                 logger.debug(f"Dedup: song_id {lib_song.id} already planned")
                 continue
@@ -206,7 +203,6 @@ class DownloadPlanner:
                 else:
                     plan.owned.append(lib_song)
             else:
-                # NEW, FAILED, QUEUED — queue for download with best source
                 best = self._select_best_source(lib_song.id, song, source_name)
                 if best:
                     plan.new_songs.append(best)
@@ -225,25 +221,10 @@ class DownloadPlanner:
     ) -> DownloadPlan:
         """
         Plan downloads from multiple source batches simultaneously.
-
-        This is the recommended entry point when songs have been discovered
-        from multiple sites/categories.  All registrations happen first, then
-        planning deduplicates across all batches.
-
-        Args:
-            source_batches: List of dicts, each with keys:
-                - songs: List[Song]
-                - source_name: str
-                - album: Optional[Album]
-                - category: Optional[str]
-
-        Returns:
-            DownloadPlan with at most 1 entry per canonical song across all batches
         """
         total_raw = sum(len(b["songs"]) for b in source_batches)
         plan = DownloadPlan(raw_discovered=total_raw)
 
-        # Step 1: Register all batches first (with source failure isolation)
         for batch in source_batches:
             try:
                 self._pipeline.register_batch(
@@ -256,7 +237,6 @@ class DownloadPlanner:
                 logger.error(f"Source batch failure for '{batch.get('source_name')}': {e}")
                 continue
 
-        # Step 2: Deduplicate and plan across all batches
         seen_hashes: set = set()
         seen_song_ids: set = set()
 
@@ -310,7 +290,13 @@ class DownloadPlanner:
             seen_ids.add(lib_song.id)
 
             if lib_song.state == SongState.OWNED:
-                plan.owned.append(lib_song)
+                from models.song import Song
+                rep_song = Song(name=lib_song.title, url="", album_name=lib_song.album or "")
+                upgrade = self._check_upgrade(lib_song, rep_song, "library")
+                if upgrade:
+                    plan.upgrades.append(upgrade)
+                else:
+                    plan.owned.append(lib_song)
             else:
                 sources = self.db.get_sources_for_song(lib_song.id)
                 if not sources:
@@ -357,15 +343,7 @@ class DownloadPlanner:
         """
         Select the best available source for a song from ALL registered sources.
 
-        Priority: availability > quality_kbps > reliability_score > smaller size
-
-        Args:
-            song_id: Library song ID
-            original_song: Representative Song object (for display)
-            source_name: Source name of the representative song
-
-        Returns:
-            SourceSelection with ranked sources, or None if no sources exist
+        Priority: availability > quality_kbps > user_source_priority > reliability_score > smaller size
         """
         sources = self.db.get_sources_for_song(song_id)
         if not sources:
@@ -388,17 +366,25 @@ class DownloadPlanner:
 
     def _source_ranking_key(self, source: SongSource) -> tuple:
         """
-        Ranking key for source selection.
+        Deterministic Source Ranking Policy:
 
-        Priority:
-        1. Availability (True > False)
-        2. Quality kbps (higher = better)
-        3. Reliability score (higher = better)
-        4. Size (smaller = preferred when quality is equal)
+        1. Availability: True > False (is_available)
+        2. Quality kbps: Higher quality tier (e.g. 320 > 128 > 0)
+        3. User Source Priority: Priority score based on user source priority configuration
+        4. Reliability Score: Higher runtime health/reliability score (0.0 to 1.0)
+        5. File Size: Smaller size preferred if quality & priority are equal
         """
+        priority_list = self.source_priority or ["masstamilan", "tamilmp3", "friendstamilmp3"]
+        s_name = (source.source_name or "").lower()
+        try:
+            priority_score = len(priority_list) - priority_list.index(s_name)
+        except ValueError:
+            priority_score = 0
+
         return (
             int(source.is_available),
             source.quality_kbps or 0,
+            priority_score,
             source.reliability_score,
             -(source.file_size_bytes or 0),
         )
@@ -412,40 +398,29 @@ class DownloadPlanner:
         Never produces a downgrade: only returns an UpgradePlan when the best
         available source quality exceeds the library quality by at least
         `upgrade_quality_threshold` kbps.
-
-        Args:
-            existing: Currently owned LibrarySong
-            song: Newly discovered Song
-            source_name: Source name
-
-        Returns:
-            UpgradePlan if upgrade is warranted, None otherwise
         """
-        if existing.quality_kbps is None:
-            return None  # Unknown existing quality — cannot compare
+        # If existing quality is unknown (None), treat existing kbps as 0 for upgrade evaluation
+        existing_quality = existing.quality_kbps if existing.quality_kbps is not None else 0
 
-        # Find the best quality source available (from ALL registered sources)
         sources = self.db.get_sources_for_song(existing.id)
         if not sources:
             return None
 
         best_source = max(
             (s for s in sources if s.is_available),
-            key=lambda s: s.quality_kbps or 0,
+            key=self._source_ranking_key,
             default=None,
         )
         if best_source is None:
-            best_source = max(sources, key=lambda s: s.quality_kbps or 0)
+            best_source = max(sources, key=self._source_ranking_key)
 
         best_quality = best_source.quality_kbps or 0
-        quality_gain = best_quality - existing.quality_kbps
+        quality_gain = best_quality - existing_quality
 
-        # Never downgrade
         if quality_gain <= 0:
             return None
 
-        # Only upgrade if improvement meets threshold
-        if quality_gain < self.upgrade_quality_threshold:
+        if existing.quality_kbps is not None and quality_gain < self.upgrade_quality_threshold:
             return None
 
         return UpgradePlan(

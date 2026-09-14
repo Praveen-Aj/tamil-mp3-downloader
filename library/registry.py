@@ -147,7 +147,7 @@ class DownloadRegistry:
                 song_id=song_id,
                 file_path=file_path,
                 file_size_bytes=file_size_bytes,
-                quality_kbps=quality_kbps or 0,
+                quality_kbps=quality_kbps,
                 library_location_id=library_location_id,
             )
 
@@ -210,11 +210,7 @@ class DownloadRegistry:
         Get all downloads registered in system.
         """
         with self._lock:
-            cursor = self.db._conn.cursor()
-            cursor.execute(
-                "SELECT * FROM downloads ORDER BY id DESC"
-            )
-            return [Download.from_row(row) for row in cursor.fetchall()]
+            return self.db.get_all_downloads()
 
     # ------------------------------------------------------------------
     # Source reliability tracking
@@ -229,9 +225,9 @@ class DownloadRegistry:
             increment: Amount to increase score (default 0.05)
         """
         with self._lock:
-            sources = self._get_source(source_id)
-            if sources is not None:
-                new_score = min(1.0, sources + increment)
+            source = self.db.get_source_by_id(source_id)
+            if source is not None:
+                new_score = min(1.0, source.reliability_score + increment)
                 self.db.update_source_reliability(source_id, new_score)
 
     def _penalize_source(self, source_id: int, decrement: float = 0.1) -> None:
@@ -242,29 +238,7 @@ class DownloadRegistry:
             source_id: Source ID
             decrement: Amount to decrease score (default 0.1)
         """
-        sources = self._get_source(source_id)
-        if sources is not None:
-            new_score = max(0.0, sources - decrement)
+        source = self.db.get_source_by_id(source_id)
+        if source is not None:
+            new_score = max(0.0, source.reliability_score - decrement)
             self.db.update_source_reliability(source_id, new_score)
-
-    def _get_source(self, source_id: int) -> Optional[float]:
-        """
-        Get current reliability score for a source.
-
-        Args:
-            source_id: Source ID
-
-        Returns:
-            Current reliability score, or None if source not found
-        """
-        try:
-            cursor = self.db._conn.cursor()
-            cursor.execute(
-                "SELECT reliability_score FROM song_sources WHERE id = ?",
-                (source_id,)
-            )
-            row = cursor.fetchone()
-            return row[0] if row else None
-        except Exception as e:
-            logger.debug(f"Failed to get source reliability: {e}")
-            return None

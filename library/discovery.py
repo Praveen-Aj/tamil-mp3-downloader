@@ -189,19 +189,20 @@ class DiscoveryPipeline:
         existing_count = 0
         error_count = 0
 
-        for song in songs:
-            try:
-                identity = song_to_canonical(song, source_name)
-                # Check before registering to differentiate new vs existing in stats
-                pre_existing = self.db.get_song_by_canonical_hash(identity.hash)
-                self.register_song(song, source_name, album, category)
-                if pre_existing is not None:
-                    existing_count += 1
-                else:
-                    new_count += 1
-            except Exception as e:
-                error_count += 1
-                logger.warning(f"Failed to register song '{song.name}': {e}")
+        with self.db._conn:
+            for song in songs:
+                try:
+                    identity = song_to_canonical(song, source_name)
+                    # Check before registering to differentiate new vs existing in stats
+                    pre_existing = self.db.get_song_by_canonical_hash(identity.hash)
+                    self.register_song(song, source_name, album, category)
+                    if pre_existing is not None:
+                        existing_count += 1
+                    else:
+                        new_count += 1
+                except Exception as e:
+                    error_count += 1
+                    logger.warning(f"Failed to register song '{song.name}': {e}")
 
         stats = {
             "new": new_count,

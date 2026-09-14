@@ -49,7 +49,7 @@
     "concurrent_enabled": true,
     "max_workers": 3,
     "retries": 3,
-    "preferred_quality": "320kbps",
+    "preferred_quality": 320,
     "external_downloader": {
       "enabled": false,
       "aria2_path": "aria2c.exe",
@@ -83,5 +83,17 @@
   "logging": {
     "level": "INFO",
     "file_logging": true
+  },
+  "library": {
+    "enabled": true,
+    "database_path": "",
+    "canonicalization": {
+      "strip_variants": true,
+      "case_insensitive": true,
+      "normalize_whitespace": true
+    },
+    "upgrade_policy": "auto",
+    "upgrade_quality_threshold": 64,
+    "multiple_locations": false
   }
 }

@@ -46,7 +46,7 @@ class Settings:
             "concurrent_enabled": True,
             "max_workers": 3,
             "retries": 3,
-            "preferred_quality": "320kbps",
+            "preferred_quality": 320,
             "external_downloader": {
                 "enabled": False,
                 "aria2_path": "aria2c.exe",
@@ -215,6 +215,19 @@ class Settings:
     def upgrade_quality_threshold(self) -> int:
         """Get quality upgrade threshold in kbps."""
         return self.get("library.upgrade_quality_threshold", 64)
+
+    @property
+    def preferred_quality_kbps(self) -> int:
+        """Get canonical integer preferred quality in kbps (e.g. 320 or 128)."""
+        val = self.get("download.preferred_quality", 320)
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            import re
+            m = re.search(r"\d+", val)
+            if m:
+                return int(m.group(0))
+        return 320
 
 
 # Global settings instance

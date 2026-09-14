@@ -26,6 +26,7 @@ from library.registry import DownloadRegistry
 from scrapers.base import BaseScraper
 from scrapers.friendstamilmp3 import FriendsTamilMP3Scraper
 from scrapers.isaimini import IsaiminiScraper
+from scrapers.kollysongs import KollySongsScraper
 from scrapers.masstamilan import MassTamilanScraper
 from scrapers.source_registry import (
     SourceRegistry,
@@ -60,7 +61,7 @@ class LibraryService:
 
     def _init_default_sources(self) -> None:
         """Register default core sources in SourceRegistry."""
-        # 1. MassTamilan
+        # 1. MassTamilan (Enabled)
         self.source_registry.register_source(
             config=SourceConfig(
                 name="masstamilan",
@@ -72,7 +73,7 @@ class LibraryService:
             scraper=MassTamilanScraper(),
         )
 
-        # 2. Tamilmp3.in / Kuttyweb
+        # 2. Tamilmp3.in / Kuttyweb (Enabled)
         self.source_registry.register_source(
             config=SourceConfig(
                 name="tamilmp3",
@@ -84,7 +85,7 @@ class LibraryService:
             scraper=Tamilmp3Scraper(),
         )
 
-        # 3. FriendsTamilMP3
+        # 3. FriendsTamilMP3 (Enabled)
         self.source_registry.register_source(
             config=SourceConfig(
                 name="friendstamilmp3",
@@ -108,12 +109,25 @@ class LibraryService:
             scraper=IsaiminiScraper(),
         )
 
+        self.source_registry.register_source(
+            config=SourceConfig(
+                name="kollysongs",
+                display_name="KollySongs",
+                domains=["https://www.kollysongs.com"],
+                capabilities=SourceCapabilities(supports_320kbps=True, supports_128kbps=True),
+                enabled=False,
+            ),
+            scraper=KollySongsScraper(),
+        )
+
     # ── Summary & Stats ──────────────────────────────────────────
     def get_dashboard_stats(self) -> Dict[str, Any]:
         """Get summary metrics for Dashboard."""
         lib_stats = self.db.get_library_stats()
         sources = self.source_registry.get_all_sources()
-        healthy_count = sum(1 for s in sources if s.is_usable)
+        enabled_sources = [s for s in sources if s.enabled]
+        disabled_sources = [s for s in sources if not s.enabled]
+        healthy_enabled = sum(1 for s in enabled_sources if s.is_usable)
 
         # Count quality upgrades available
         owned = self.db.get_songs_by_state(SongState.OWNED)
@@ -133,7 +147,8 @@ class LibraryService:
             "unowned_songs": lib_stats.get("songs_by_state", {}).get("NEW", 0),
             "upgrades_available": upgrades_count,
             "active_downloads": active_downloads,
-            "healthy_sources": f"{healthy_count}/{len(sources)}",
+            "healthy_sources": f"{healthy_enabled}/{len(enabled_sources)} Core Healthy",
+            "disabled_sources": len(disabled_sources),
             "last_session": self._last_discovery_session,
         }
 
@@ -147,51 +162,13 @@ class LibraryService:
     ) -> Dict[str, Any]:
         """
         Get paginated songs from SQLite with filter criteria.
-
-        Args:
-            query: Search query (title, artist, album)
-            state_filter: "ALL", "OWNED", "UNOWNED", "UPGRADES"
-            page: 1-indexed page number
-            page_size: Rows per page
-
-        Returns:
-            Dict containing list of songs, total count, total pages, current page
         """
-        offset = (page - 1) * page_size
-        cursor = self.db._conn.cursor()
-
-        base_sql = "FROM songs WHERE 1=1"
-        params: List[Any] = []
-
-        if query.strip():
-            search_pat = f"%{query.strip()}%"
-            base_sql += " AND (title LIKE ? OR artist LIKE ? OR album LIKE ?)"
-            params.extend([search_pat, search_pat, search_pat])
-
-        if state_filter == "OWNED":
-            base_sql += " AND state = 'OWNED'"
-        elif state_filter == "UNOWNED":
-            base_sql += " AND state = 'NEW'"
-
-        # Count total items
-        cursor.execute(f"SELECT COUNT(*) {base_sql}", params)
-        total_items = cursor.fetchone()[0]
-        total_pages = max(1, (total_items + page_size - 1) // page_size)
-
-        # Query page slice
-        query_sql = f"SELECT * {base_sql} ORDER BY id DESC LIMIT ? OFFSET ?"
-        query_params = list(params) + [page_size, offset]
-        cursor.execute(query_sql, query_params)
-
-        songs = [LibrarySong.from_row(row) for row in cursor.fetchall()]
-
-        return {
-            "songs": songs,
-            "total_items": total_items,
-            "total_pages": total_pages,
-            "page": page,
-            "page_size": page_size,
-        }
+        return self.db.get_paginated_songs(
+            query=query,
+            state_filter=state_filter,
+            page=page,
+            page_size=page_size,
+        )
 
     # ── Song Details & Duplicate Breakdown ───────────────────────
     def get_song_details(self, song_id: int) -> Dict[str, Any]:
@@ -275,14 +252,174 @@ class LibraryService:
         new_songs = self.db.get_songs_by_state(SongState.NEW)
         return self.planner.plan_downloads_for_songs(new_songs)
 
-    def execute_download_plan(self, plan: DownloadPlan) -> List[int]:
-        """Enqueue planned downloads into DownloadRegistry."""
+    def execute_single_download(self, download_id: int) -> bool:
+        """
+        Execute a complete production download pipeline for a single download slot.
+
+        Workflow:
+        Download Plan -> DownloadRegistry acquire -> resolve source download URL
+        -> invoke existing HTTPDownloader -> write file to configured location
+        -> verify successful download -> update database/library state
+        -> DownloadRegistry complete -> Canonical Song becomes OWNED.
+
+        For Tamilmp3:
+        SongSource.download_reference -> Tamilmp3Scraper.get_download_url()
+        -> fresh token.php request -> fresh signed CDN URL -> HTTPDownloader -> filesystem.
+        """
+        dl = self.db.get_download(download_id)
+        if not dl:
+            logger.error(f"execute_single_download: download_id {download_id} not found")
+            return False
+
+        song = self.db.get_song(dl.song_id)
+        if not song:
+            self.registry.fail(dl.song_id, download_id, "Song record missing from database", dl.song_source_id)
+            return False
+
+        source = self.db.get_source_by_id(dl.song_source_id)
+        if not source:
+            self.registry.fail(dl.song_id, download_id, "Source variant missing from database", dl.song_source_id)
+            return False
+
+        # Resolve fresh download URL via registered scraper if available
+        download_url = None
+        reg_src = self.source_registry.get_source(source.source_name)
+        if reg_src and reg_src.scraper and hasattr(reg_src.scraper, "get_download_url"):
+            try:
+                download_url = reg_src.scraper.get_download_url(source, quality=str(source.quality_kbps or 320))
+            except Exception as e:
+                logger.warning(f"Error resolving download URL from scraper '{source.source_name}': {e}")
+
+        if not download_url:
+            download_url = source.download_reference or source.source_url
+
+        if not download_url or not (download_url.startswith("http://") or download_url.startswith("https://")):
+            err_msg = f"Invalid or empty download URL: '{download_url}'"
+            self.registry.fail(song.id, download_id, err_msg, source.id)
+            return False
+
+        from models.song import Song as DownloadSong
+        from downloaders.http_downloader import HTTPDownloader
+
+        dl_song = DownloadSong(
+            name=song.title,
+            url=download_url,
+            quality=f"{source.quality_kbps or 320}kbps",
+            album_name=song.album or "Unknown Album",
+            artist=song.artist,
+            year=song.year,
+        )
+
+        try:
+            downloader = HTTPDownloader(
+                output_dir=Path(settings.output_dir),
+                max_workers=settings.get("download.max_workers", 3),
+                show_progress=False,
+            )
+            result = downloader.download_song(dl_song)
+
+            if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
+                was_upgrade = (song.state == SongState.OWNED)
+                file_size = result.size_downloaded or result.file_path.stat().st_size
+                self.registry.complete(
+                    song_id=song.id,
+                    download_id=download_id,
+                    file_path=str(result.file_path),
+                    file_size_bytes=file_size,
+                    quality_kbps=source.quality_kbps,
+                    library_location_id=1,
+                    was_upgrade=was_upgrade,
+                    previous_file_path=song.file_path,
+                    previous_quality_kbps=song.quality_kbps,
+                )
+                self.registry.reward_source(source.id)
+                return True
+            else:
+                err_msg = result.error_message or "Download verification failed (empty or missing file)"
+                self.registry.fail(song.id, download_id, err_msg, source.id)
+                return False
+
+        except Exception as exc:
+            err_msg = f"Download execution exception: {exc}"
+            self.registry.fail(song.id, download_id, err_msg, source.id)
+            return False
+
+    def execute_download_plan(
+        self,
+        plan: DownloadPlan,
+        run_async: bool = True,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[int]:
+        """
+        Enqueue planned downloads into DownloadRegistry and trigger download execution pipeline.
+        """
         enqueued_ids = []
         for planned in plan.new_songs:
             dl_id = self.registry.acquire_download(
-                song_id=planned.song.id,
+                song_id=planned.song_id,
                 song_source_id=planned.primary.id,
             )
             if dl_id:
                 enqueued_ids.append(dl_id)
+
+        if run_async and enqueued_ids:
+            def _worker():
+                for idx, dl_id in enumerate(enqueued_ids, start=1):
+                    self.execute_single_download(dl_id)
+                    if progress_cb:
+                        progress_cb(idx, len(enqueued_ids))
+
+            threading.Thread(target=_worker, daemon=True).start()
+        elif not run_async:
+            for idx, dl_id in enumerate(enqueued_ids, start=1):
+                self.execute_single_download(dl_id)
+                if progress_cb:
+                    progress_cb(idx, len(enqueued_ids))
+
         return enqueued_ids
+
+    def retry_failed_downloads(
+        self,
+        download_ids: Optional[List[int]] = None,
+        run_async: bool = True,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+    ) -> List[int]:
+        """
+        Identify failed downloads, safely re-acquire registry slots, and execute the downloader again.
+        """
+        all_dls = self.db.get_all_downloads()
+        failed_dls = [
+            d for d in all_dls
+            if (d.state == DownloadState.FAILED or (hasattr(d.state, "value") and d.state.value == "FAILED"))
+            and (download_ids is None or d.id in download_ids)
+        ]
+
+        retried_ids = []
+        for d in failed_dls:
+            if self.registry.is_downloading(d.song_id):
+                continue
+            
+            # Transition song back to NEW so acquire slot can succeed
+            self.db.update_song_state(d.song_id, SongState.NEW)
+            new_dl_id = self.registry.acquire_download(
+                song_id=d.song_id,
+                song_source_id=d.song_source_id,
+            )
+            if new_dl_id:
+                retried_ids.append(new_dl_id)
+
+        if run_async and retried_ids:
+            def _worker():
+                for idx, dl_id in enumerate(retried_ids, start=1):
+                    self.execute_single_download(dl_id)
+                    if progress_cb:
+                        progress_cb(idx, len(retried_ids))
+
+            threading.Thread(target=_worker, daemon=True).start()
+        elif not run_async:
+            for idx, dl_id in enumerate(retried_ids, start=1):
+                self.execute_single_download(dl_id)
+                if progress_cb:
+                    progress_cb(idx, len(retried_ids))
+
+        return retried_ids

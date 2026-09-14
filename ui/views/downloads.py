@@ -150,4 +150,5 @@ class DownloadsView(ctk.CTkFrame):
 
     def _retry_failed(self) -> None:
         """Retry failed downloads."""
+        self.service.retry_failed_downloads(run_async=True)
         self.refresh()

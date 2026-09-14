@@ -127,7 +127,7 @@ class LibrarySong:
             title=row['title'],
             artist=row['artist'],
             album=row['album'],
-            state=SongState(row['state']),
+            state=SongState(row['state']) if row['state'] else SongState.NEW,
             quality_kbps=row['quality_kbps'],
             file_size_bytes=row['file_size_bytes'],
             library_location_id=row['library_location_id'],

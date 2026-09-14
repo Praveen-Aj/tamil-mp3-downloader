@@ -173,12 +173,15 @@ class DashboardView(ctk.CTkFrame):
         self._card_vars["upgrades_available"].set(f"{stats.get('upgrades_available', 0):,}")
 
         sess = stats.get("last_session")
+        health_info = f"Source Status: {stats.get('healthy_sources', 'N/A')} ({stats.get('disabled_sources', 0)} Disabled)"
+
         if sess:
             self.session_var.set(
+                f"{health_info}\n"
                 f"Category: {sess.get('category')}\n"
                 f"Raw Discovered: {sess.get('raw_discovered'):,}  |  "
                 f"Unique Registered: {sess.get('unique_registered'):,}  |  "
                 f"Duplicates Collapsed: {sess.get('duplicates_filtered'):,}"
             )
         else:
-            self.session_var.set("No discovery session run yet in this session.")
+            self.session_var.set(f"{health_info}\nNo discovery session run yet in this application session.")

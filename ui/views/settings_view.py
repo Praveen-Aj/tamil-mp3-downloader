@@ -9,6 +9,7 @@ Application settings configuration:
 - Downloader engine (HTTP / aria2)
 """
 
+from typing import Any
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
@@ -157,7 +158,7 @@ class SettingsView(ctk.CTkFrame):
     def _save_settings(self) -> None:
         """Save settings updates."""
         try:
-            settings.output_dir = Path(self.out_dir_var.get().strip())
+            settings.set("download.output_dir", self.out_dir_var.get().strip())
             settings.set("download.preferred_quality", int(self.quality_var.get()))
             settings.set("download.auto_upgrade", self.auto_upgrade_var.get())
             settings.set("download.max_workers", int(self.workers_var.get().strip()))
