@@ -22,10 +22,12 @@ import customtkinter as ctk
 from ui.components.sidebar import SidebarNav
 from ui.components.status_bar import StatusBar
 from ui.services.library_service import LibraryService
+from ui.views.add_music import AddMusicView
 from ui.views.dashboard import DashboardView
 from ui.views.discover import DiscoverView
 from ui.views.discovery_results import DiscoveryResultsView
 from ui.views.downloads import DownloadsView
+from ui.views.help_view import HelpView
 from ui.views.import_view import ImportView
 from ui.views.library import LibraryView
 from ui.views.sources import SourcesView
@@ -102,6 +104,12 @@ class TamilMP3App(ctk.CTk):
             on_navigate=self.show_view,
         )
 
+        self.views["add_music"] = AddMusicView(
+            self.view_container,
+            service=self.service,
+            on_navigate_downloads=lambda: self.show_view("downloads"),
+        )
+
         self.views["library"] = LibraryView(
             self.view_container,
             service=self.service,
@@ -138,6 +146,10 @@ class TamilMP3App(ctk.CTk):
         self.views["settings"] = SettingsView(
             self.view_container,
             service=self.service,
+        )
+
+        self.views["help"] = HelpView(
+            self.view_container,
         )
 
     def show_view(self, view_name: str) -> None:

@@ -3,6 +3,30 @@
 This changelog is generated from git history and repository state on branch `songs_downloader`.
 Analyzed range: `723f080` to `238b510` (2026-04-02 to 2026-04-03).
 
+## [4.1.0] - 2026-09-14
+
+### Universal URL / Playlist Acquisition & Modern UI Overhaul
+
+This release elevates the application into a universal music acquisition platform with pluggable audio stream resolution and persistent playlist state.
+
+### Added
+- **Universal URL Import Engine**: Instant platform detection and metadata parsing for Spotify (tracks, albums, playlists), YouTube, YouTube Music, Tamil regional sources, and direct audio files.
+- **Pluggable Audio Provider Architecture**: Abstract `AudioProvider` interface decoupling metadata extraction from stream resolution, with core implementations for `YouTubeProvider` (powered by `yt-dlp`), `TamilRegionalProvider`, and `DirectAudioProvider`.
+- **Multi-Factor Track Matching (`TrackMatcher`)**: Fuzzy matching combining normalized sequence matching, token set overlap, and duration delta scoring with tiered classifications (`HIGH`, `MEDIUM`, `LOW`, `NO_MATCH`).
+- **Persistent Resumable Playlist Jobs**: SQLite-backed `import_jobs` and `import_job_items` allowing multi-track playlist downloads to resume safely across application restarts.
+- **Modernized UI**:
+  - `AddMusicView`: Dedicated URL analysis view with platform badges, breakdown pills, and track review table.
+  - `DashboardView`: Redesigned modern dashboard with 6 KPI metric cards, quick "+ Add Music" hero bar, and recent jobs pane.
+  - `DownloadsView`: Live aggregate progress bar ("72 / 87 completed") and batch pause/resume/retry controls.
+  - `SettingsView`: Categorized settings for General, Library, Downloads, Providers, and Metadata.
+  - `HelpView`: Built-in documentation center covering getting started, matching, providers, and legal disclaimers.
+- **Automatic ID3 Tagging & Artwork Injection**: Mutagen integration writing ID3v2.3 tags and embedding cover artwork into completed audio files.
+
+### Changed
+- Local MP3 folder importing repositioned under `Library → Import Existing Files` as a secondary capability.
+- Added `yt-dlp>=2024.0.0` dependency with graceful fallback when FFmpeg is not detected.
+- Database schema bumped to Version 3 via `DatabaseMigrator`.
+
 ## [4.0.0] - 2026-09-14
 
 ### Major Architectural Rewrite: Library-Centric V4

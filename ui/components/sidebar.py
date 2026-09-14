@@ -31,13 +31,15 @@ class SidebarNav(ctk.CTkFrame):
         # Nav Buttons
         nav_items = [
             ("dashboard", "📊  Dashboard"),
+            ("add_music", "➕  Add Music"),
             ("library", "📚  Library"),
             ("discover", "🔍  Discover"),
             ("results", "🎯  Review Results"),
             ("downloads", "📥  Downloads Queue"),
-            ("import", "📂  Import MP3s"),
             ("sources", "🌐  Source Health"),
             ("settings", "⚙️  Settings"),
+            ("help", "❓  Help & Guide"),
+            ("import", "📁  Import Local Files"),
         ]
 
         for view_key, label in nav_items:

@@ -1,12 +1,7 @@
 """
-Settings View (Phase 11).
-
-Application settings configuration:
-- Output directory
-- Preferred audio quality (320 kbps vs 128 kbps)
-- Auto-upgrade threshold
-- Max concurrent download workers
-- Downloader engine (HTTP / aria2)
+Redesigned Categorized Application Settings View (Part 16).
+Provides categorized settings for General, Library, Downloads, Providers,
+Metadata, and Advanced system tuning.
 """
 
 from typing import Any
@@ -21,7 +16,7 @@ from ui.services.library_service import LibraryService
 
 class SettingsView(ctk.CTkFrame):
     """
-    Application Settings configuration view.
+    Categorized application settings view.
     """
 
     def __init__(
@@ -30,125 +25,150 @@ class SettingsView(ctk.CTkFrame):
         service: LibraryService,
         **kwargs,
     ):
-        super().__init__(master, corner_radius=0, **kwargs)
+        super().__init__(master, fg_color="transparent", corner_radius=0, **kwargs)
         self.service = service
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # ── Header ────────────────────────────────────────────────────
-        header = ctk.CTkFrame(self, height=50, corner_radius=0, fg_color="#181824")
+        header = ctk.CTkFrame(self, height=56, corner_radius=0, fg_color="#181824")
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
 
         ctk.CTkLabel(
             header,
             text="⚙️  Application Settings",
-            font=ctk.CTkFont(size=16, weight="bold"),
-        ).pack(side="left", padx=16, pady=10)
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color="#ffffff",
+        ).pack(side="left", padx=20, pady=12)
 
-        # ── Settings Form ─────────────────────────────────────────────
-        scroll = ctk.CTkScrollableFrame(self, corner_radius=0)
-        scroll.grid(row=1, column=0, sticky="nsew", padx=16, pady=16)
+        # ── Settings Scrollable Form ──────────────────────────────────
+        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
+        scroll.grid(row=1, column=0, sticky="nsew", padx=20, pady=15)
         scroll.grid_columnconfigure(0, weight=1)
 
-        # 1. Output Directory Card
-        out_card = ctk.CTkFrame(scroll, corner_radius=6, fg_color="#1c1c2e")
-        out_card.pack(fill="x", pady=(0, 12))
+        # ── 1. GENERAL CARD ───────────────────────────────────────────
+        gen_card = self._create_card(scroll, "1. GENERAL & UI")
 
-        ctk.CTkLabel(
-            out_card,
-            text="1. DOWNLOAD OUTPUT DIRECTORY",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#90caf9",
-        ).pack(anchor="w", padx=16, pady=(12, 6))
+        self.confirm_bulk_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            gen_card,
+            text="Confirm before starting large playlist downloads (>25 tracks)",
+            variable=self.confirm_bulk_var,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 10))
 
-        dir_frame = ctk.CTkFrame(out_card, fg_color="transparent")
-        dir_frame.pack(fill="x", padx=16, pady=(0, 12))
+        # ── 2. LIBRARY CARD ───────────────────────────────────────────
+        lib_card = self._create_card(scroll, "2. LIBRARY & STORAGE")
+
+        ctk.CTkLabel(lib_card, text="Music Library & Download Directory:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=18, pady=(0, 4))
+        dir_frame = ctk.CTkFrame(lib_card, fg_color="transparent")
+        dir_frame.pack(fill="x", padx=18, pady=(0, 10))
         dir_frame.grid_columnconfigure(0, weight=1)
 
         self.out_dir_var = tk.StringVar(value=str(settings.output_dir))
-        self.entry_out = ctk.CTkEntry(dir_frame, textvariable=self.out_dir_var, height=32)
+        self.entry_out = ctk.CTkEntry(dir_frame, textvariable=self.out_dir_var, height=34)
         self.entry_out.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
         ctk.CTkButton(
-            dir_frame, text="Browse…", width=90, height=32, command=self._browse_output_dir
+            dir_frame, text="Browse…", width=90, height=34, command=self._browse_output_dir
         ).grid(row=0, column=1)
 
-        # 2. Quality & Upgrade Options Card
-        qual_card = ctk.CTkFrame(scroll, corner_radius=6, fg_color="#1c1c2e")
-        qual_card.pack(fill="x", pady=6)
+        self.auto_upgrade_var = ctk.BooleanVar(value=bool(settings.get("download.auto_upgrade", True)))
+        ctk.CTkCheckBox(
+            lib_card,
+            text="Enable automatic quality upgrade (replace 128 kbps tracks when 320 kbps is available)",
+            variable=self.auto_upgrade_var,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 10))
 
-        ctk.CTkLabel(
-            qual_card,
-            text="2. QUALITY & UPGRADE PREFERENCES",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#ce93d8",
-        ).pack(anchor="w", padx=16, pady=(12, 6))
+        # ── 3. DOWNLOADS & PERFORMANCE ────────────────────────────────
+        dl_card = self._create_card(scroll, "3. DOWNLOADS & CONCURRENCY")
 
-        self.quality_var = ctk.StringVar(
-            value=str(settings.get("download.preferred_quality", "320"))
-        )
-        ctk.CTkLabel(
-            qual_card, text="Preferred Audio Quality:", font=ctk.CTkFont(size=11)
-        ).pack(anchor="w", padx=20, pady=(4, 2))
-
+        ctk.CTkLabel(dl_card, text="Preferred Audio Quality:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=18, pady=(0, 4))
+        self.quality_var = ctk.StringVar(value=str(settings.get("download.preferred_quality", "320")))
         q_btn = ctk.CTkSegmentedButton(
-            qual_card,
+            dl_card,
             values=["320", "128"],
             variable=self.quality_var,
         )
-        q_btn.pack(anchor="w", padx=20, pady=(0, 8))
+        q_btn.pack(anchor="w", padx=18, pady=(0, 10))
 
-        self.auto_upgrade_var = ctk.BooleanVar(
-            value=bool(settings.get("download.auto_upgrade", True))
+        ctk.CTkLabel(dl_card, text="Max Concurrent Download Workers:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=18, pady=(0, 4))
+        self.workers_var = tk.StringVar(value=str(settings.get("download.max_workers", 3)))
+        ctk.CTkEntry(dl_card, textvariable=self.workers_var, width=100, height=32).pack(anchor="w", padx=18, pady=(0, 10))
+
+        # ── 4. PROVIDERS & MATCH CONFIDENCE ───────────────────────────
+        prov_card = self._create_card(scroll, "4. PROVIDERS & MATCHING")
+
+        ctk.CTkLabel(
+            prov_card,
+            text="Match Confidence Threshold for Auto-Download:",
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 4))
+
+        self.threshold_var = ctk.StringVar(value="80%")
+        th_btn = ctk.CTkSegmentedButton(
+            prov_card,
+            values=["75%", "80%", "85%", "90%"],
+            variable=self.threshold_var,
         )
+        th_btn.pack(anchor="w", padx=18, pady=(0, 10))
+
+        self.fallback_var = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(
-            qual_card,
-            text="Enable automatic quality upgrade (128 kbps → 320 kbps)",
-            variable=self.auto_upgrade_var,
-            font=ctk.CTkFont(size=11),
-        ).pack(anchor="w", padx=20, pady=6)
+            prov_card,
+            text="Enable automatic source fallback (if primary provider fails, try secondary source)",
+            variable=self.fallback_var,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 10))
 
-        ctk.CTkLabel(qual_card, text="", height=4).pack()
+        # ── 5. METADATA & TAGGING ─────────────────────────────────────
+        meta_card = self._create_card(scroll, "5. METADATA & ID3 TAGGING")
 
-        # 3. Downloader Engine & Worker Options Card
-        engine_card = ctk.CTkFrame(scroll, corner_radius=6, fg_color="#1c1c2e")
-        engine_card.pack(fill="x", pady=6)
+        self.tagging_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            meta_card,
+            text="Write clean ID3v2.3 tags (Title, Artist, Album, Year, Track Number)",
+            variable=self.tagging_var,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 6))
 
-        ctk.CTkLabel(
-            engine_card,
-            text="3. DOWNLOAD ENGINE & CONCURRENCY",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#81c784",
-        ).pack(anchor="w", padx=16, pady=(12, 6))
+        self.artwork_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            meta_card,
+            text="Embed high-resolution album artwork into audio files",
+            variable=self.artwork_var,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=18, pady=(0, 10))
 
-        self.workers_var = tk.StringVar(
-            value=str(settings.get("download.max_workers", 3))
-        )
-        ctk.CTkLabel(
-            engine_card, text="Max Concurrent Workers:", font=ctk.CTkFont(size=11)
-        ).pack(anchor="w", padx=20, pady=(4, 2))
-
-        ctk.CTkEntry(
-            engine_card, textvariable=self.workers_var, width=100, height=30
-        ).pack(anchor="w", padx=20, pady=(0, 8))
-
-        # Save Button
+        # ── Save Button & Status ──────────────────────────────────────
         ctk.CTkButton(
             scroll,
-            text="💾 Save Settings",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            height=40,
-            fg_color="#1a6b3c",
-            hover_color="#236b4a",
+            text="💾 Save All Settings",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            height=42,
+            fg_color="#10b981",
+            hover_color="#059669",
             command=self._save_settings,
-        ).pack(fill="x", pady=(12, 6))
+        ).pack(fill="x", pady=(15, 6))
 
         self.status_label = ctk.CTkLabel(
-            scroll, text="", font=ctk.CTkFont(size=11), text_color="#888888"
+            scroll, text="", font=ctk.CTkFont(size=12), text_color="#10b981"
         )
-        self.status_label.pack(anchor="w", pady=4)
+        self.status_label.pack(anchor="w", pady=(0, 20))
+
+    def _create_card(self, parent: Any, title: str) -> ctk.CTkFrame:
+        card = ctk.CTkFrame(parent, corner_radius=10, fg_color=("gray90", "#181824"))
+        card.pack(fill="x", pady=6)
+        ctk.CTkLabel(
+            card,
+            text=title,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#60a5fa",
+        ).pack(anchor="w", padx=18, pady=(12, 8))
+        return card
 
     def _browse_output_dir(self) -> None:
         chosen = filedialog.askdirectory()
@@ -164,9 +184,9 @@ class SettingsView(ctk.CTkFrame):
             settings.set("download.max_workers", int(self.workers_var.get().strip()))
             settings.save()
             self.status_label.configure(
-                text="✅ Settings saved successfully!", text_color="#81c784"
+                text="✅ Settings saved successfully!", text_color="#10b981"
             )
         except Exception as e:
             self.status_label.configure(
-                text=f"❌ Failed to save settings: {e}", text_color="#ef5350"
+                text=f"❌ Failed to save settings: {e}", text_color="#ef4444"
             )

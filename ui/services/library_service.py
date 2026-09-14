@@ -14,15 +14,21 @@ Provides a unified interface for UI views to interact with:
 import logging
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any, Callable, Tuple
 
 from config.settings import settings
 from library.database import SQLiteDatabase
 from library.discovery import DiscoveryPipeline
 from library.importer import LibraryImporter
-from library.models import LibrarySong, SongSource, SongState, DownloadState, Download
+from library.models import (
+    LibrarySong, SongSource, SongState, DownloadState, Download,
+    ImportJob, ImportJobItem, JobStatus, ItemState
+)
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
 from library.registry import DownloadRegistry
+from library.providers.registry import ProviderRegistry
+from library.url_resolver.detector import UniversalUrlDetector
+from library.jobs.job_manager import ImportJobManager
 from scrapers.base import BaseScraper
 from scrapers.friendstamilmp3 import FriendsTamilMP3Scraper
 from scrapers.isaimini import IsaiminiScraper
@@ -54,6 +60,14 @@ class LibraryService:
         self.registry = DownloadRegistry(self.db)
         self.importer = LibraryImporter(self.db)
         self.source_registry = SourceRegistry()
+
+        self.provider_registry = ProviderRegistry()
+        self.url_detector = UniversalUrlDetector()
+        self.job_manager = ImportJobManager(
+            db=self.db,
+            detector=self.url_detector,
+            provider_registry=self.provider_registry,
+        )
 
         self._lock = threading.RLock()
         self._last_discovery_session: Optional[Dict[str, Any]] = None
@@ -423,3 +437,54 @@ class LibraryService:
                     progress_cb(idx, len(retried_ids))
 
         return retried_ids
+
+    # ── Universal URL & Playlist Import Operations ──────────────
+    def analyze_music_url(
+        self,
+        url: str,
+        progress_cb: Optional[Callable[[str, int, int], None]] = None,
+    ) -> Tuple[ImportJob, List[ImportJobItem]]:
+        """
+        Analyze music/playlist URL, extract tracks, match against library and audio providers.
+        """
+        return self.job_manager.analyze_url(url=url, progress_cb=progress_cb)
+
+    def execute_import_job(
+        self,
+        job_id: str,
+        item_ids: Optional[List[int]] = None,
+        run_async: bool = True,
+        progress_cb: Optional[Callable[[int, int, str], None]] = None,
+    ) -> None:
+        """
+        Start executing downloads for an analyzed import job.
+        """
+        if run_async:
+            def _worker():
+                self.job_manager.execute_job(
+                    job_id=job_id,
+                    item_ids=item_ids,
+                    progress_cb=progress_cb,
+                )
+            threading.Thread(target=_worker, daemon=True).start()
+        else:
+            self.job_manager.execute_job(
+                job_id=job_id,
+                item_ids=item_ids,
+                progress_cb=progress_cb,
+            )
+
+    def get_import_job(self, job_id: str) -> Optional[ImportJob]:
+        return self.db.get_import_job(job_id)
+
+    def get_import_job_items(self, job_id: str) -> List[ImportJobItem]:
+        return self.db.get_import_job_items(job_id)
+
+    def get_recent_import_jobs(self, limit: int = 15) -> List[ImportJob]:
+        return self.db.get_recent_import_jobs(limit=limit)
+
+    def get_job_progress(self, job_id: str) -> Dict[str, int]:
+        return self.db.get_job_progress_stats(job_id)
+
+    def get_audio_providers(self) -> List[Any]:
+        return [p.get_capabilities() for p in self.provider_registry.get_all_providers()]

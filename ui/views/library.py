@@ -102,6 +102,16 @@ class LibraryView(ctk.CTkFrame):
             command=self._plan_selected_downloads,
         ).pack(side="left", padx=12, pady=7)
 
+        ctk.CTkButton(
+            bulk_bar,
+            text="📂 Import Existing Files",
+            width=160,
+            height=28,
+            fg_color=("gray75", "#2a2a3c"),
+            hover_color=("gray65", "#3f3f5a"),
+            command=self._import_existing_files,
+        ).pack(side="left", padx=4, pady=7)
+
         self.sel_count_var = tk.StringVar(value="0 songs selected")
         ctk.CTkLabel(
             bulk_bar,
@@ -184,3 +194,22 @@ class LibraryView(ctk.CTkFrame):
                 self.on_start_downloads(dl_ids)
 
         PlanPreviewDialog(self, plan=plan, on_confirm=_on_confirm)
+
+    def _import_existing_files(self) -> None:
+        """Scan a local directory and import existing MP3s into the library as OWNED."""
+        from tkinter import filedialog, messagebox
+        folder = filedialog.askdirectory(title="Select Folder of MP3s to Import")
+        if not folder:
+            return
+
+        import_dir = Path(folder)
+        res = self.service.importer.import_directory(import_dir)
+        messagebox.showinfo(
+            "Local Import Complete",
+            f"Scanned: {res.scanned} files\n"
+            f"Imported New: {res.imported}\n"
+            f"Matched Existing: {res.matched}\n"
+            f"Unmatched: {res.unmatched}\n"
+            f"Failed: {res.failed}"
+        )
+        self.refresh()

@@ -23,7 +23,7 @@ class DatabaseMigrator:
     """
 
     # Current schema version
-    CURRENT_VERSION = 2
+    CURRENT_VERSION = 3
 
     # Migration definitions
     MIGRATIONS = {
@@ -162,6 +162,48 @@ class DatabaseMigrator:
         2: """
         -- Add download_reference to song_sources
         ALTER TABLE song_sources ADD COLUMN download_reference TEXT;
+        """,
+        3: """
+        -- Import jobs and persistent playlist items
+        CREATE TABLE IF NOT EXISTS import_jobs (
+            id TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT,
+            total_tracks INTEGER DEFAULT 0,
+            artwork_url TEXT,
+            status TEXT NOT NULL DEFAULT 'READY',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS import_job_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT NOT NULL,
+            track_index INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT,
+            album TEXT,
+            duration_seconds INTEGER,
+            state TEXT NOT NULL DEFAULT 'READY',
+            selected_provider TEXT,
+            selected_source_url TEXT,
+            match_confidence REAL DEFAULT 0.0,
+            match_explanation TEXT,
+            error_message TEXT,
+            download_id INTEGER,
+            canonical_song_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (job_id) REFERENCES import_jobs(id) ON DELETE CASCADE,
+            FOREIGN KEY (download_id) REFERENCES downloads(id),
+            FOREIGN KEY (canonical_song_id) REFERENCES songs(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_import_job_items_job_id ON import_job_items(job_id);
+        CREATE INDEX IF NOT EXISTS idx_import_job_items_state ON import_job_items(state);
         """
     }
 

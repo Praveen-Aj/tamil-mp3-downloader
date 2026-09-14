@@ -236,3 +236,27 @@ class CanonicalIdentity:
         if self.year:
             parts.append(f"({self.year})")
         return " ".join(parts)
+
+
+class Canonicalizer:
+    """Helper wrapper for computing canonical hashes and normalized strings."""
+
+    @staticmethod
+    def compute_hash(
+        title: str,
+        artist: str = "",
+        album: str = "",
+        duration_seconds: Optional[int] = None,
+        year: Optional[int] = None,
+    ) -> str:
+        return compute_canonical_hash(
+            title=title,
+            artist=artist,
+            album=album,
+            duration=duration_seconds,
+            year=year,
+        )
+
+    @staticmethod
+    def normalize_text(text: str) -> str:
+        return normalize_string(text)

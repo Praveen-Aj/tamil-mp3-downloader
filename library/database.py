@@ -14,7 +14,7 @@ from typing import Optional, List, Dict, Any
 
 from library.models import (
     LibrarySong, SongSource, Download, LibraryLocation, DiscoveryContext,
-    SongState, DownloadState
+    SongState, DownloadState, ImportJob, ImportJobItem, JobStatus, ItemState
 )
 from library.migrator import DatabaseMigrator
 
@@ -185,6 +185,10 @@ class SQLiteDatabase:
         if row:
             return LibrarySong.from_row(row)
         return None
+
+    def get_song_by_hash(self, canonical_hash: str) -> Optional[LibrarySong]:
+        """Alias for get_song_by_canonical_hash."""
+        return self.get_song_by_canonical_hash(canonical_hash)
 
     def update_song_state(self, song_id: int, state: SongState) -> bool:
         """
@@ -772,3 +776,144 @@ class SQLiteDatabase:
         """Run VACUUM to optimize database."""
         self._conn.execute("VACUUM")
         logger.info("Database vacuumed")
+
+    # ------------------------------------------------------------------
+    # Persistent Import Jobs operations
+    # ------------------------------------------------------------------
+
+    def create_import_job(self, job: ImportJob) -> str:
+        """Insert or replace an import job in the database."""
+        with self._lock:
+            with self._conn:
+                now_str = datetime.now().isoformat()
+                self._conn.execute("""
+                    INSERT INTO import_jobs (
+                        id, url, platform, content_type, title, artist,
+                        total_tracks, artwork_url, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        status=excluded.status,
+                        updated_at=excluded.updated_at
+                """, (
+                    job.id, job.url, job.platform, job.content_type, job.title,
+                    job.artist, job.total_tracks, job.artwork_url,
+                    job.status.value,
+                    job.created_at.isoformat() if job.created_at else now_str,
+                    job.updated_at.isoformat() if job.updated_at else now_str,
+                ))
+                return job.id
+
+    def get_import_job(self, job_id: str) -> Optional[ImportJob]:
+        """Fetch an import job by ID."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM import_jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+            return ImportJob.from_row(row) if row else None
+
+    def get_recent_import_jobs(self, limit: int = 20) -> List[ImportJob]:
+        """Fetch recent import jobs ordered by creation date."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT * FROM import_jobs
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+            return [ImportJob.from_row(row) for row in cursor.fetchall()]
+
+    def update_import_job_status(self, job_id: str, status: JobStatus) -> bool:
+        """Update status and timestamp of an import job."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE import_jobs
+                    SET status = ?, updated_at = ?
+                    WHERE id = ?
+                """, (status.value, datetime.now().isoformat(), job_id))
+                return cursor.rowcount > 0
+
+    def add_import_job_items(self, items: List[ImportJobItem]) -> bool:
+        """Batch insert import job items."""
+        if not items:
+            return True
+        with self._lock:
+            with self._conn:
+                now_str = datetime.now().isoformat()
+                data = [
+                    (
+                        item.job_id, item.track_index, item.title, item.artist, item.album,
+                        item.duration_seconds, item.state.value, item.selected_provider,
+                        item.selected_source_url, item.match_confidence, item.match_explanation,
+                        item.error_message, item.download_id, item.canonical_song_id,
+                        now_str, now_str
+                    )
+                    for item in items
+                ]
+                self._conn.executemany("""
+                    INSERT INTO import_job_items (
+                        job_id, track_index, title, artist, album, duration_seconds,
+                        state, selected_provider, selected_source_url, match_confidence,
+                        match_explanation, error_message, download_id, canonical_song_id,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, data)
+                return True
+
+    def get_import_job_items(self, job_id: str) -> List[ImportJobItem]:
+        """Fetch all items for a given import job."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT * FROM import_job_items
+                WHERE job_id = ?
+                ORDER BY track_index ASC
+            """, (job_id,))
+            return [ImportJobItem.from_row(row) for row in cursor.fetchall()]
+
+    def update_import_job_item_state(
+        self,
+        item_id: int,
+        state: ItemState,
+        error_message: Optional[str] = None,
+        download_id: Optional[int] = None,
+        canonical_song_id: Optional[int] = None,
+    ) -> bool:
+        """Update state and metadata of a single job item."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE import_job_items
+                    SET state = ?,
+                        error_message = COALESCE(?, error_message),
+                        download_id = COALESCE(?, download_id),
+                        canonical_song_id = COALESCE(?, canonical_song_id),
+                        updated_at = ?
+                    WHERE id = ?
+                """, (
+                    state.value,
+                    error_message,
+                    download_id,
+                    canonical_song_id,
+                    datetime.now().isoformat(),
+                    item_id
+                ))
+                return cursor.rowcount > 0
+
+    def get_job_progress_stats(self, job_id: str) -> Dict[str, int]:
+        """Get aggregate track status counts for an import job."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT state, COUNT(*)
+                FROM import_job_items
+                WHERE job_id = ?
+                GROUP BY state
+            """, (job_id,))
+            counts = {row[0]: row[1] for row in cursor.fetchall()}
+            cursor.execute("SELECT COUNT(*) FROM import_job_items WHERE job_id = ?", (job_id,))
+            total = cursor.fetchone()[0]
+            counts['TOTAL'] = total
+            return counts

@@ -1,29 +1,25 @@
-# Tamil MP3 Downloader v4.0.0
+# Tamil MP3 Downloader v4.1.0
 
-A powerful, library-centric desktop application for discovering, deduplicating, and downloading Tamil music from multiple sources.
+A modern, library-centric desktop application for acquiring, organizing, and managing music collections via Universal URLs (Spotify, YouTube, Regional sources) with canonical deduplication and automatic tagging.
 
 > [!CAUTION]
 > **LEGAL & USAGE DISCLAIMER**  
-> This project is a generic **Audio Library Management & Bulk Downloader Framework** developed purely for educational and architectural demonstration purposes (exploring SQLite, Tkinter, and Threading). 
-> It includes source-specific scraping adapters that interact with third-party websites. You are solely responsible for ensuring that your use of this software complies with the terms of service of any third-party websites and local copyright laws. The authors do not host, distribute, or condone the illegal distribution of copyrighted material.
-
+> This project is an open-source **Audio Library Management & Acquisition System** developed for personal archival, educational, and backup purposes. Users are solely responsible for ensuring that all content acquired complies with applicable copyright laws, licensing terms, and third-party platform agreements. The authors do not host, distribute, or condone the infringement of copyrighted material.
 
 ## Current Status
 
-- **Active Version:** `4.0.0`
-- **Architecture:** SQLite Canonical Library & CustomTkinter UI
+- **Active Version:** `4.1.0`
+- **Architecture:** Canonical SQLite Engine, Pluggable Audio Providers, and Modern CustomTkinter UI
 - **Primary Runtime:** `main.py` (via `launch_app.bat` on Windows)
 
-## What's New in v4 (Library-Centric Redesign)
+## Key Features
 
-The v4 release fundamentally changes the application from a "search-and-download" scraper tool into a **Music Library Manager**.
-
-- **Canonical SQLite Library:** Songs discovered from different websites (e.g., MassTamilan, Tamilmp3) are analyzed, deduplicated, and stored locally.
-- **Source Health Registry:** The application continuously monitors scraping sources for uptime and automatically shifts to fallback domains when a site goes offline.
-- **Deduplication:** A song found in multiple categories or on multiple websites is collapsed into a single Library entity with multiple source choices.
-- **Download Planner:** Automatically upgrades selected songs to higher qualities (e.g., 320kbps) if a better variant exists in the library.
-- **10,000+ Song Performance:** Uses database pagination and background threading to ensure the UI remains smooth regardless of library size.
-- **Local MP3 Import:** Scan your existing local files and integrate them into the canonical library to prevent re-downloading songs you already own.
+- **Universal Music URL Import:** Paste links from Spotify (playlists, albums, tracks), YouTube, YouTube Music, Tamil regional sources, or direct audio streams.
+- **Audio Provider Abstraction & Matching:** Uses `TrackMatcher` to find and score the closest matching audio stream across multiple providers with fuzzy title and duration similarity.
+- **Persistent Resumable Playlist Jobs:** Multi-track playlist downloads survive application restarts and allow single-click retries of failed tracks.
+- **Canonical SQLite Library:** Central database automatically deduplicates tracks, tracks owned files, and prevents duplicate downloads.
+- **Automatic ID3v2.3 Tagging:** Embeds Title, Artist, Album, Year, Track Number, and Cover Artwork directly into downloaded audio files.
+- **Local Library Import:** Existing MP3 directories can be scanned into the canonical library as `OWNED` via `Library → Import Existing Files`.
 
 ## Quick Start
 

@@ -351,3 +351,104 @@ class DiscoveryContext:
             album_url=row['album_url'],
             discovered_at=datetime.fromisoformat(row['discovered_at']) if row['discovered_at'] else None,  # noqa: E501
         )
+
+
+class JobStatus(Enum):
+    """Status of an import job."""
+    ANALYZING = "ANALYZING"
+    READY = "READY"
+    IN_PROGRESS = "IN_PROGRESS"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ItemState(Enum):
+    """State of a track within an import job."""
+    OWNED = "OWNED"
+    READY = "READY"
+    DOWNLOADING = "DOWNLOADING"
+    COMPLETED = "COMPLETED"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    NO_SOURCE = "NO_SOURCE"
+    FAILED = "FAILED"
+    AUTH_REQUIRED = "AUTH_REQUIRED"
+    SKIPPED = "SKIPPED"
+
+
+@dataclass
+class ImportJob:
+    """
+    Represents a persistent URL or playlist import job.
+    """
+    id: str
+    url: str
+    platform: str
+    content_type: str
+    title: str
+    artist: Optional[str] = None
+    total_tracks: int = 0
+    artwork_url: Optional[str] = None
+    status: JobStatus = JobStatus.READY
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'ImportJob':
+        """Create ImportJob from database row."""
+        return cls(
+            id=row['id'],
+            url=row['url'],
+            platform=row['platform'],
+            content_type=row['content_type'],
+            title=row['title'],
+            artist=row['artist'] if 'artist' in row.keys() else None,
+            total_tracks=row['total_tracks'],
+            artwork_url=row['artwork_url'] if 'artwork_url' in row.keys() else None,
+            status=JobStatus(row['status']),
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+        )
+
+
+@dataclass
+class ImportJobItem:
+    """
+    Represents a single track within an import job.
+    """
+    id: Optional[int] = None
+    job_id: str = ""
+    track_index: int = 0
+    title: str = ""
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    state: ItemState = ItemState.READY
+    selected_provider: Optional[str] = None
+    selected_source_url: Optional[str] = None
+    match_confidence: float = 0.0
+    match_explanation: Optional[str] = None
+    error_message: Optional[str] = None
+    download_id: Optional[int] = None
+    canonical_song_id: Optional[int] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'ImportJobItem':
+        """Create ImportJobItem from database row."""
+        return cls(
+            id=row['id'],
+            job_id=row['job_id'],
+            track_index=row['track_index'],
+            title=row['title'],
+            artist=row['artist'],
+            album=row['album'],
+            duration_seconds=row['duration_seconds'],
+            state=ItemState(row['state']),
+            selected_provider=row['selected_provider'],
+            selected_source_url=row['selected_source_url'],
+            match_confidence=float(row['match_confidence'] or 0.0),
+            match_explanation=row['match_explanation'],
+            error_message=row['error_message'],
+            download_id=row['download_id'],
+            canonical_song_id=row['canonical_song_id'] if 'canonical_song_id' in row.keys() else None,
+        )
