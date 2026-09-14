@@ -297,6 +297,56 @@ class DownloadPlanner:
         )
         return plan
 
+    def plan_downloads_for_songs(self, lib_songs: List[LibrarySong]) -> DownloadPlan:
+        """
+        Generate a DownloadPlan for a list of LibrarySong instances from DB.
+        """
+        plan = DownloadPlan(raw_discovered=len(lib_songs), unique_canonical=len(lib_songs))
+        seen_ids = set()
+
+        for lib_song in lib_songs:
+            if lib_song.id in seen_ids:
+                continue
+            seen_ids.add(lib_song.id)
+
+            if lib_song.state == SongState.OWNED:
+                plan.owned.append(lib_song)
+            else:
+                sources = self.db.get_sources_for_song(lib_song.id)
+                if not sources:
+                    continue
+                available = [s for s in sources if s.is_available]
+                ranked = sorted(
+                    available if available else sources,
+                    key=self._source_ranking_key,
+                    reverse=True,
+                )
+                primary = ranked[0]
+
+                from models.song import Song
+                rep_song = Song(
+                    name=lib_song.title,
+                    url=primary.source_url or "",
+                    album_name=lib_song.album or "",
+                    quality=primary.quality_str,
+                )
+                sel = SourceSelection(
+                    song_id=lib_song.id,
+                    song=rep_song,
+                    source_name=primary.source_name,
+                    primary=primary,
+                    fallbacks=ranked[1:],
+                )
+                plan.new_songs.append(sel)
+        return plan
+
+    def plan_downloads_for_song_ids(self, song_ids: List[int]) -> DownloadPlan:
+        """
+        Generate a DownloadPlan for a list of song IDs.
+        """
+        songs = [s for sid in song_ids if (s := self.db.get_song(sid))]
+        return self.plan_downloads_for_songs(songs)
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------

@@ -9,7 +9,7 @@ a threading lock.
 import logging
 import threading
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 
 from library.models import Download, DownloadState, SongState
 
@@ -200,6 +200,21 @@ class DownloadRegistry:
             if song is None:
                 return False
             return song.state in (SongState.DOWNLOADING, SongState.QUEUED)
+
+    def acquire_download(self, song_id: int, song_source_id: int) -> Optional[int]:
+        """Alias for acquire."""
+        return self.acquire(song_id, song_source_id)
+
+    def get_active_downloads(self) -> List[Download]:
+        """
+        Get all downloads registered in system.
+        """
+        with self._lock:
+            cursor = self.db._conn.cursor()
+            cursor.execute(
+                "SELECT * FROM downloads ORDER BY id DESC"
+            )
+            return [Download.from_row(row) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------
     # Source reliability tracking

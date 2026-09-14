@@ -2411,10 +2411,15 @@ def main() -> None:
             initialize_library()
         except Exception as e:
             logging.warning(f"Library initialization failed: {e}")
-            # Continue without library system
 
-    app = TamilMP3GUI()
-    app.mainloop()
+    try:
+        from ui.app import TamilMP3App
+        app = TamilMP3App()
+        app.mainloop()
+    except Exception as e:
+        logging.warning(f"Modular UI launch failed, falling back to legacy GUI: {e}")
+        app = TamilMP3GUI()
+        app.mainloop()
 
 
 if __name__ == "__main__":
