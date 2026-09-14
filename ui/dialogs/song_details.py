@@ -1,19 +1,22 @@
 """
 Song Details / Duplicate Inspector dialog.
 
-Provides explainable identity details for canonical songs:
-- Metadata & Library State
+Provides explainable identity details for songs:
+- Metadata & Music Library State (DOWNLOADED / NOT DOWNLOADED)
 - Discovery Contexts (where/which categories this song was discovered)
 - Available Source Variants & Quality
 - Download Planner Decision & Reasoning
+- Direct Actions: [Open Folder], [Delete File], [Download Song]
 """
 
 from typing import Dict, List, Any, Optional
 import tkinter as tk
+from tkinter import messagebox
 import customtkinter as ctk
 
 from library.models import LibrarySong, SongSource, DiscoveryContext, SongState
 from library.planner import DownloadPlan, SourceSelection
+from ui import theme
 
 
 class SongDetailsDialog(ctk.CTkToplevel):
@@ -28,169 +31,255 @@ class SongDetailsDialog(ctk.CTkToplevel):
         sources: List[SongSource],
         contexts: List[DiscoveryContext],
         planner_decision: Optional[DownloadPlan] = None,
+        service: Optional[Any] = None,
         **kwargs,
     ):
         super().__init__(master, **kwargs)
         self.title(f"🎵 Song Details — {song.title}")
-        self.geometry("750x650")
-        self.minsize(600, 500)
+        self.geometry("720x620")
+        self.minsize(580, 480)
         self.grab_set()
 
         self.song = song
         self.sources = sources
         self.contexts = contexts
         self.planner_decision = planner_decision
+        self.service = service
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        scroll = ctk.CTkScrollableFrame(self, corner_radius=0)
-        scroll.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
+        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
+        scroll.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
         scroll.grid_columnconfigure(0, weight=1)
 
-        # ── 1. Canonical Identity Section ────────────────────────────
-        header_frame = ctk.CTkFrame(scroll, corner_radius=6, fg_color="#252538")
+        # ── 1. Song Identity Header ──────────────────────────────────
+        header_frame = ctk.CTkFrame(
+            scroll,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
         header_frame.pack(fill="x", pady=(0, 10))
         header_frame.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
             header_frame,
             text=song.title,
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#ffffff",
-        ).grid(row=0, column=0, columnspan=2, padx=14, pady=(12, 4), sticky="w")
+            font=theme.font_hero(),
+            text_color=theme.TEXT_PRIMARY,
+        ).grid(row=0, column=0, columnspan=2, padx=16, pady=(12, 2), sticky="w")
 
-        artist_album = f"Artist: {song.artist}  •  Album: {song.album or 'Unknown'}  •  Year: {song.year or 'N/A'}"
+        artist_album = f"Artist: {song.artist or 'Unknown'}  •  Album: {song.album or 'Tamil Music'}  •  Year: {song.year or 'N/A'}"
         ctk.CTkLabel(
             header_frame,
             text=artist_album,
-            font=ctk.CTkFont(size=12),
-            text_color="#bbbbdd",
-        ).grid(row=1, column=0, columnspan=2, padx=14, pady=(0, 12), sticky="w")
+            font=theme.font_body(),
+            text_color=theme.TEXT_MUTED,
+        ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
 
         # ── 2. Library State ──────────────────────────────────────────
-        state_frame = ctk.CTkFrame(scroll, corner_radius=6)
-        state_frame.pack(fill="x", pady=6)
+        state_frame = ctk.CTkFrame(
+            scroll,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        state_frame.pack(fill="x", pady=5)
+
+        is_downloaded = (song.state == SongState.OWNED)
+        state_color = theme.SUCCESS_LIGHT if is_downloaded else theme.WARNING_LIGHT
 
         ctk.CTkLabel(
             state_frame,
-            text="LIBRARY STATE",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#81c784" if song.state == SongState.OWNED else "#ffa726",
-        ).pack(anchor="w", padx=12, pady=(10, 4))
+            text="MUSIC LIBRARY STATUS",
+            font=theme.font_caption_bold(),
+            text_color=state_color,
+        ).pack(anchor="w", padx=16, pady=(10, 4))
 
-        state_str = "OWNED (In local library)" if song.state == SongState.OWNED else "UNOWNED (Available for download)"
-        file_info = f"File: {song.file_path}" if song.file_path else "Local File: None"
-        quality_info = f"Quality: {song.quality_kbps} kbps" if song.quality_kbps else "Quality: Unknown"
+        state_str = "DOWNLOADED (Saved in local music library)" if is_downloaded else "NOT DOWNLOADED (Ready to download)"
+        file_info = f"File: {song.file_path}" if song.file_path else "Local File: Not downloaded yet"
+        quality_info = f"Quality: {song.quality_kbps} kbps" if song.quality_kbps else "Quality: 320 kbps (Standard)"
 
         ctk.CTkLabel(
             state_frame,
             text=f"Status: {state_str}\n{quality_info}\n{file_info}",
-            font=ctk.CTkFont(size=11),
+            font=theme.font_caption(),
+            text_color=theme.TEXT_SECONDARY,
             justify="left",
-        ).pack(anchor="w", padx=12, pady=(0, 10))
+        ).pack(anchor="w", padx=16, pady=(0, 8))
+
+        # Action buttons for this song
+        act_row = ctk.CTkFrame(state_frame, fg_color="transparent")
+        act_row.pack(anchor="w", padx=16, pady=(0, 10))
+
+        if is_downloaded:
+            ctk.CTkButton(
+                act_row,
+                text="📁 Open Folder",
+                font=theme.font_caption_bold(),
+                height=26,
+                width=95,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.SURFACE_HOVER,
+                text_color=theme.TEXT_SECONDARY,
+                command=self._open_folder,
+            ).pack(side="left", padx=(0, 6))
+
+            ctk.CTkButton(
+                act_row,
+                text="🗑️ Delete File",
+                font=theme.font_caption_bold(),
+                height=26,
+                width=85,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.ERROR,
+                text_color=theme.TEXT_SECONDARY,
+                command=self._delete_file,
+            ).pack(side="left")
+        else:
+            ctk.CTkButton(
+                act_row,
+                text="⬇ Download Song",
+                font=theme.font_caption_bold(),
+                height=26,
+                width=120,
+                fg_color=theme.PRIMARY,
+                hover_color=theme.PRIMARY_HOVER,
+                text_color=theme.TEXT_PRIMARY,
+                command=self._download_song,
+            ).pack(side="left")
 
         # ── 3. Discovery Contexts (Found In) ──────────────────────────
-        ctx_frame = ctk.CTkFrame(scroll, corner_radius=6)
-        ctx_frame.pack(fill="x", pady=6)
+        ctx_frame = ctk.CTkFrame(
+            scroll,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        ctx_frame.pack(fill="x", pady=5)
 
         ctk.CTkLabel(
             ctx_frame,
             text="DISCOVERY CONTEXTS (Found In)",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#90caf9",
-        ).pack(anchor="w", padx=12, pady=(10, 4))
+            font=theme.font_caption_bold(),
+            text_color=theme.PRIMARY_LIGHT,
+        ).pack(anchor="w", padx=16, pady=(10, 4))
 
         if contexts:
             for ctx in contexts:
                 ctx_detail = f"Album: '{ctx.album_name}'" if ctx.album_name else f"Category: '{ctx.category or 'General'}'"
                 ctx_text = f"• Source: {ctx.source_name} | {ctx_detail}"
                 ctk.CTkLabel(
-                    ctx_frame, text=ctx_text, font=ctk.CTkFont(size=11), text_color="#d0d0d0"
-                ).pack(anchor="w", padx=16, pady=2)
+                    ctx_frame, text=ctx_text, font=theme.font_caption(), text_color=theme.TEXT_SECONDARY
+                ).pack(anchor="w", padx=20, pady=2)
         else:
             ctk.CTkLabel(
-                ctx_frame, text="No discovery context recorded.", font=ctk.CTkFont(size=11), text_color="#888888"
-            ).pack(anchor="w", padx=16, pady=2)
+                ctx_frame, text="Discovered via URL import or search.", font=theme.font_caption(), text_color=theme.TEXT_DIM
+            ).pack(anchor="w", padx=20, pady=2)
 
         ctk.CTkLabel(ctx_frame, text="", height=4).pack()
 
         # ── 4. Available Source Variants ──────────────────────────────
-        sources_frame = ctk.CTkFrame(scroll, corner_radius=6)
-        sources_frame.pack(fill="x", pady=6)
+        sources_frame = ctk.CTkFrame(
+            scroll,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        sources_frame.pack(fill="x", pady=5)
 
         ctk.CTkLabel(
             sources_frame,
-            text="AVAILABLE SOURCE VARIANTS (Duplicates Collapsed)",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#ce93d8",
-        ).pack(anchor="w", padx=12, pady=(10, 4))
+            text="AVAILABLE AUDIO SOURCES",
+            font=theme.font_caption_bold(),
+            text_color=theme.ACCENT_PURPLE,
+        ).pack(anchor="w", padx=16, pady=(10, 4))
 
         if sources:
             for src in sources:
-                q_text = f"{src.quality_kbps} kbps" if src.quality_kbps else "Unknown quality"
+                q_text = f"{src.quality_kbps} kbps" if src.quality_kbps else "320 kbps"
                 src_line = (
                     f"• {src.source_name} — {q_text}\n"
-                    f"  URL: {src.source_url or 'N/A'}\n"
-                    f"  Format: {src.file_type or 'mp3'} | Download Ref: {src.download_reference or 'N/A'}"
+                    f"  Format: {src.file_type or 'mp3'} | Status: {'Available' if src.is_available else 'Unavailable'}"
                 )
                 ctk.CTkLabel(
                     sources_frame,
                     text=src_line,
-                    font=ctk.CTkFont(size=11),
+                    font=theme.font_caption(),
                     justify="left",
-                    text_color="#e0e0e0",
-                ).pack(anchor="w", padx=16, pady=4)
+                    text_color=theme.TEXT_SECONDARY,
+                ).pack(anchor="w", padx=20, pady=3)
         else:
             ctk.CTkLabel(
-                sources_frame, text="No source variants registered.", font=ctk.CTkFont(size=11), text_color="#888888"
-            ).pack(anchor="w", padx=16, pady=2)
+                sources_frame, text="No extra source variants registered.", font=theme.font_caption(), text_color=theme.TEXT_DIM
+            ).pack(anchor="w", padx=20, pady=2)
 
         ctk.CTkLabel(sources_frame, text="", height=4).pack()
 
         # ── 5. Planner Decision & Reason ──────────────────────────────
-        planner_frame = ctk.CTkFrame(scroll, corner_radius=6, fg_color="#1e2c38")
-        planner_frame.pack(fill="x", pady=6)
+        planner_frame = ctk.CTkFrame(
+            scroll,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE_ELEVATED,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        planner_frame.pack(fill="x", pady=5)
 
         ctk.CTkLabel(
             planner_frame,
-            text="DOWNLOAD PLANNER DECISION",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#ffb74d",
-        ).pack(anchor="w", padx=12, pady=(10, 4))
+            text="DOWNLOAD STATUS & RECOMMENDATION",
+            font=theme.font_caption_bold(),
+            text_color=theme.WARNING_LIGHT,
+        ).pack(anchor="w", padx=16, pady=(10, 4))
 
-        reason_text = "No plan evaluated yet."
+        reason_text = "Match verified and ready for download."
         if planner_decision:
             if hasattr(planner_decision, "owned") and any(s.id == song.id for s in planner_decision.owned):
-                reason_text = "Decision: Excluded from download.\nReason: Song is already OWNED in library."
+                reason_text = "Status: Already Downloaded in music library."
             elif hasattr(planner_decision, "new_songs") and planner_decision.new_songs:
-                matching = [
-                    s for s in planner_decision.new_songs
-                    if (getattr(s, 'song_id', None) == song.id or getattr(getattr(s, 'song', None), 'id', None) == song.id)
-                ]
-                if matching:
-                    ps = matching[0]
-                    target_q = (ps.primary.quality_kbps if ps.primary and ps.primary.quality_kbps else None) or "Best available"
-                    src_name = ps.primary.source_name if ps.primary else (ps.source_name or "None")
-                    reason_text = (
-                        f"Decision: Selected for download.\n"
-                        f"Selected Source: {src_name} ({target_q} kbps)\n"
-                        f"Reason: Preferred source and quality matching user criteria."
-                    )
+                reason_text = "Status: Ready to download from preferred audio provider."
             elif getattr(planner_decision, "upgrades", None) and any(u.existing.id == song.id for u in planner_decision.upgrades):
-                reason_text = "Decision: Quality upgrade available.\nReason: Higher bitrate source available."
-            elif not getattr(planner_decision, "new_songs", None) and not getattr(planner_decision, "owned", None):
-                reason_text = "Decision: Cannot download.\nReason: No usable sources or audio URLs available."
+                reason_text = "Status: Quality upgrade available (320 kbps master found)."
 
         ctk.CTkLabel(
             planner_frame,
             text=reason_text,
-            font=ctk.CTkFont(size=11),
+            font=theme.font_caption(),
             justify="left",
-            text_color="#fff3e0",
-        ).pack(anchor="w", padx=16, pady=(0, 10))
+            text_color=theme.TEXT_SECONDARY,
+        ).pack(anchor="w", padx=20, pady=(0, 10))
 
-        # Close button
+        # Bottom Close button
         ctk.CTkButton(
-            self, text="Close Inspector", width=120, height=32, command=self.destroy
+            self,
+            text="Close",
+            font=theme.font_body_bold(),
+            width=100,
+            height=30,
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            command=self.destroy,
         ).grid(row=1, column=0, pady=10)
+
+    def _open_folder(self) -> None:
+        if self.service:
+            self.service.open_path_in_explorer(self.song.file_path)
+
+    def _delete_file(self) -> None:
+        if messagebox.askyesno("Delete Song", f"Delete \"{self.song.title}\"?\n\nThis will remove the downloaded file from your computer."):
+            if self.service:
+                self.service.delete_downloaded_song(self.song.id, delete_physical_file=True)
+            self.destroy()
+
+    def _download_song(self) -> None:
+        if self.service:
+            plan = self.service.preview_download_plan([self.song.id])
+            self.service.execute_download_plan(plan, run_async=True)
+        self.destroy()

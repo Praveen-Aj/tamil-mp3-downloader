@@ -246,6 +246,34 @@ class SQLiteDatabase:
                 ))
                 return cursor.rowcount > 0
 
+    def clear_song_download_state(self, song_id: int) -> bool:
+        """
+        Reset a song's downloaded file attributes and transition state back to NEW.
+
+        Args:
+            song_id: Song ID
+
+        Returns:
+            True if updated, False otherwise
+        """
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE songs SET
+                        file_path = NULL,
+                        file_size_bytes = NULL,
+                        quality_kbps = NULL,
+                        state = ?,
+                        last_seen_at = ?
+                    WHERE id = ?
+                """, (
+                    SongState.NEW.value,
+                    datetime.now().isoformat(),
+                    song_id,
+                ))
+                return cursor.rowcount > 0
+
     def get_songs_by_state(self, state: SongState, limit: Optional[int] = None) -> List[LibrarySong]:
         """
         Get songs by state.
@@ -585,6 +613,14 @@ class SQLiteDatabase:
         cursor = self._conn.cursor()
         cursor.execute("SELECT * FROM downloads ORDER BY id DESC")
         return [Download.from_row(row) for row in cursor.fetchall()]
+
+    def delete_download_record(self, download_id: int) -> bool:
+        """Delete a download record by ID."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM downloads WHERE id = ?", (download_id,))
+                return cursor.rowcount > 0
 
     def get_source_by_id(self, source_id: int) -> Optional[SongSource]:
         """Get a song source by ID."""

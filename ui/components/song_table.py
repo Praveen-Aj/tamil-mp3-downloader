@@ -94,7 +94,7 @@ class SongTable(ctk.CTkFrame):
         self.tree.heading("year", text="Year")
         self.tree.heading("quality", text="Bitrate")
         self.tree.heading("state", text="Status")
-        self.tree.heading("source", text="Source Provider")
+        self.tree.heading("source", text="Source")
 
         self.tree.column("id", width=45, minwidth=35, anchor="center")
         self.tree.column("title", width=260, minwidth=150, anchor="w")
@@ -214,7 +214,7 @@ class SongTable(ctk.CTkFrame):
             song_id_str = str(song.id)
             self._songs_map[song_id_str] = song
 
-            state_badge = "✓ Owned" if song.state == SongState.OWNED else "Unowned"
+            state_badge = "✓ Downloaded" if song.state == SongState.OWNED else "Not Downloaded"
             quality_str = f"{song.bitrate_kbps} kbps" if song.bitrate_kbps else "320 kbps"
             year_str = str(song.year) if song.year else "--"
 

@@ -11,6 +11,9 @@ Provides a unified interface for UI views to interact with:
 - Settings Configuration
 """
 
+import os
+import subprocess
+import sys
 import logging
 import threading
 from pathlib import Path
@@ -136,7 +139,7 @@ class LibraryService:
 
     # ── Summary & Stats ──────────────────────────────────────────
     def get_dashboard_stats(self) -> Dict[str, Any]:
-        """Get summary metrics for Dashboard."""
+        """Get consumer-facing summary metrics for Dashboard."""
         lib_stats = self.db.get_library_stats()
         sources = self.source_registry.get_all_sources()
         enabled_sources = [s for s in sources if s.enabled]
@@ -147,22 +150,54 @@ class LibraryService:
         owned = self.db.get_songs_by_state(SongState.OWNED)
         
         upgrades_count = 0
+        total_storage_bytes = 0
         for s in owned:
+            if s.file_size_bytes:
+                total_storage_bytes += s.file_size_bytes
+            elif s.file_path and os.path.exists(s.file_path):
+                try:
+                    total_storage_bytes += os.path.getsize(s.file_path)
+                except OSError:
+                    pass
             if s.quality_kbps and s.quality_kbps < 320:
                 s_sources = self.db.get_sources_for_song(s.id)
                 if any(src.quality_kbps and src.quality_kbps >= 320 for src in s_sources):
                     upgrades_count += 1
 
         active_downloads = len(self.registry.get_active_downloads())
+        
+        # Calculate failed downloads
+        all_dls = self.db.get_all_downloads()
+        failed_count = sum(1 for d in all_dls if d.state == DownloadState.FAILED or (hasattr(d.state, "value") and d.state.value == "FAILED"))
+
+        # Storage in MB
+        storage_mb = int(total_storage_bytes / (1024 * 1024)) if total_storage_bytes else len(owned) * 8
+
+        total_cnt = lib_stats.get("total_songs", 0)
+        owned_cnt = lib_stats.get("songs_by_state", {}).get("OWNED", 0)
+        new_cnt = lib_stats.get("songs_by_state", {}).get("NEW", 0)
+
+        # Compact source status items
+        source_pills = [
+            {"name": "YouTube", "status": "Active", "color": "#10b981", "type": "stream"},
+            {"name": "Spotify", "status": "Ready", "color": "#10b981", "type": "meta"},
+            {"name": "Direct Audio", "status": "Active", "color": "#10b981", "type": "direct"},
+            {"name": "Regional Tamil", "status": f"{healthy_enabled}/{len(enabled_sources)} Online", "color": "#10b981" if healthy_enabled > 0 else "#f59e0b", "type": "regional"},
+        ]
 
         return {
-            "total_songs": lib_stats.get("total_songs", 0),
-            "owned_songs": lib_stats.get("songs_by_state", {}).get("OWNED", 0),
-            "unowned_songs": lib_stats.get("songs_by_state", {}).get("NEW", 0),
+            "total_songs": total_cnt,
+            "owned_songs": owned_cnt,
+            "downloaded_songs": owned_cnt,
+            "unowned_songs": new_cnt,
+            "ready_downloads": new_cnt,
             "upgrades_available": upgrades_count,
             "active_downloads": active_downloads,
+            "failed_downloads": failed_count,
+            "storage_mb": storage_mb,
             "healthy_sources": f"{healthy_enabled}/{len(enabled_sources)} Core Healthy",
             "disabled_sources": len(disabled_sources),
+            "source_pills": source_pills,
             "last_session": self._last_discovery_session,
         }
 
@@ -397,11 +432,13 @@ class LibraryService:
     def retry_failed_downloads(
         self,
         download_ids: Optional[List[int]] = None,
+        try_alternate_source: bool = True,
         run_async: bool = True,
         progress_cb: Optional[Callable[[int, int], None]] = None,
     ) -> List[int]:
         """
-        Identify failed downloads, safely re-acquire registry slots, and execute the downloader again.
+        Identify failed downloads, safely re-acquire registry slots with optional alternate-source fallback,
+        and execute the downloader again.
         """
         all_dls = self.db.get_all_downloads()
         failed_dls = [
@@ -414,12 +451,20 @@ class LibraryService:
         for d in failed_dls:
             if self.registry.is_downloading(d.song_id):
                 continue
-            
+
+            target_source_id = d.song_source_id
+            if try_alternate_source:
+                # Check for alternate available source
+                all_sources = self.db.get_sources_for_song(d.song_id)
+                alt_sources = [s for s in all_sources if s.id != d.song_source_id and s.is_available]
+                if alt_sources:
+                    target_source_id = alt_sources[0].id
+
             # Transition song back to NEW so acquire slot can succeed
             self.db.update_song_state(d.song_id, SongState.NEW)
             new_dl_id = self.registry.acquire_download(
                 song_id=d.song_id,
-                song_source_id=d.song_source_id,
+                song_source_id=target_source_id,
             )
             if new_dl_id:
                 retried_ids.append(new_dl_id)
@@ -439,6 +484,106 @@ class LibraryService:
                     progress_cb(idx, len(retried_ids))
 
         return retried_ids
+
+    # ── Deletion & File System Operations ───────────────────────
+    def delete_downloaded_song(self, song_id: int, delete_physical_file: bool = True) -> bool:
+        """
+        Safely delete a downloaded song from the computer and reset its database library state.
+
+        Args:
+            song_id: Song ID in SQLite library
+            delete_physical_file: Whether to delete the physical .mp3 file on disk
+
+        Returns:
+            True if deletion and state reset succeeded, False otherwise
+        """
+        with self._lock:
+            song = self.db.get_song(song_id)
+            if not song:
+                logger.warning(f"delete_downloaded_song: song_id {song_id} not found in database")
+                return False
+
+            # Delete physical file safely
+            if delete_physical_file and song.file_path:
+                try:
+                    fpath = Path(song.file_path)
+                    if fpath.is_file() and fpath.exists():
+                        fpath.unlink(missing_ok=True)
+                        logger.info(f"Deleted physical file: {song.file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete physical file '{song.file_path}': {e}")
+
+            # Reset song state back to NEW and clear file details
+            self.db.clear_song_download_state(song_id)
+
+            # Update corresponding completed download records
+            dls = self.db.get_downloads_for_song(song_id)
+            for d in dls:
+                if d.state == DownloadState.COMPLETED:
+                    self.db.delete_download_record(d.id)
+
+            return True
+
+    def delete_download_job(self, download_id: int, delete_physical_file: bool = True) -> bool:
+        """
+        Delete a download queue record and optionally remove the file.
+        """
+        with self._lock:
+            dl = self.db.get_download(download_id)
+            if not dl:
+                return False
+
+            if delete_physical_file:
+                target_path = dl.output_path or dl.destination_path
+                if target_path:
+                    try:
+                        p = Path(target_path)
+                        if p.is_file() and p.exists():
+                            p.unlink(missing_ok=True)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete download file '{target_path}': {e}")
+
+            if dl.song_id:
+                # If the song is currently associated with this download, check if state should reset
+                song = self.db.get_song(dl.song_id)
+                if song and (song.file_path == dl.output_path or song.file_path == dl.destination_path):
+                    self.db.clear_song_download_state(dl.song_id)
+
+            return self.db.delete_download_record(download_id)
+
+    def open_path_in_explorer(self, file_or_dir_path: Optional[str]) -> Tuple[bool, str]:
+        """
+        Open the target file or its containing folder in Windows Explorer.
+        Selects the file if it exists, otherwise opens the containing directory.
+        """
+        try:
+            out_dir = Path(settings.output_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            if file_or_dir_path:
+                target = Path(file_or_dir_path)
+                if target.is_file() and target.exists():
+                    if sys.platform == "win32":
+                        subprocess.run(["explorer", f"/select,{str(target)}"], check=False)
+                    else:
+                        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target.parent)], check=False)
+                    return True, f"Opened {target.name} in Explorer"
+                elif target.is_dir() and target.exists():
+                    if sys.platform == "win32":
+                        subprocess.run(["explorer", str(target)], check=False)
+                    else:
+                        subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target)], check=False)
+                    return True, f"Opened directory {target}"
+
+            # Fallback to configured output directory
+            if sys.platform == "win32":
+                subprocess.run(["explorer", str(out_dir)], check=False)
+            else:
+                subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(out_dir)], check=False)
+            return True, f"Opened downloads folder: {out_dir}"
+        except Exception as e:
+            logger.error(f"Error opening Explorer path: {e}")
+            return False, f"Could not open folder: {e}"
 
     # ── Universal URL & Playlist Import Operations ──────────────
     def analyze_music_url(

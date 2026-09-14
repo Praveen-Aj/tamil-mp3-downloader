@@ -203,10 +203,12 @@ class SettingsView(ctk.CTkFrame):
             text_color=theme.TEXT_SECONDARY,
         ).grid(row=1, column=0, sticky="w", pady=6)
 
-        self.quality_var = ctk.StringVar(value=str(settings.get("download.preferred_quality", "320")))
+        pref_q = str(settings.get("download.preferred_quality", "320"))
+        default_seg = "✓ 320 kbps (Best Quality)" if "320" in pref_q else "128 kbps (Compact)"
+        self.quality_var = ctk.StringVar(value=default_seg)
         q_seg = ctk.CTkSegmentedButton(
             body,
-            values=["320 kbps (Best)", "128 kbps (Compact)"],
+            values=["✓ 320 kbps (Best Quality)", "128 kbps (Compact)"],
             variable=self.quality_var,
             font=theme.font_caption_bold(),
             selected_color=theme.PRIMARY,
@@ -268,7 +270,7 @@ class SettingsView(ctk.CTkFrame):
         ).pack(anchor="w", pady=4)
 
     def _build_library_card(self) -> None:
-        card = self._create_card("CANONICAL LIBRARY & DEDUPLICATION", "📚")
+        card = self._create_card("MUSIC LIBRARY & DEDUPLICATION", "📚")
         body = ctk.CTkFrame(card, fg_color="transparent")
         body.pack(fill="x", padx=20, pady=(0, 16))
 
@@ -285,7 +287,7 @@ class SettingsView(ctk.CTkFrame):
         self.prevent_dup_var = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(
             body,
-            text="Strict Deduplication: Never download duplicate copies of already-owned tracks",
+            text="Strict Deduplication: Never download duplicate copies of already-downloaded tracks",
             variable=self.prevent_dup_var,
             font=theme.font_body(),
             text_color=theme.TEXT_PRIMARY,
@@ -293,7 +295,7 @@ class SettingsView(ctk.CTkFrame):
         ).pack(anchor="w", pady=4)
 
     def _build_sources_card(self) -> None:
-        card = self._create_card("AUDIO PROVIDERS & RESOLUTION STRATEGY", "🌐")
+        card = self._create_card("AUDIO SOURCES & PROVIDERS", "🌐")
         body = ctk.CTkFrame(card, fg_color="transparent")
         body.pack(fill="x", padx=20, pady=(0, 16))
 
@@ -342,7 +344,7 @@ class SettingsView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             body,
-            text="Architecture: Canonical SQLite Library · Universal Provider System · CustomTkinter UI",
+            text="Architecture: SQLite Music Database · Universal Audio Provider Engine · CustomTkinter UI",
             font=theme.font_caption(),
             text_color=theme.TEXT_MUTED,
             anchor="w",

@@ -443,11 +443,11 @@ class AddMusicView(ctk.CTkFrame):
         self.filter_var = tk.StringVar(value="All Tracks")
         filter_opt = ctk.CTkOptionMenu(
             tb_inner,
-            values=["All Tracks", "Ready to Download", "Needs Review", "Already Owned", "Unavailable"],
+            values=["All Tracks", "Ready to Download", "Needs Review", "Already Downloaded", "Unavailable"],
             variable=self.filter_var,
             font=theme.font_caption(),
             height=28,
-            width=150,
+            width=155,
             fg_color=theme.SURFACE,
             button_color=theme.SURFACE_HOVER,
             command=lambda e: self._apply_filters(),
@@ -667,7 +667,7 @@ class AddMusicView(ctk.CTkFrame):
                 continue
             elif filter_mode == "Needs Review" and item.state != ItemState.NEEDS_REVIEW:
                 continue
-            elif filter_mode == "Already Owned" and item.state != ItemState.OWNED:
+            elif filter_mode == "Already Downloaded" and item.state != ItemState.OWNED:
                 continue
             elif filter_mode == "Unavailable" and item.state not in [ItemState.NO_SOURCE, ItemState.FAILED]:
                 continue

@@ -122,7 +122,7 @@ class ImportView(ctk.CTkFrame):
         self.progress.pack(fill="x", pady=4)
         self.progress.configure(mode="indeterminate")
         self.progress.start()
-        self.res_var.set("⏳ Extracting ID3 metadata and matching against SQLite canonical library...")
+        self.res_var.set("⏳ Extracting ID3 metadata and matching against your music library...")
 
         def _worker():
             try:
@@ -142,7 +142,7 @@ class ImportView(ctk.CTkFrame):
             f"✅ Import Scan Complete!\n"
             f"Files Scanned:  {res.get('scanned', 0):,}\n"
             f"Matched & Updated: {res.get('matched', 0):,}\n"
-            f"New Canonical Songs: {res.get('imported', 0):,}\n"
+            f"New Songs Added: {res.get('imported', 0):,}\n"
             f"Unmatched Files: {res.get('unmatched', 0):,}"
         )
         self.res_var.set(msg)

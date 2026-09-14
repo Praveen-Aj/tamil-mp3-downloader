@@ -57,5 +57,7 @@ def test_dashboard_view_instantiation(tk_root, service):
 
 def test_downloads_view_instantiation(tk_root, service):
     view = DownloadsView(tk_root, service=service)
-    assert view.tree is not None
+    assert view.scroll is not None
     assert view.progress_bar is not None
+
+

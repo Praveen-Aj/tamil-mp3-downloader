@@ -28,8 +28,8 @@ class StatusBar(ctk.CTkFrame):
         self.grid_columnconfigure(3, weight=1)
         self.grid_propagate(False)
 
-        # 1. Total & Owned stats label
-        self.stats_var = tk.StringVar(value="📚 Library: 0 total · 0 owned")
+        # 1. Total & Downloaded stats label
+        self.stats_var = tk.StringVar(value="📚 Library: 0 total · 0 downloaded")
         self.stats_label = ctk.CTkLabel(
             self,
             textvariable=self.stats_var,
@@ -75,7 +75,7 @@ class StatusBar(ctk.CTkFrame):
 
     def update_stats(self, total: int, owned: int, healthy_sources: str, active_dl: int) -> None:
         """Update metrics in status bar."""
-        self.stats_var.set(f"📚 Library: {total:,} songs · {owned:,} owned")
+        self.stats_var.set(f"📚 Library: {total:,} songs · {owned:,} downloaded")
         if "3/3" in healthy_sources or "All" in healthy_sources:
             self.sources_var.set("🟢 Sources: Operational")
             self.sources_label.configure(text_color=theme.SUCCESS)

@@ -83,12 +83,11 @@ class SidebarNav(ctk.CTkFrame):
         # Group: LIBRARY
         self._create_group_label("LIBRARY")
         self._create_nav_button("dashboard", "📊  Dashboard", view_key="dashboard")
-        self._create_nav_button("library", "📚  Library", view_key="library")
+        self._create_nav_button("library", "📚  Music Library", view_key="library")
         self._create_nav_button("discover", "🔍  Discover Regional", view_key="discover")
 
         # Group: SYSTEM
         self._create_group_label("SYSTEM")
-        self._create_nav_button("sources", "🌐  Source Health", view_key="sources")
         self._create_nav_button("settings", "⚙️  Settings", view_key="settings")
         self._create_nav_button("help", "❓  Help & Guide", view_key="help")
 

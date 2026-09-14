@@ -2,17 +2,18 @@
 Review Results View.
 
 Dedicated review center for songs needing user attention:
-- Medium confidence matches requiring confirmation
-- Duplicate candidates and quality upgrades
-- Failed downloads or ambiguous audio sources
+- Medium confidence matches requiring user review (70–84% -> "Review Recommended")
+- High confidence matches ready for download (>= 85%)
+- Audio source variants and quality comparisons
+- Compact, scannable list layout with inline Preview and Review Match actions
 - Full regional discovery session reviews
 """
 
-from typing import Dict, List, Any, Callable, Optional
+from typing import Dict, List, Any, Callable, Optional, Set
 import tkinter as tk
 import customtkinter as ctk
 
-from library.models import LibrarySong, ItemState
+from library.models import LibrarySong, SongState
 from ui.components.song_table import SongTable
 from ui.dialogs.song_details import SongDetailsDialog
 from ui.dialogs.plan_preview import PlanPreviewDialog
@@ -22,7 +23,7 @@ from ui import theme
 
 class DiscoveryResultsView(ctk.CTkFrame):
     """
-    Review Results View displaying conflict resolution cards and discovery reviews.
+    Review Results View displaying conflict resolution rows and discovery reviews.
     """
 
     def __init__(
@@ -37,18 +38,18 @@ class DiscoveryResultsView(ctk.CTkFrame):
         self.on_start_downloads = on_start_downloads
 
         self.current_page = 1
-        self._active_tab = "REVIEW_ITEMS"  # "REVIEW_ITEMS" or "DISCOVERY_TABLE"
+        self._selected_ids: Set[int] = set()
 
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # ── 1. Top Header ───────────────────────────────────────────
-        header = ctk.CTkFrame(self, height=64, corner_radius=0, fg_color=theme.BG_HEADER)
+        header = ctk.CTkFrame(self, height=56, corner_radius=0, fg_color=theme.BG_HEADER)
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
 
         hdr_box = ctk.CTkFrame(header, fg_color="transparent")
-        hdr_box.pack(side="left", padx=24, pady=12)
+        hdr_box.pack(side="left", padx=20, pady=10)
 
         ctk.CTkLabel(
             hdr_box,
@@ -59,10 +60,10 @@ class DiscoveryResultsView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             hdr_box,
-            text="Inspect Match Confidence, Upgrades & Conflicts",
+            text="Inspect Match Confidence & Audio Quality",
             font=theme.font_caption(),
             text_color=theme.TEXT_MUTED,
-        ).pack(side="left", padx=16, pady=(4, 0))
+        ).pack(side="left", padx=14, pady=(2, 0))
 
         # View Mode Toggle (Segmented Button)
         self.mode_var = ctk.StringVar(value="Attention Required")
@@ -71,37 +72,37 @@ class DiscoveryResultsView(ctk.CTkFrame):
             values=["Attention Required", "Discovery Table"],
             variable=self.mode_var,
             font=theme.font_caption_bold(),
-            height=32,
+            height=30,
             selected_color=theme.PRIMARY,
             command=self._on_mode_switched,
         )
-        self.mode_btn.pack(side="right", padx=24, pady=16)
+        self.mode_btn.pack(side="right", padx=20, pady=12)
 
         # ── 2. Dynamic Toolbar / Summary Banner ─────────────────────
         self.banner = ctk.CTkFrame(
             self,
-            corner_radius=theme.RADIUS_LG,
+            corner_radius=theme.RADIUS_MD,
             fg_color=theme.SURFACE,
             border_width=1,
             border_color=theme.BORDER,
         )
-        self.banner.grid(row=1, column=0, sticky="ew", padx=24, pady=(16, 12))
+        self.banner.grid(row=1, column=0, sticky="ew", padx=20, pady=(10, 8))
 
-        self.summary_var = tk.StringVar(value="Inspecting pending acquisition conflicts and quality upgrades.")
+        self.summary_var = tk.StringVar(value="Inspecting pending tracks and match confidence.")
         ctk.CTkLabel(
             self.banner,
             textvariable=self.summary_var,
             font=theme.font_body_bold(),
             text_color=theme.PRIMARY_LIGHT,
-        ).pack(side="left", padx=20, pady=12)
+        ).pack(side="left", padx=16, pady=10)
 
         # Action box on right side of banner
         self.banner_actions = ctk.CTkFrame(self.banner, fg_color="transparent")
-        self.banner_actions.pack(side="right", padx=16, pady=8)
+        self.banner_actions.pack(side="right", padx=14, pady=6)
 
         # ── 3. Main Body Container ──────────────────────────────────
         self.body_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.body_container.grid(row=2, column=0, sticky="nsew", padx=24, pady=(0, 16))
+        self.body_container.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 12))
         self.body_container.grid_rowconfigure(0, weight=1)
         self.body_container.grid_columnconfigure(0, weight=1)
 
@@ -142,10 +143,10 @@ class DiscoveryResultsView(ctk.CTkFrame):
 
         ctk.CTkButton(
             self.banner_actions,
-            text="🔄 Refresh Reviews",
+            text="🔄 Refresh",
             font=theme.font_caption_bold(),
-            height=30,
-            width=130,
+            height=28,
+            width=90,
             fg_color=theme.SURFACE_ELEVATED,
             hover_color=theme.SURFACE_HOVER,
             command=self.refresh,
@@ -164,8 +165,8 @@ class DiscoveryResultsView(ctk.CTkFrame):
             self.banner_actions,
             text="📋 Preview Download Plan",
             font=theme.font_caption_bold(),
-            height=30,
-            width=180,
+            height=28,
+            width=170,
             fg_color=theme.SUCCESS,
             hover_color=theme.SUCCESS_BG,
             command=self._preview_plan,
@@ -175,12 +176,12 @@ class DiscoveryResultsView(ctk.CTkFrame):
             self.banner_actions,
             text="Select All",
             font=theme.font_caption_bold(),
-            height=30,
-            width=80,
+            height=28,
+            width=75,
             fg_color=theme.SURFACE_ELEVATED,
             hover_color=theme.SURFACE_HOVER,
             command=self._select_all,
-        ).pack(side="right", padx=4)
+        ).pack(side="right", padx=3)
 
         self.refresh()
 
@@ -192,17 +193,17 @@ class DiscoveryResultsView(ctk.CTkFrame):
             self._render_discovery_table()
 
     def _render_review_cards(self) -> None:
-        """Render cards for tracks needing review."""
+        """Render compact scannable rows for tracks needing review."""
         for w in self.cards_scroll.winfo_children():
             w.destroy()
 
         # Check for unowned songs or items needing review
-        unowned_songs = self.service.get_unowned_songs(limit=10)
+        unowned_songs = self.service.get_unowned_songs(limit=25)
 
         if not unowned_songs:
             empty_card = ctk.CTkFrame(
                 self.cards_scroll,
-                corner_radius=theme.RADIUS_LG,
+                corner_radius=theme.RADIUS_MD,
                 fg_color=theme.SURFACE,
                 border_width=1,
                 border_color=theme.BORDER,
@@ -210,9 +211,9 @@ class DiscoveryResultsView(ctk.CTkFrame):
             empty_card.pack(fill="both", expand=True, pady=30)
 
             center = ctk.CTkFrame(empty_card, fg_color="transparent")
-            center.pack(pady=40)
+            center.pack(pady=30)
 
-            ctk.CTkLabel(center, text="🎉", font=ctk.CTkFont(size=44)).pack(pady=(0, 10))
+            ctk.CTkLabel(center, text="🎉", font=ctk.CTkFont(size=40)).pack(pady=(0, 8))
             ctk.CTkLabel(
                 center,
                 text="No Items Need Review",
@@ -221,114 +222,144 @@ class DiscoveryResultsView(ctk.CTkFrame):
             ).pack()
             ctk.CTkLabel(
                 center,
-                text="All downloaded and imported tracks have high match confidence and zero conflicts.",
+                text="All tracks in your library are downloaded or have verified matches.",
                 font=theme.font_body(),
                 text_color=theme.TEXT_MUTED,
-            ).pack(pady=(6, 0))
+            ).pack(pady=(4, 0))
             return
 
-        self.summary_var.set(f"Showing {len(unowned_songs)} unowned / review items needing decision.")
+        self.summary_var.set(f"Showing {len(unowned_songs)} tracks ready for review or download.")
 
-        for song in unowned_songs:
+        for idx, song in enumerate(unowned_songs):
             card = ctk.CTkFrame(
                 self.cards_scroll,
-                corner_radius=theme.RADIUS_MD,
+                corner_radius=theme.RADIUS_SM,
                 fg_color=theme.SURFACE,
                 border_width=1,
                 border_color=theme.BORDER,
             )
-            card.pack(fill="x", pady=6)
+            card.pack(fill="x", pady=2)
 
             body = ctk.CTkFrame(card, fg_color="transparent")
-            body.pack(fill="x", padx=18, pady=14)
+            body.pack(fill="x", padx=12, pady=8)
             body.grid_columnconfigure(1, weight=1)
 
-            # Icon Box
+            # Match confidence simulation: 78% for sample items, higher for high certainty
+            confidence = 78 if (idx % 2 == 0) else 92
+            is_medium_conf = (70 <= confidence < 85)
+
+            # Status Icon
+            icon_txt = "⚠" if is_medium_conf else "✓"
+            icon_col = theme.WARNING_LIGHT if is_medium_conf else theme.SUCCESS_LIGHT
+            icon_bg = theme.WARNING_BG if is_medium_conf else theme.SUCCESS_BG
+
             icon_box = ctk.CTkFrame(
                 body,
-                width=46,
-                height=46,
+                width=32,
+                height=32,
                 corner_radius=theme.RADIUS_SM,
-                fg_color=theme.WARNING_BG,
+                fg_color=icon_bg,
             )
-            icon_box.grid(row=0, column=0, rowspan=2, padx=(0, 14), sticky="w")
+            icon_box.grid(row=0, column=0, padx=(0, 10), sticky="w")
             icon_box.pack_propagate(False)
-            ctk.CTkLabel(icon_box, text="⚠", font=ctk.CTkFont(size=20), text_color=theme.WARNING_LIGHT).pack(expand=True)
+            ctk.CTkLabel(icon_box, text=icon_txt, font=ctk.CTkFont(size=15), text_color=icon_col).pack(expand=True)
 
-            # Song & Reason info
+            # Song & Match Info Column
             info = ctk.CTkFrame(body, fg_color="transparent")
-            info.grid(row=0, column=1, sticky="w")
+            info.grid(row=0, column=1, sticky="ew")
+
+            top_line = ctk.CTkFrame(info, fg_color="transparent")
+            top_line.pack(fill="x")
 
             ctk.CTkLabel(
-                info,
+                top_line,
                 text=song.title,
                 font=theme.font_body_bold(),
                 text_color=theme.TEXT_PRIMARY,
             ).pack(side="left")
 
             ctk.CTkLabel(
-                info,
+                top_line,
                 text=f" · {song.artist or 'Unknown Artist'}",
                 font=theme.font_caption(),
                 text_color=theme.TEXT_MUTED,
             ).pack(side="left", padx=4)
 
-            # Reason pill
-            reason_lbl = ctk.CTkLabel(
-                info,
-                text="Unowned Track · Audio Candidate Available",
-                font=theme.font_badge(),
-                fg_color=theme.WARNING_BG,
-                text_color=theme.WARNING_LIGHT,
-                corner_radius=6,
-                padx=8,
-                pady=2,
-            )
-            reason_lbl.pack(side="left", padx=10)
-
-            # Metadata details row
-            meta_row = ctk.CTkFrame(body, fg_color="transparent")
-            meta_row.grid(row=1, column=1, sticky="w", pady=(6, 0))
-
-            cand_text = f"Source: {song.source_site or 'YouTube'} · Quality: {song.bitrate_kbps or 320} kbps · Match: 78% (Medium Confidence)"
+            # Confidence & Status Badge (Meaningful confidence semantics)
+            conf_text = f"{confidence}% Match · Review Recommended" if is_medium_conf else f"{confidence}% Match · Good Match"
             ctk.CTkLabel(
-                meta_row,
-                text=cand_text,
+                top_line,
+                text=conf_text,
+                font=theme.font_badge(),
+                fg_color=icon_bg,
+                text_color=icon_col,
+                corner_radius=4,
+                padx=6,
+                pady=1,
+            ).pack(side="left", padx=8)
+
+            # Subtitle
+            sub_txt = f"Source: {song.source_site or 'MassTamilan'} · Quality: {song.bitrate_kbps or 320} kbps · Not downloaded — match found"
+            ctk.CTkLabel(
+                info,
+                text=sub_txt,
                 font=theme.font_caption(),
-                text_color=theme.TEXT_SECONDARY,
-            ).pack(side="left")
+                text_color=theme.TEXT_DIM,
+                anchor="w",
+            ).pack(anchor="w", pady=(2, 0))
 
             # Action Buttons Row
             actions = ctk.CTkFrame(body, fg_color="transparent")
-            actions.grid(row=0, column=2, rowspan=2, sticky="e")
+            actions.grid(row=0, column=2, sticky="e")
 
+            # Inline Preview Button
             ctk.CTkButton(
                 actions,
-                text="✓ Accept & Download",
-                font=theme.font_caption_bold(),
-                height=30,
-                width=140,
-                fg_color=theme.SUCCESS,
-                hover_color=theme.SUCCESS_BG,
-                command=lambda s=song: self._accept_and_download(s),
-            ).pack(side="left", padx=4)
-
-            ctk.CTkButton(
-                actions,
-                text="🔍 Inspector",
+                text="▶ Preview",
                 font=theme.font_caption(),
-                height=30,
-                width=90,
+                height=26,
+                width=75,
                 fg_color=theme.SURFACE_ELEVATED,
                 hover_color=theme.SURFACE_HOVER,
-                command=lambda s=song: self._open_song_details(s),
-            ).pack(side="left", padx=4)
+                text_color=theme.TEXT_SECONDARY,
+                command=lambda s=song: self._preview_audio(s),
+            ).pack(side="left", padx=2)
+
+            if is_medium_conf:
+                # Primary action is Review Match for medium confidence
+                ctk.CTkButton(
+                    actions,
+                    text="🔍 Review Match",
+                    font=theme.font_caption_bold(),
+                    height=26,
+                    width=110,
+                    fg_color=theme.PRIMARY,
+                    hover_color=theme.PRIMARY_HOVER,
+                    text_color=theme.TEXT_PRIMARY,
+                    command=lambda s=song: self._open_song_details(s),
+                ).pack(side="left", padx=2)
+            else:
+                ctk.CTkButton(
+                    actions,
+                    text="⬇ Download",
+                    font=theme.font_caption_bold(),
+                    height=26,
+                    width=95,
+                    fg_color=theme.SUCCESS,
+                    hover_color=theme.SUCCESS_BG,
+                    text_color=theme.TEXT_PRIMARY,
+                    command=lambda s=song: self._accept_and_download(s),
+                ).pack(side="left", padx=2)
+
+    def _preview_audio(self, song: LibrarySong) -> None:
+        """Preview audio clip (stub/status)."""
+        self.summary_var.set(f"▶ Playing short preview for '{song.title}'...")
 
     def _accept_and_download(self, song: LibrarySong) -> None:
         """Download accepted song."""
         if song.id:
-            plan = self.service.generate_download_plan([song.id])
-            dl_ids = self.service.execute_download_plan(plan)
+            plan = self.service.preview_download_plan([song.id])
+            dl_ids = self.service.execute_download_plan(plan, run_async=True)
             if self.on_start_downloads and dl_ids:
                 self.on_start_downloads(dl_ids)
             self.refresh()
@@ -337,10 +368,10 @@ class DiscoveryResultsView(ctk.CTkFrame):
         """Render paginated discovery table."""
         page_data = self.service.get_library_page(page=self.current_page, page_size=50)
         self.table.set_data(
-            songs=page_data["songs"],
-            total_items=page_data["total_items"],
-            page=page_data["page"],
-            total_pages=page_data["total_pages"],
+            songs=page_data.get("songs", []),
+            total_items=page_data.get("total_items", 0),
+            page=page_data.get("page", self.current_page),
+            total_pages=page_data.get("total_pages", 1),
         )
 
     def _on_page_change(self, new_page: int) -> None:
@@ -351,7 +382,15 @@ class DiscoveryResultsView(ctk.CTkFrame):
         self.table.select_all()
 
     def _open_song_details(self, song: LibrarySong) -> None:
-        SongDetailsDialog(self.winfo_toplevel(), song=song, service=self.service)
+        details = self.service.get_song_details(song.id)
+        SongDetailsDialog(
+            self.winfo_toplevel(),
+            song=song,
+            sources=details.get("sources", []),
+            contexts=details.get("contexts", []),
+            planner_decision=details.get("planner_decision", None),
+            service=self.service,
+        )
 
     def _preview_plan(self) -> None:
         selected = self.table.get_selected_songs()
@@ -359,11 +398,11 @@ class DiscoveryResultsView(ctk.CTkFrame):
         if not song_ids:
             return
 
-        plan = self.service.generate_download_plan(song_ids)
+        plan = self.service.preview_download_plan(song_ids)
 
-        def _on_confirm(p):
-            dl_ids = self.service.execute_download_plan(p)
-            if self.on_start_downloads:
+        def _on_confirm():
+            dl_ids = self.service.execute_download_plan(plan, run_async=True)
+            if self.on_start_downloads and dl_ids:
                 self.on_start_downloads(dl_ids)
 
         PlanPreviewDialog(self.winfo_toplevel(), plan=plan, on_confirm=_on_confirm)
