@@ -130,10 +130,11 @@ class DownloadsView(ctk.CTkFrame):
             tag = "completed" if st == "COMPLETED" else ("failed" if st == "FAILED" else "active")
             err_text = dl.error_message or "-"
 
+            attempts_cnt = getattr(dl, "attempts", getattr(dl, "retry_count", 1))
             self.tree.insert(
                 "",
                 "end",
-                values=(dl.id, dl.song_id, st, dl.attempts, err_text),
+                values=(dl.id, dl.song_id, st, attempts_cnt, err_text),
                 tags=(tag,),
             )
 

@@ -295,6 +295,11 @@ class Download:
         )
 
     @property
+    def attempts(self) -> int:
+        """Get number of download attempts (1 + retries)."""
+        return self.retry_count + 1
+
+    @property
     def duration_seconds(self) -> Optional[float]:
         """Get download duration in seconds."""
         if self.started_at and self.completed_at:

@@ -170,7 +170,7 @@ class SongTable(ctk.CTkFrame):
             year_str = str(song.year) if song.year else "-"
             quality_str = f"{song.quality_kbps} kbps" if song.quality_kbps else "Unknown"
             state_str = "OWNED" if song.state == SongState.OWNED else "UNOWNED"
-            primary_src = song.primary_source_name or "Unknown"
+            primary_src = getattr(song, "primary_source_name", None) or getattr(song, "source_name", None) or "-"
 
             # Tag for styling owned vs unowned
             tag = "owned" if song.state == SongState.OWNED else "unowned"

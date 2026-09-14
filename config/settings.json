@@ -56,7 +56,8 @@
       "detached": true,
       "queue_mode": true,
       "max_concurrent": 3
-    }
+    },
+    "auto_upgrade": true
   },
   "ui": {
     "page_size": 10,

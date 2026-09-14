@@ -119,14 +119,15 @@ class SourcesView(ctk.CTkFrame):
         healthy_cnt = 0
 
         for s in sources:
-            st = s.runtime.health.value if hasattr(s.runtime.health, "value") else str(s.runtime.health)
+            health = s.state.health_status
+            st = health.value if hasattr(health, "value") else str(health)
             if s.is_usable:
                 healthy_cnt += 1
 
             enabled_str = "Yes" if s.config.enabled else "No (Disabled)"
             domain_str = s.active_domain or "-"
-            score_str = f"{s.runtime.reliability_score:.2f}"
-            err_str = s.runtime.last_error or "-"
+            score_str = f"{s.state.reliability_score:.2f}"
+            err_str = s.state.last_error or "-"
 
             tag = "healthy" if s.is_usable else ("disabled" if not s.config.enabled else "unavail")
 
