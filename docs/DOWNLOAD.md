@@ -61,7 +61,7 @@ If you prefer to run PyInstaller directly:
 python -m PyInstaller scripts\tamil_mp3_downloader.spec --clean
 ```
 
-This uses the included spec which bundles the `data/` and `screenshots/` folders and reads `VERSION` for naming.
+This uses the included spec which reads `VERSION` for naming.
 
 Questions?
 

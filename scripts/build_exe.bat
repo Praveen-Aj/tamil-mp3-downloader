@@ -36,7 +36,7 @@ echo Running PyInstaller (this may take several minutes)...
 if exist "%SPEC_FILE%" (
   call pyinstaller --clean --noconfirm %ICON_PATH% "%SPEC_FILE%"
 ) else (
-  call pyinstaller --clean --noconfirm --onefile --console --name "%NAME%" %ICON_PATH% --add-data "data;data" --add-data "data\old;data\old" --add-data "screenshots;screenshots" main.py
+  call pyinstaller --clean --noconfirm --onefile --console --name "%NAME%" %ICON_PATH% main.py
 )
 
 echo.

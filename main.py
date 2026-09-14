@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""Compatibility entrypoint.
+"""Main Application Entry Point.
 
-Legacy CLI flow was removed to avoid conflicts with the current GUI-first app.
-Running this file now starts the same GUI as gui.py.
+Starts the Library-centric CustomTkinter application.
 """
 
-from gui import main as gui_main
-
-
 def main() -> None:
-    gui_main()
-
+    from ui.app import TamilMP3App
+    app = TamilMP3App()
+    app.mainloop()
 
 if __name__ == "__main__":
     main()

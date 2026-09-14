@@ -1,58 +1,54 @@
-# Tamil MP3 Downloader v3.0.0
+# Tamil MP3 Downloader v4.0.0
 
-Modular Tamil MP3 downloader with GUI/TUI clients, multi-source scraping, and concurrent downloads.
+A powerful, library-centric desktop application for discovering, deduplicating, and downloading Tamil music from multiple sources.
 
 ## Current Status
 
-- Active version: `3.0.0`
-- Primary runtime: `gui.py`
-- Optional terminal UI: `tui.py`
-- `main.py` is now a compatibility shim that forwards to GUI startup.
+- **Active Version:** `4.0.0`
+- **Architecture:** SQLite Canonical Library & CustomTkinter UI
+- **Primary Runtime:** `main.py` (via `launch_app.bat` on Windows)
+
+## What's New in v4 (Library-Centric Redesign)
+
+The v4 release fundamentally changes the application from a "search-and-download" scraper tool into a **Music Library Manager**.
+
+- **Canonical SQLite Library:** Songs discovered from different websites (e.g., MassTamilan, Tamilmp3) are analyzed, deduplicated, and stored locally.
+- **Source Health Registry:** The application continuously monitors scraping sources for uptime and automatically shifts to fallback domains when a site goes offline.
+- **Deduplication:** A song found in multiple categories or on multiple websites is collapsed into a single Library entity with multiple source choices.
+- **Download Planner:** Automatically upgrades selected songs to higher qualities (e.g., 320kbps) if a better variant exists in the library.
+- **10,000+ Song Performance:** Uses database pagination and background threading to ensure the UI remains smooth regardless of library size.
+- **Local MP3 Import:** Scan your existing local files and integrate them into the canonical library to prevent re-downloading songs you already own.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/anburocky3/tamil-mp3-downloader.git
+git clone https://github.com/Praveen-Aj/tamil-mp3-downloader.git
 cd tamil-mp3-downloader
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python gui.py
 ```
 
-## Features Available In This Version
-
-- Multi-source scraping: IsaiminiHQ, MassTamilan, FriendsTamilMP3
-- Category and album browsing
-- Search flow across sources
-- Concurrent and resumable downloads (`.part` + `.download_state.json`)
-- ID3 tagging via `mutagen`
-- Persistent settings in `config/settings.json`
-- Windows EXE packaging via PyInstaller spec in `scripts/`
+To run the application:
+Double-click `launch_app.bat` or run `python main.py`.
 
 ## Project Structure
 
 ```text
 tamil-mp3-downloader/
-|-- gui.py
-|-- tui.py
-|-- main.py
-|-- config/
-|-- data/
-|-- docs/
-|-- downloaders/
-|-- models/
-|-- scrapers/
-|-- scripts/
-|-- tests/
-`-- utils/
+|-- main.py              # Application entry point
+|-- launch_app.bat       # Windows batch launcher
+|-- config/              # User settings (settings.json)
+|-- docs/                # Project documentation and architecture guide
+|-- downloaders/         # Concurrent HTTP download logic
+|-- library/             # SQLite library backend and database schemas
+|-- models/              # Dataclasses and core models
+|-- scrapers/            # Source-specific HTML scrapers
+|-- scripts/             # Build scripts
+|-- tests/               # Pytest suite
+|-- ui/                  # CustomTkinter Modular UI 
+`-- utils/               # Shared utilities
 ```
-
-## Running Options
-
-- GUI (recommended): `python gui.py`
-- TUI: `python tui.py`
-- Compatibility launcher: `python main.py`
 
 ## Build EXE (Windows)
 
@@ -61,23 +57,26 @@ See `docs/DOWNLOAD.md` for full steps.
 Quick command:
 
 ```cmd
-.venv\Scripts\python.exe -m PyInstaller scripts\tamil_mp3_downloader.spec --clean
+scripts\build_exe.bat
 ```
 
 ## Testing
 
-Targeted scraper test currently used in this release line:
+Run the local, mocked test suite (fast and offline):
 
 ```bash
-pytest tests/test_masstamilan_scraper.py -q
+pytest tests/ -v
 ```
 
-Note: network-facing scraper tests can be skipped/fail depending on upstream site behavior.
+Run the live scraper protocol test suite (requires internet connection):
+
+```bash
+pytest tests/ -m live -v
+```
 
 ## Documentation
 
-- Architecture: `ARCHITECTURE.md`
-- Roadmap and status: `ROADMAP.md`
+- **Architecture Blueprint:** `docs/architecture.md`
 - Build/download guide: `docs/DOWNLOAD.md`
 - Contribution guide: `docs/CONTRIBUTING.md`
 

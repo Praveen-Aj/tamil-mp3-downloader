@@ -27,26 +27,8 @@ except Exception:
 
 EXE_NAME = f"tamil-mp3-downloader-v{_version}"
 
-def collect_folder(src_folder, dest_folder):
-    """Walk src_folder and return a list of (absolute_src_path, dest_path_inside_exe) tuples."""
-    out = []
-    if not os.path.exists(src_folder):
-        return out
-    for root, dirs, files in os.walk(src_folder):
-        for f in files:
-            src_path = os.path.join(root, f)
-            # compute relative path under src_folder
-            rel_dir = os.path.relpath(root, src_folder)
-            if rel_dir == '.':
-                rel_dir = ''
-            dest_path = os.path.join(dest_folder, rel_dir)
-            out.append((src_path, dest_path))
-    return out
-
 # collect data files
 datas = []
-datas += collect_folder(os.path.join(ROOT_DIR, 'data'), 'data')
-datas += collect_folder(os.path.join(ROOT_DIR, 'screenshots'), 'screenshots')
 
 hiddenimports = [
     'bs4',
@@ -61,7 +43,7 @@ if os.path.exists(aria2_path):
     binaries.append((aria2_path, '.'))
 
 a = Analysis(
-    [os.path.join(ROOT_DIR, 'gui.py')],
+    [os.path.join(ROOT_DIR, 'main.py')],
     pathex=[ROOT_DIR],
     binaries=binaries,
     datas=datas,

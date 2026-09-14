@@ -43,7 +43,7 @@
     }
   },
   "download": {
-    "output_dir": "C:\\Users\\Praveen\\Downloads\\Songs",
+    "output_dir": "C:\\Users\\Praveen\\AppData\\Local\\Temp\\pytest-of-Praveen\\pytest-50\\test_download_retry_failure_th0\\downloads",
     "chunk_size": 65536,
     "timeout": 90,
     "concurrent_enabled": true,
