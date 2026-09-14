@@ -236,9 +236,10 @@ class DownloadsView(ctk.CTkFrame):
 
     def refresh(self) -> None:
         """Fetch fresh downloads and update view."""
-        self._cached_downloads = self.service.get_all_downloads()
+        self._cached_downloads = self.service.get_all_downloads(dedup_by_song=True)
         self._update_aggregate_banner()
         self._render_download_cards()
+
 
     def _update_aggregate_banner(self) -> None:
         """Update aggregate counts and progress."""
@@ -417,9 +418,10 @@ class DownloadsView(ctk.CTkFrame):
             elif d.state == DownloadState.DOWNLOADING:
                 metric_txt = "Downloading · 2.4 MB/s · 00:18 remaining"
             elif d.state == DownloadState.FAILED:
-                metric_txt = "The selected source is unavailable. Click Retry to try an alternate source."
+                metric_txt = "Automatic source resolution failed. Click Retry to re-resolve across sources."
             else:
                 metric_txt = "Queued in background"
+
 
             ctk.CTkLabel(
                 prog_row,
@@ -461,14 +463,14 @@ class DownloadsView(ctk.CTkFrame):
             elif d.state == DownloadState.FAILED:
                 ctk.CTkButton(
                     action_box,
-                    text="🔍 Find Source",
+                    text="🗑️ Delete",
                     font=theme.font_caption(),
                     height=24,
-                    width=85,
+                    width=65,
                     fg_color=theme.SURFACE_ELEVATED,
-                    hover_color=theme.SURFACE_HOVER,
+                    hover_color=theme.ERROR,
                     text_color=theme.TEXT_SECONDARY,
-                    command=lambda: self.on_navigate_add_music() if self.on_navigate_add_music else None,
+                    command=lambda dl_id=d.id, name=song_title: self._confirm_delete_download(dl_id, name),
                 ).pack(side="right", padx=(4, 0))
 
                 ctk.CTkButton(
@@ -482,6 +484,7 @@ class DownloadsView(ctk.CTkFrame):
                     text_color=theme.TEXT_PRIMARY,
                     command=lambda dl_id=d.id: self._retry_single(dl_id),
                 ).pack(side="right")
+
 
             elif d.state == DownloadState.DOWNLOADING:
                 ctk.CTkButton(

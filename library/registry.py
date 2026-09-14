@@ -207,10 +207,19 @@ class DownloadRegistry:
 
     def get_active_downloads(self) -> List[Download]:
         """
-        Get all downloads registered in system.
+        Get all active downloads currently downloading or queued.
         """
         with self._lock:
-            return self.db.get_all_downloads()
+            all_dls = self.db.get_all_downloads()
+            active_states = {
+                DownloadState.DOWNLOADING, DownloadState.QUEUED,
+                "DOWNLOADING", "QUEUED", "downloading", "queued"
+            }
+            return [
+                d for d in all_dls
+                if d.state in active_states or (hasattr(d.state, "value") and d.state.value in active_states)
+            ]
+
 
     # ------------------------------------------------------------------
     # Source reliability tracking

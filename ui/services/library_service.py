@@ -151,14 +151,20 @@ class LibraryService:
         
         upgrades_count = 0
         total_storage_bytes = 0
+        verified_downloaded_count = 0
         for s in owned:
-            if s.file_size_bytes:
+            if s.file_path and os.path.isfile(s.file_path):
+                verified_downloaded_count += 1
+                if s.file_size_bytes:
+                    total_storage_bytes += s.file_size_bytes
+                else:
+                    try:
+                        total_storage_bytes += os.path.getsize(s.file_path)
+                    except OSError:
+                        pass
+            elif s.file_size_bytes:
                 total_storage_bytes += s.file_size_bytes
-            elif s.file_path and os.path.exists(s.file_path):
-                try:
-                    total_storage_bytes += os.path.getsize(s.file_path)
-                except OSError:
-                    pass
+
             if s.quality_kbps and s.quality_kbps < 320:
                 s_sources = self.db.get_sources_for_song(s.id)
                 if any(src.quality_kbps and src.quality_kbps >= 320 for src in s_sources):
@@ -166,16 +172,20 @@ class LibraryService:
 
         active_downloads = len(self.registry.get_active_downloads())
         
-        # Calculate failed downloads
-        all_dls = self.db.get_all_downloads()
-        failed_count = sum(1 for d in all_dls if d.state == DownloadState.FAILED or (hasattr(d.state, "value") and d.state.value == "FAILED"))
-
-        # Storage in MB
-        storage_mb = int(total_storage_bytes / (1024 * 1024)) if total_storage_bytes else len(owned) * 8
+        # Calculate failed downloads (deduplicated by song)
+        unique_dls = self.get_all_downloads(dedup_by_song=True)
+        failed_count = sum(
+            1 for d in unique_dls
+            if d.state == DownloadState.FAILED or (hasattr(d.state, "value") and d.state.value == "FAILED")
+        )
 
         total_cnt = lib_stats.get("total_songs", 0)
-        owned_cnt = lib_stats.get("songs_by_state", {}).get("OWNED", 0)
-        new_cnt = lib_stats.get("songs_by_state", {}).get("NEW", 0)
+        # Downloaded count is based on songs in library with verified state
+        downloaded_cnt = max(len(owned), verified_downloaded_count)
+        not_downloaded_cnt = max(0, total_cnt - downloaded_cnt)
+
+        # Storage in MB
+        storage_mb = int(total_storage_bytes / (1024 * 1024)) if total_storage_bytes else downloaded_cnt * 8
 
         # Compact source status items
         source_pills = [
@@ -187,10 +197,10 @@ class LibraryService:
 
         return {
             "total_songs": total_cnt,
-            "owned_songs": owned_cnt,
-            "downloaded_songs": owned_cnt,
-            "unowned_songs": new_cnt,
-            "ready_downloads": new_cnt,
+            "owned_songs": downloaded_cnt,
+            "downloaded_songs": downloaded_cnt,
+            "unowned_songs": not_downloaded_cnt,
+            "ready_downloads": not_downloaded_cnt,
             "upgrades_available": upgrades_count,
             "active_downloads": active_downloads,
             "failed_downloads": failed_count,
@@ -642,12 +652,85 @@ class LibraryService:
         return res.get("songs", [])
 
     def get_unowned_songs(self, limit: int = 50) -> List[LibrarySong]:
-        """Fetch songs needing review/unowned."""
+        """Fetch songs in NEW state (not yet downloaded)."""
         return self.db.get_songs_by_state(SongState.NEW, limit=limit)
 
-    def get_all_downloads(self) -> List[Download]:
-        """Fetch all download records."""
-        return self.db.get_all_downloads()
+
+    def get_downloaded_songs(
+        self,
+        query: str = "",
+        sort_by: str = "recent",
+    ) -> List[LibrarySong]:
+        """
+        Fetch songs that are verified to be downloaded in the library.
+        Filters by search query and sorts by specified field.
+        """
+        owned = self.db.get_songs_by_state(SongState.OWNED)
+        valid_songs = []
+        for s in owned:
+            # Check if query matches
+            if query:
+                q = query.lower()
+                title_match = q in s.title.lower()
+                artist_match = bool(s.artist and q in s.artist.lower())
+                album_match = bool(s.album and q in s.album.lower())
+                if not (title_match or artist_match or album_match):
+                    continue
+            valid_songs.append(s)
+
+        if sort_by == "title":
+            valid_songs.sort(key=lambda x: x.title.lower())
+        elif sort_by == "artist":
+            valid_songs.sort(key=lambda x: (x.artist or "").lower())
+        elif sort_by == "album":
+            valid_songs.sort(key=lambda x: (x.album or "").lower())
+        elif sort_by == "quality":
+            valid_songs.sort(key=lambda x: x.quality_kbps or 0, reverse=True)
+        else:  # recent
+            valid_songs.sort(key=lambda x: x.id or 0, reverse=True)
+
+        return valid_songs
+
+    def play_audio_file(self, file_path: Optional[str]) -> Tuple[bool, str]:
+        """
+        Launch the downloaded audio file in the user's default system media player.
+        """
+        if not file_path:
+            return False, "File path is empty"
+
+        p = Path(file_path)
+        if not p.is_file() or not p.exists():
+            return False, f"Audio file not found on disk: {p.name}"
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(p))
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(p)], check=False)
+            else:
+                subprocess.run(["xdg-open", str(p)], check=False)
+            return True, f"Playing '{p.name}' in system player"
+        except Exception as e:
+            logger.error(f"Error launching player for '{file_path}': {e}")
+            return False, f"Could not launch player: {e}"
+
+    def get_all_downloads(self, dedup_by_song: bool = True) -> List[Download]:
+        """
+        Fetch download records. If dedup_by_song is True, returns only the latest/active record per song.
+        """
+        all_dls = self.db.get_all_downloads()
+        if not dedup_by_song:
+            return all_dls
+
+        seen_songs = set()
+        unique_dls = []
+        for d in all_dls:
+            if d.song_id is not None:
+                if d.song_id in seen_songs:
+                    continue
+                seen_songs.add(d.song_id)
+            unique_dls.append(d)
+        return unique_dls
 
     def pause_downloads(self) -> None:
         """Pause ongoing downloads."""
@@ -656,3 +739,4 @@ class LibraryService:
     def resume_downloads(self) -> None:
         """Resume pending downloads."""
         pass
+

@@ -143,13 +143,26 @@ class DashboardView(ctk.CTkFrame):
 
         ctk.CTkButton(
             action_row,
+            text="🎵 Downloaded Songs",
+            font=theme.font_caption_bold(),
+            fg_color=theme.SUCCESS,
+            hover_color=theme.SUCCESS_BG,
+            text_color=theme.TEXT_PRIMARY,
+            height=32,
+            width=145,
+            corner_radius=theme.RADIUS_MD,
+            command=lambda: self.on_navigate("downloaded_songs"),
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            action_row,
             text="📚 Music Library",
             font=theme.font_caption_bold(),
             fg_color=theme.SURFACE_ELEVATED,
             hover_color=theme.SURFACE_HOVER,
             text_color=theme.TEXT_SECONDARY,
             height=32,
-            width=120,
+            width=115,
             corner_radius=theme.RADIUS_MD,
             command=lambda: self.on_navigate("library"),
         ).pack(side="left", padx=(0, 8))
@@ -166,6 +179,7 @@ class DashboardView(ctk.CTkFrame):
             corner_radius=theme.RADIUS_MD,
             command=lambda: self.on_navigate("discover"),
         ).pack(side="left")
+
 
         # ── 4. 6 Consumer KPI Metric Cards ──────────────────────────
         self._card_vars: Dict[str, tk.StringVar] = {}
@@ -209,11 +223,12 @@ class DashboardView(ctk.CTkFrame):
         cards = [
             ("total_songs", "📚 Total Songs", "0", "In Music Library", theme.PRIMARY),
             ("owned_songs", "✓ Downloaded", "0", "Ready to play", theme.SUCCESS),
-            ("ready_downloads", "↓ Ready to Download", "0", "Available to get", theme.INFO),
+            ("ready_downloads", "↓ Not Downloaded", "0", "In library catalog", theme.INFO),
             ("active_downloads", "⏳ Active Downloads", "0", "In progress", theme.ACCENT_CYAN),
-            ("failed_downloads", "⚠ Needs Attention", "0", "Review or retry", theme.WARNING),
+            ("failed_downloads", "⚠ Failed", "0", "Unavailable", theme.WARNING),
             ("storage_used", "💾 Storage Used", "0 MB", "Audio on disk", theme.TEXT_SECONDARY),
         ]
+
 
         for idx, (key, title, default_val, subtitle, accent_color) in enumerate(cards):
             card = ctk.CTkFrame(

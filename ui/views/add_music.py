@@ -28,16 +28,17 @@ class AddMusicView(ctk.CTkFrame):
     """
 
     STATE_BADGES = {
-        ItemState.OWNED: ("✓ Already in Library", theme.SUCCESS_BG, theme.SUCCESS_LIGHT),
+        ItemState.OWNED: ("✓ Already Downloaded", theme.SUCCESS_BG, theme.SUCCESS_LIGHT),
         ItemState.READY: ("↓ Ready to Download", theme.INFO_BG, theme.INFO_LIGHT),
         ItemState.DOWNLOADING: ("⏳ Downloading...", theme.INFO_BG, theme.INFO),
         ItemState.COMPLETED: ("✓ Downloaded", theme.SUCCESS_BG, theme.SUCCESS),
-        ItemState.NEEDS_REVIEW: ("⚠ Review Match", theme.WARNING_BG, theme.WARNING_LIGHT),
-        ItemState.NO_SOURCE: ("✕ Unavailable", theme.ERROR_BG, theme.ERROR_LIGHT),
-        ItemState.FAILED: ("✕ Download Failed", theme.ERROR_BG, theme.ERROR_LIGHT),
+        ItemState.NEEDS_REVIEW: ("↓ Ready to Download", theme.INFO_BG, theme.INFO_LIGHT),
+        ItemState.NO_SOURCE: ("⚠ Couldn't download", theme.ERROR_BG, theme.ERROR_LIGHT),
+        ItemState.FAILED: ("⚠ Couldn't download", theme.ERROR_BG, theme.ERROR_LIGHT),
         ItemState.AUTH_REQUIRED: ("🔒 Auth Required", theme.SURFACE_MUTED, theme.TEXT_MUTED),
         ItemState.SKIPPED: ("⏭ Skipped", theme.SURFACE_MUTED, theme.TEXT_MUTED),
     }
+
 
     def __init__(
         self,
@@ -362,18 +363,19 @@ class AddMusicView(ctk.CTkFrame):
             anchor="w",
         ).grid(row=0, column=1, sticky="w")
 
-        owned_cnt = sum(1 for i in items if i.state == ItemState.OWNED)
-        ready_cnt = sum(1 for i in items if i.state == ItemState.READY)
-        review_cnt = sum(1 for i in items if i.state == ItemState.NEEDS_REVIEW)
-        failed_cnt = sum(1 for i in items if i.state in [ItemState.FAILED, ItemState.NO_SOURCE])
+        owned_cnt = sum(1 for i in items if i.state in (ItemState.OWNED, ItemState.COMPLETED))
+        ready_cnt = sum(1 for i in items if i.state in (ItemState.READY, ItemState.NEEDS_REVIEW))
+        failed_cnt = sum(1 for i in items if i.state in (ItemState.FAILED, ItemState.NO_SOURCE))
 
-        stats_str = (
-            f"📊 {len(items)} tracks  ·  "
-            f"✓ {owned_cnt} already in library  ·  "
-            f"↓ {ready_cnt} ready to download  ·  "
-            f"⚠ {review_cnt} need review  ·  "
-            f"✕ {failed_cnt} unavailable"
-        )
+        stats_parts = [f"📊 {len(items)} songs found"]
+        if owned_cnt > 0:
+            stats_parts.append(f"✓ {owned_cnt} already downloaded")
+        if ready_cnt > 0:
+            stats_parts.append(f"↓ {ready_cnt} ready to download")
+        if failed_cnt > 0:
+            stats_parts.append(f"⚠ {failed_cnt} couldn't download")
+
+        stats_str = "  ·  ".join(stats_parts)
         ctk.CTkLabel(
             meta_header,
             text=stats_str,
@@ -381,6 +383,7 @@ class AddMusicView(ctk.CTkFrame):
             text_color=theme.TEXT_SECONDARY,
             anchor="w",
         ).grid(row=1, column=1, sticky="w", pady=(2, 0))
+
 
         # ── B. Selection & Filter Toolbar ───────────────────────────
         toolbar = ctk.CTkFrame(result_card, fg_color=theme.SURFACE_ELEVATED, corner_radius=theme.RADIUS_MD)
@@ -443,16 +446,17 @@ class AddMusicView(ctk.CTkFrame):
         self.filter_var = tk.StringVar(value="All Tracks")
         filter_opt = ctk.CTkOptionMenu(
             tb_inner,
-            values=["All Tracks", "Ready to Download", "Needs Review", "Already Downloaded", "Unavailable"],
+            values=["All Tracks", "Ready to Download", "Already Downloaded", "Couldn't Download"],
             variable=self.filter_var,
             font=theme.font_caption(),
             height=28,
-            width=155,
+            width=165,
             fg_color=theme.SURFACE,
             button_color=theme.SURFACE_HOVER,
             command=lambda e: self._apply_filters(),
         )
         filter_opt.pack(side="left", padx=4)
+
 
         # ── C. Interactive Track Rows (Scrollable) ───────────────────
         self.track_scroll = ctk.CTkScrollableFrame(
@@ -562,36 +566,6 @@ class AddMusicView(ctk.CTkFrame):
                 anchor="w",
             ).pack(anchor="w")
 
-            # Provider Badge
-            if item.selected_provider:
-                p_badge = ctk.CTkLabel(
-                    inner,
-                    text=item.selected_provider,
-                    font=theme.font_badge(),
-                    text_color=theme.ACCENT_CYAN,
-                    fg_color=theme.SURFACE_MUTED,
-                    corner_radius=6,
-                    padx=8,
-                    pady=2,
-                )
-                p_badge.pack(side="left", padx=8)
-
-            # Match Confidence Chip
-            if item.match_confidence is not None:
-                conf_pct = int(item.match_confidence * 100)
-                conf_color = theme.SUCCESS if conf_pct >= 85 else theme.WARNING if conf_pct >= 65 else theme.ERROR
-                conf_chip = ctk.CTkLabel(
-                    inner,
-                    text=f"{conf_pct}% match",
-                    font=theme.font_badge(),
-                    text_color=conf_color,
-                    fg_color=theme.SURFACE_MUTED,
-                    corner_radius=6,
-                    padx=8,
-                    pady=2,
-                )
-                conf_chip.pack(side="left", padx=8)
-
             # State Pill
             label, bg_col, text_col = self.STATE_BADGES.get(
                 item.state,
@@ -608,6 +582,7 @@ class AddMusicView(ctk.CTkFrame):
                 pady=4,
             )
             state_pill.pack(side="right", padx=(8, 0))
+
 
     def _on_item_toggled(self, item_id: int, var: tk.BooleanVar) -> None:
         if var.get():
@@ -663,14 +638,13 @@ class AddMusicView(ctk.CTkFrame):
                 continue
 
             # State match
-            if filter_mode == "Ready to Download" and item.state != ItemState.READY:
+            if filter_mode == "Ready to Download" and item.state not in (ItemState.READY, ItemState.NEEDS_REVIEW):
                 continue
-            elif filter_mode == "Needs Review" and item.state != ItemState.NEEDS_REVIEW:
+            elif filter_mode == "Already Downloaded" and item.state not in (ItemState.OWNED, ItemState.COMPLETED):
                 continue
-            elif filter_mode == "Already Downloaded" and item.state != ItemState.OWNED:
+            elif filter_mode == "Couldn't Download" and item.state not in [ItemState.NO_SOURCE, ItemState.FAILED]:
                 continue
-            elif filter_mode == "Unavailable" and item.state not in [ItemState.NO_SOURCE, ItemState.FAILED]:
-                continue
+
 
             filtered.append(item)
 

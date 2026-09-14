@@ -138,7 +138,7 @@ class ImportJobManager:
                 )
             else:
                 best_cand, best_score = scored_candidates[0]
-                state = ItemState.READY if best_score.is_auto_eligible else ItemState.NEEDS_REVIEW
+                # Automatically mark ready for effortless download without manual review
                 item = ImportJobItem(
                     job_id=job_id,
                     track_index=idx,
@@ -146,7 +146,7 @@ class ImportJobManager:
                     artist=track.artist,
                     album=track.album,
                     duration_seconds=track.duration_seconds,
-                    state=state,
+                    state=ItemState.READY,
                     selected_provider=best_cand.provider_name,
                     selected_source_url=best_cand.source_url,
                     match_confidence=best_score.score,
@@ -154,6 +154,7 @@ class ImportJobManager:
                 )
 
             items.append(item)
+
 
         # Persist to database
         self.db.create_import_job(job)
@@ -213,15 +214,17 @@ class ImportJobManager:
                     duration_seconds=item.duration_seconds,
                 ))
 
-            # Query fallback candidates if needed
-            if not candidates:
-                scored = self.provider_registry.search_and_rank_candidates(
-                    title=item.title,
-                    artist=item.artist,
-                    duration_seconds=item.duration_seconds,
-                    limit_per_provider=2,
-                )
-                candidates = [c for c, _ in scored]
+            # Query fallback candidates across all providers for automatic failover
+            scored = self.provider_registry.search_and_rank_candidates(
+                title=item.title,
+                artist=item.artist,
+                duration_seconds=item.duration_seconds,
+                limit_per_provider=2,
+            )
+            for c, _ in scored:
+                if not any(existing.source_url == c.source_url for existing in candidates):
+                    candidates.append(c)
+
 
             dl_res: DownloadResult = self.provider_registry.download_with_fallback(
                 candidates=candidates,

@@ -29,11 +29,13 @@ from ui.views.dashboard import DashboardView
 from ui.views.discover import DiscoverView
 from ui.views.discovery_results import DiscoveryResultsView
 from ui.views.downloads import DownloadsView
+from ui.views.downloaded_songs import DownloadedSongsView
 from ui.views.help_view import HelpView
 from ui.views.import_view import ImportView
 from ui.views.library import LibraryView
 from ui.views.sources import SourcesView
 from ui.views.settings_view import SettingsView
+
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +137,13 @@ class TamilMP3App(ctk.CTk):
             service=self.service,
             on_navigate_add_music=lambda: self.show_view("add_music"),
         )
+
+        self.views["downloaded_songs"] = DownloadedSongsView(
+            self.view_container,
+            service=self.service,
+            on_navigate_add_music=lambda: self.show_view("add_music"),
+        )
+
 
         self.views["import"] = ImportView(
             self.view_container,

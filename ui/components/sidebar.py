@@ -74,11 +74,11 @@ class SidebarNav(ctk.CTkFrame):
         sep.pack(fill="x", padx=16, pady=(0, 12))
 
         # ── 2. Categorized Navigation Groups ────────────────────────
-        # Group: ACQUISITION & DOWNLOADS (Prioritized)
+        # Group: DOWNLOADS
         self._create_group_label("DOWNLOADS")
         self._create_nav_button("add_music", "⚡  Add Music", view_key="add_music", is_accent=True)
         self._create_nav_button("downloads", "📥  Downloads", view_key="downloads", badge_key="downloads")
-        self._create_nav_button("results", "🎯  Review Results", view_key="results", badge_key="results")
+        self._create_nav_button("downloaded_songs", "🎵  Downloaded Songs", view_key="downloaded_songs")
 
         # Group: LIBRARY
         self._create_group_label("LIBRARY")
@@ -93,6 +93,7 @@ class SidebarNav(ctk.CTkFrame):
 
         # Highlight default
         self.set_active("dashboard")
+
 
     def _create_group_label(self, title: str) -> None:
         """Section header label."""

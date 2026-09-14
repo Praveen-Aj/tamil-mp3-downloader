@@ -259,3 +259,121 @@ class TestUXHardening:
         assert "Spotify" in pill_names
         assert "Direct Audio" in pill_names
         assert "Regional Tamil" in pill_names
+
+    # ── Requirement: Downloaded Songs View & Filtering ───────────────
+    def test_downloaded_songs_view_retrieval_and_sorting(self, temp_ux_service, tmp_path):
+        """
+        Verify get_downloaded_songs returns only songs with verified files on disk
+        and supports sorting and querying.
+        """
+        service = temp_ux_service
+
+        # Song 1: Has physical file
+        f1 = tmp_path / "downloads" / "song1.mp3"
+        f1.write_bytes(b"\xFF\xFB\x90\x44" + b"\x00" * 100)
+        s1 = LibrarySong(
+            title="Arabic Kuthu",
+            artist="Anirudh Ravichander",
+            album="Beast",
+            file_path=str(f1),
+            file_size_bytes=f1.stat().st_size,
+            quality_kbps=320,
+            state=SongState.OWNED,
+            canonical_hash="h1",
+        )
+        service.db.add_song(s1)
+
+        # Song 2: Has physical file
+        f2 = tmp_path / "downloads" / "song2.mp3"
+        f2.write_bytes(b"\xFF\xFB\x90\x44" + b"\x00" * 200)
+        s2 = LibrarySong(
+            title="Naa Ready",
+            artist="Thalapathy Vijay",
+            album="Leo",
+            file_path=str(f2),
+            file_size_bytes=f2.stat().st_size,
+            quality_kbps=320,
+            state=SongState.OWNED,
+            canonical_hash="h2",
+        )
+        service.db.add_song(s2)
+
+        # Song 3: Unowned/Not downloaded
+        s3 = LibrarySong(
+            title="Master Coming",
+            artist="Anirudh",
+            album="Master",
+            state=SongState.NEW,
+            canonical_hash="h3",
+        )
+        service.db.add_song(s3)
+
+        # Test retrieval
+        dl_songs = service.get_downloaded_songs()
+        assert len(dl_songs) == 2
+        titles = [s.title for s in dl_songs]
+        assert "Arabic Kuthu" in titles
+        assert "Naa Ready" in titles
+        assert "Master Coming" not in titles
+
+        # Test query filtering
+        filtered = service.get_downloaded_songs(query="Arabic")
+        assert len(filtered) == 1
+        assert filtered[0].title == "Arabic Kuthu"
+
+        # Test sorting
+        sorted_title = service.get_downloaded_songs(sort_by="title")
+        assert sorted_title[0].title == "Arabic Kuthu"
+        assert sorted_title[1].title == "Naa Ready"
+
+    # ── Requirement: Dashboard Counters Reconciliation ─────────────
+    def test_dashboard_counters_reconciliation(self, temp_ux_service, tmp_path):
+        """
+        Verify that Downloaded + Not Downloaded strictly equals Total Songs.
+        """
+        service = temp_ux_service
+
+        # Add 5 songs: 2 downloaded, 3 new
+        f1 = tmp_path / "downloads" / "test1.mp3"
+        f1.write_bytes(b"\xFF\xFB\x90\x44" + b"\x00" * 100)
+        service.db.add_song(LibrarySong(title="Song 1", artist="Artist 1", state=SongState.OWNED, file_path=str(f1), canonical_hash="k1"))
+        
+        f2 = tmp_path / "downloads" / "test2.mp3"
+        f2.write_bytes(b"\xFF\xFB\x90\x44" + b"\x00" * 100)
+        service.db.add_song(LibrarySong(title="Song 2", artist="Artist 2", state=SongState.OWNED, file_path=str(f2), canonical_hash="k2"))
+
+        service.db.add_song(LibrarySong(title="Song 3", artist="Artist 3", state=SongState.NEW, canonical_hash="k3"))
+        service.db.add_song(LibrarySong(title="Song 4", artist="Artist 4", state=SongState.NEW, canonical_hash="k4"))
+        service.db.add_song(LibrarySong(title="Song 5", artist="Artist 5", state=SongState.NEW, canonical_hash="k5"))
+
+        stats = service.get_dashboard_stats()
+        total = stats["total_songs"]
+        downloaded = stats["downloaded_songs"]
+        not_downloaded = stats["unowned_songs"]
+
+        assert total == 5
+        assert downloaded == 2
+        assert not_downloaded == 3
+        assert downloaded + not_downloaded == total
+
+    # ── Requirement: Download Deduplication ────────────────────────
+    def test_downloads_deduplication_by_song(self, temp_ux_service):
+        """
+        Verify get_all_downloads with dedup_by_song=True returns only one latest record per song.
+        """
+        service = temp_ux_service
+        song = LibrarySong(title="Single Track", artist="Artist", state=SongState.NEW, canonical_hash="uniq_hash")
+        song_id = service.db.add_song(song)
+
+        # Add 2 download attempts for the same song
+        dl1 = Download(song_id=song_id, song_source_id=1, state=DownloadState.FAILED)
+        service.db.add_download(dl1)
+
+        dl2 = Download(song_id=song_id, song_source_id=2, state=DownloadState.COMPLETED)
+        service.db.add_download(dl2)
+
+        # Deduplicated view returns only 1 entry for this song
+        dls = service.get_all_downloads(dedup_by_song=True)
+        song_dls = [d for d in dls if d.song_id == song_id]
+        assert len(song_dls) == 1
+

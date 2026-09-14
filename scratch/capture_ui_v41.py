@@ -331,12 +331,12 @@ def main():
     time.sleep(0.5)
     capture_window_win32(hwnd, OUTPUT_DIR / "04-library.png")
 
-    # 5. Review Results
-    app.show_view("results")
-    app.views["results"].refresh()
+    # 5. Downloaded Songs (Dedicated View)
+    app.show_view("downloaded_songs")
+    app.views["downloaded_songs"].refresh()
     app.update()
     time.sleep(0.5)
-    capture_window_win32(hwnd, OUTPUT_DIR / "05-review-results.png")
+    capture_window_win32(hwnd, OUTPUT_DIR / "05-downloaded-songs.png")
 
     # 6. Downloads
     app.show_view("downloads")
@@ -344,6 +344,7 @@ def main():
     app.update()
     time.sleep(0.5)
     capture_window_win32(hwnd, OUTPUT_DIR / "06-downloads.png")
+
 
     # 7. Song Details Dialog
     details = app.service.get_song_details(song_ids[2])  # Nenjame
