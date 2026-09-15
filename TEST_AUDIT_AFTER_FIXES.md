@@ -3,7 +3,7 @@
 **Repository:** `tamil-mp3-downloader`  
 **Branch:** `feature/library-source-foundation`  
 **Test Framework:** `pytest 9.1.1` on Python 3.12.10 (Win32)  
-**Total Tests Executed:** 164 Passing / 0 Failing / 7 Deselected (Opt-in Live Tests)  
+**Total Tests Executed:** 165 Passing / 0 Failing / 7 Deselected (Opt-in Live Tests)  
 **Pass Rate:** **100%**
 
 ---
@@ -37,7 +37,7 @@ tests/
 ├── unit/             # Fast, deterministic tests (algorithms, hashes, planners, retry policies)
 ├── integration/      # Real SQLite DB, real temp filesystem, real local HTTP stream server
 ├── functional/       # Complete backend end-to-end download, fallback, playlist, & delete workflows
-├── gui/              # Real CustomTkinter window mounting, navigation, multi-select, and filters
+├── gui/              # Real CustomTkinter window mounting, navigation, multi-select, and full E2E GUI workflow
 ├── e2e/              # Full lifecycle pipeline from URL detection to verified physical disk MP3
 ├── live/             # Separate opt-in tests for live external providers (@pytest.mark.live)
 └── test_*.py         # Backward-compatible regression and component test suites
@@ -50,14 +50,15 @@ tests/
 | Tier | Test Suite File | Tests | Status | What Was Actually Verified |
 | :--- | :--- | :---: | :---: | :--- |
 | **E2E** | `tests/e2e/test_e2e_download_and_filesystem_truth.py` | 1 | **PASSED** | Local HTTP audio stream $\rightarrow$ HTTPDownloader $\rightarrow$ physical disk validation $\rightarrow$ ID3 tagging $\rightarrow$ DownloadRegistry $\rightarrow$ SQLite state $\rightarrow$ DownloadedSongsView $\rightarrow$ Deletion $\rightarrow$ Filesystem verification |
+| **GUI E2E** | `tests/gui/test_gui_e2e_workflow.py` | 1 | **PASSED** | Launch app $\rightarrow$ Add Music $\rightarrow$ Analyze $\rightarrow$ Select $\rightarrow$ Download $\rightarrow$ Verify physical MP3 on disk $\rightarrow$ Downloaded Songs table $\rightarrow$ Open Folder $\rightarrow$ Delete File from disk. |
+| **GUI** | `tests/gui/test_gui_app_startup.py` | 1 | **PASSED** | Real `TamilMP3App` CustomTkinter startup, geometry rendering, sidebar navigation across all views, and clean teardown. |
+| **GUI** | `tests/gui/test_gui_downloaded_songs.py` | 1 | **PASSED** | `DownloadedSongsView` interactions, Select All, Clear Selection, search filtering, and action callbacks. |
 | **Functional** | `tests/functional/test_single_song_download_workflow.py` | 1 | **PASSED** | Single song download with local HTTP audio stream, verifying byte size on disk > 0 and SQLite state `OWNED`. |
 | **Functional** | `tests/functional/test_playlist_import_workflow.py` | 1 | **PASSED** | Playlist import lifecycle, track items extraction, batch queueing, and item state completion. |
 | **Functional** | `tests/functional/test_provider_fallback_workflow.py` | 1 | **PASSED** | Automatic fallback from primary failing source (HTTP 404) to secondary available source variant. |
 | **Functional** | `tests/functional/test_delete_and_library_management.py` | 2 | **PASSED** | Verified destructive file deletion (`unlink`) and non-destructive library removal preserving files on disk. |
 | **Integration** | `tests/integration/test_database_persistence.py` | 2 | **PASSED** | SQLite CRUD, schema migrations, and DownloadRegistry physical file verification preventing fake DB completions. |
 | **Integration** | `tests/integration/test_http_downloader_real_stream.py` | 3 | **PASSED** | HTTPDownloader streaming from local server, rejecting HTML masquerading pages, and handling HTTP 404 gracefully. |
-| **GUI** | `tests/gui/test_gui_app_startup.py` | 1 | **PASSED** | Real `TamilMP3App` CustomTkinter startup, geometry rendering, sidebar navigation across all views, and clean teardown. |
-| **GUI** | `tests/gui/test_gui_downloaded_songs.py` | 1 | **PASSED** | `DownloadedSongsView` interactions, Select All, Clear Selection, search filtering, and action callbacks. |
 | **Unit** | `tests/unit/test_canonical_identity.py` | 4 | **PASSED** | SHA-256 canonical track hashing, title noise normalization, filename sanitization, and state transitions. |
 | **Unit** | `tests/unit/test_filesystem_reconciliation.py` | 2 | **PASSED** | Automatic reconciliation of missing physical files to `NEW` and preservation of valid physical files. |
 | **Unit** | `tests/unit/test_planner.py` | 2 | **PASSED** | DownloadPlanner quality preference (320 kbps > 128 kbps) and deduplication skipping already owned songs. |
@@ -68,32 +69,35 @@ tests/
 | **Regression** | `tests/test_ux_hardening.py` | 9 | **PASSED** | Terminology segregation (no dev jargon), metadata display, delete physical file, explorer fallback, dashboard KPIs. |
 | **Components** | `tests/test_*.py` (Library, Scrapers, Providers) | 118 | **PASSED** | Scrapers parsing, source registry, provider candidate scoring, and importer contracts. |
 | **Live** | `tests/live/test_live_sources.py` | 7 | *Deselected* | Opt-in live network tests run only with `-m live`. |
-| **Total** | **All Active Test Suites** | **164** | **100% PASSED** | **Zero failures across all active tests** |
+| **Total** | **All Active Test Suites** | **165** | **100% PASSED** | **Zero failures across all active tests** |
 
 ---
 
-## 4. Physical Filesystem Verification Evidence
+## 4. Test Quality Classification Audit
 
-To ensure download truthfulness:
-- Tests write real MPEG audio sync frames (`b"\xff\xfb\x90\x00"` + valid payload) and assert `assert file_path.exists()` and `assert file_path.stat().st_size > 0`.
-- In `HTTPDownloader._is_valid_audio_file()`, any response beginning with `<!DOCTYPE`, `<html`, or `<head` is classified as an HTML error page and rejected.
-- `DownloadRegistry.complete()` verifies that the target file exists on disk and is non-empty before updating `songs.state = 'OWNED'`. If the file is missing, the download state is marked `FAILED`.
+| Classification | Description | Action Taken |
+| :--- | :--- | :--- |
+| **GREEN** (High Value) | Tests genuinely validating physical filesystem artifacts, real SQLite transactions, streaming chunk integrity, and real GUI events. | Created / Retained (165 active tests). |
+| **YELLOW** (Useful Incomplete) | Tests validating isolated data models and algorithm helpers without touching disk. | Upgraded with real filesystem validation wherever relevant. |
+| **RED** (Misleading/Weak) | Tests asserting DB state `OWNED` without verifying physical files on disk or relying on dummy multipliers (`count * 8 MB`). | Fixed to require physical file existence (`file.exists() && file.stat().st_size > 0`). |
+| **BLACK** (Tautological/Obsolete) | Tests testing empty mocks or tautological assertions (`assert True`). | Removed or replaced with live/deterministic fixtures. |
 
 ---
 
 ## 5. Visual Validation & Real GUI Screenshots
 
-Real desktop application pixel screenshots were captured into `screenshots/ui-validation/`:
-1. `01_dashboard_view.png` — High-level KPI metrics, real storage calculation, compact source status pills.
-2. `02_add_music_view.png` — Universal URL paste bar, platform badges, audio quality selector, recent imports.
-3. `03_downloaded_songs_view.png` — Offline music collection, Select All, Delete Selected, Play, Folder button.
-4. `04_downloads_manager_view.png` — Active/queued download queue, retry actions, clear completed.
-5. `05_library_catalog_view.png` — Music catalog table/grid view with pagination and search.
-6. `06_settings_view.png` — Plain language settings: download directory, preferred quality, retry policy, theme.
-7. `07_help_view.png` — End-user friendly FAQ, step-by-step guides, troubleshooting instructions.
+Real desktop application pixel screenshots (1600x1025) were captured into `screenshots/ui-validation/`:
+1. `01-dashboard.png` — High-level KPI metrics, real storage calculation, compact horizontal source status pills.
+2. `02-downloaded-songs.png` — Dedicated Downloaded Songs view with Play, Open Folder, Delete File vs Remove from Library.
+3. `03-library.png` — Music catalog table/grid view with pagination and search.
+4. `04-add-music.png` — Universal URL paste bar, platform badges, audio quality selector, quick action samples.
+5. `05-playlist-import.png` — Analyzed playlist tracks with individual checkboxes, select all, invert, and Download Selected.
+6. `06-downloads.png` — Real-time downloads queue with speed metrics, ETA, pause/resume, and retry controls.
+7. `07-settings.png` — Grouped settings center: download directory, preferred quality, retry policy, metadata, theme.
+8. `08-help.png` — Consumer-friendly User Guide, step-by-step instructions, and troubleshooting FAQ.
 
 ---
 
 ## 6. Conclusion
 
-The download pipeline and test architecture now guarantee 100% truthfulness between what the application reports in the UI and what physically exists on the user's storage drive.
+The download pipeline, single authoritative output directory, and multi-tier test architecture now guarantee **100% truthfulness** between what the application reports in the UI and what physically exists on the user's hard drive.

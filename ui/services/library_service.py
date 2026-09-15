@@ -732,26 +732,36 @@ class LibraryService:
         self,
         job_id: str,
         item_ids: Optional[List[int]] = None,
+        output_dir: Optional[Path] = None,
         run_async: bool = True,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
-    ) -> None:
+    ) -> Optional[threading.Thread]:
         """
         Start executing downloads for an analyzed import job.
         """
+        target_dir = output_dir or Path(self.download_dir)
         if run_async:
             def _worker():
-                self.job_manager.execute_job(
-                    job_id=job_id,
-                    item_ids=item_ids,
-                    progress_cb=progress_cb,
-                )
-            threading.Thread(target=_worker, daemon=True).start()
+                try:
+                    self.job_manager.execute_job(
+                        job_id=job_id,
+                        item_ids=item_ids,
+                        output_dir=target_dir,
+                        progress_cb=progress_cb,
+                    )
+                except Exception as e:
+                    logger.error(f"Error executing import job {job_id}: {e}", exc_info=True)
+            t = threading.Thread(target=_worker, daemon=True)
+            t.start()
+            return t
         else:
             self.job_manager.execute_job(
                 job_id=job_id,
                 item_ids=item_ids,
+                output_dir=target_dir,
                 progress_cb=progress_cb,
             )
+            return None
 
     def get_import_job(self, job_id: str) -> Optional[ImportJob]:
         return self.db.get_import_job(job_id)

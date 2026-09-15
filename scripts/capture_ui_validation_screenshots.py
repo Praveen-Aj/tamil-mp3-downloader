@@ -181,17 +181,81 @@ def run_visual_capture() -> None:
         )
     )
 
-    # Populate import job
+    # Populate import job with items for playlist screenshot
     job = ImportJob(
         id="job-hits2026",
         url="https://open.spotify.com/playlist/37i9dQZF1DX4WYpdgoIcn6",
         title="Tamil Mega Hits 2026",
         platform="spotify",
         content_type="playlist",
-        total_tracks=15,
+        total_tracks=5,
         status=JobStatus.READY,
     )
     db.create_import_job(job)
+
+    items = [
+        ImportJobItem(
+            job_id="job-hits2026",
+            track_index=1,
+            title="Arabic Kuthu",
+            artist="Anirudh Ravichander",
+            album="Beast",
+            duration_seconds=280,
+            state=ItemState.OWNED,
+            selected_provider="youtube",
+            match_confidence=1.0,
+            match_explanation="Exact Match",
+        ),
+        ImportJobItem(
+            job_id="job-hits2026",
+            track_index=2,
+            title="Vaathi Coming",
+            artist="Anirudh",
+            album="Master",
+            duration_seconds=230,
+            state=ItemState.OWNED,
+            selected_provider="youtube",
+            match_confidence=0.98,
+            match_explanation="High Confidence",
+        ),
+        ImportJobItem(
+            job_id="job-hits2026",
+            track_index=3,
+            title="Katchi Sera",
+            artist="Sai Abhyankkar",
+            album="Independent",
+            duration_seconds=195,
+            state=ItemState.READY,
+            selected_provider="youtube",
+            match_confidence=0.95,
+            match_explanation="Ready for Download",
+        ),
+        ImportJobItem(
+            job_id="job-hits2026",
+            track_index=4,
+            title="Naa Ready",
+            artist="Thalapathy Vijay",
+            album="Leo",
+            duration_seconds=248,
+            state=ItemState.READY,
+            selected_provider="youtube",
+            match_confidence=0.92,
+            match_explanation="Ready for Download",
+        ),
+        ImportJobItem(
+            job_id="job-hits2026",
+            track_index=5,
+            title="Matta",
+            artist="Yuvan Shankar Raja",
+            album="GOAT",
+            duration_seconds=210,
+            state=ItemState.READY,
+            selected_provider="youtube",
+            match_confidence=0.94,
+            match_explanation="Ready for Download",
+        ),
+    ]
+    db.add_import_job_items(items)
 
     service = LibraryService(db=db, download_dir=str(downloads_dir))
 
@@ -201,21 +265,55 @@ def run_visual_capture() -> None:
     app.update()
     time.sleep(0.5)
 
-    views_to_capture = [
-        ("dashboard", output_dir / "01_dashboard_view.png"),
-        ("add_music", output_dir / "02_add_music_view.png"),
-        ("downloaded_songs", output_dir / "03_downloaded_songs_view.png"),
-        ("downloads", output_dir / "04_downloads_manager_view.png"),
-        ("library", output_dir / "05_library_catalog_view.png"),
-        ("settings", output_dir / "06_settings_view.png"),
-        ("help", output_dir / "07_help_view.png"),
-    ]
+    # 1. Dashboard
+    capture_view_screenshot(app, "dashboard", output_dir / "01-dashboard.png")
 
-    for view_name, out_file in views_to_capture:
-        capture_view_screenshot(app, view_name, out_file)
+    # 2. Downloaded Songs
+    capture_view_screenshot(app, "downloaded_songs", output_dir / "02-downloaded-songs.png")
+
+    # 3. Library
+    capture_view_screenshot(app, "library", output_dir / "03-library.png")
+
+    # 4. Add Music (Initial)
+    capture_view_screenshot(app, "add_music", output_dir / "04-add-music.png")
+
+    # 5. Playlist Import (with analyzed tracks & checkboxes rendered)
+    app.navigate_to("add_music")
+    add_music_view = app.views["add_music"]
+    add_music_view.url_entry.delete(0, "end")
+    add_music_view.url_entry.insert(0, job.url)
+    add_music_view._render_playlist_ui(job, items)
+    app.update()
+    time.sleep(0.5)
+    capture_view_screenshot(app, "add_music", output_dir / "05-playlist-import.png")
+
+    # 6. Downloads Manager Queue
+    capture_view_screenshot(app, "downloads", output_dir / "06-downloads.png")
+
+    # 7. Settings
+    capture_view_screenshot(app, "settings", output_dir / "07-settings.png")
+
+    # 8. Help & User Guide
+    capture_view_screenshot(app, "help", output_dir / "08-help.png")
+
+    # Also save backwards-compatible aliases if needed
+    for num, name, alias in [
+        ("01", "dashboard", "01_dashboard_view.png"),
+        ("02", "add_music", "02_add_music_view.png"),
+        ("03", "downloaded_songs", "03_downloaded_songs_view.png"),
+        ("04", "downloads", "04_downloads_manager_view.png"),
+        ("05", "library", "05_library_catalog_view.png"),
+        ("06", "settings", "06_settings_view.png"),
+        ("07", "help", "07_help_view.png"),
+    ]:
+        src = output_dir / f"{num}-{name.replace('_', '-')}.png"
+        dst = output_dir / alias
+        if src.exists():
+            import shutil
+            shutil.copy2(src, dst)
 
     app.destroy()
-    print("Visual validation screenshots capture completed successfully.")
+    print("Visual validation screenshots capture completed successfully for all 8 views.")
 
 
 if __name__ == "__main__":

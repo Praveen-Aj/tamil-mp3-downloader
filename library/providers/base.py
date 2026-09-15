@@ -115,4 +115,20 @@ class AudioProvider(ABC):
         """Check if downloaded file exists, is non-empty, and has valid audio headers."""
         if not file_path.exists() or file_path.stat().st_size < 1024:
             return False
-        return True
+        try:
+            with open(file_path, "rb") as f:
+                header = f.read(1024)
+            if header.startswith(b"<!DOCTYPE") or header.startswith(b"<html") or header.startswith(b"<head"):
+                return False
+            if b"<html" in header.lower() or b"<script" in header.lower():
+                return False
+            # Valid audio prefixes: ID3, MPEG sync, RIFF/WAV, ftyp (m4a/aac/mp4), OggS, fLaC
+            if header.startswith(b"ID3") or header.startswith(b"RIFF") or header.startswith(b"OggS") or header.startswith(b"fLaC"):
+                return True
+            if b"ftyp" in header[:32]:
+                return True
+            if len(header) >= 2 and header[0] == 0xFF and (header[1] & 0xE0) == 0xE0:
+                return True
+            return True
+        except Exception:
+            return False

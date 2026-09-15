@@ -190,24 +190,35 @@ class SQLiteDatabase:
         """Alias for get_song_by_canonical_hash."""
         return self.get_song_by_canonical_hash(canonical_hash)
 
-    def update_song_state(self, song_id: int, state: SongState) -> bool:
+    def update_song_state(
+        self,
+        song_id: int,
+        state: SongState,
+        file_path: Optional[str] = None,
+        file_size_bytes: Optional[int] = None,
+        quality_kbps: Optional[int] = None,
+    ) -> bool:
         """
-        Update song state.
-
-        Args:
-            song_id: Song ID
-            state: New state
-
-        Returns:
-            True if updated, False otherwise
+        Update song state and optional file attributes.
         """
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
-                cursor.execute(
-                    "UPDATE songs SET state = ?, last_seen_at = ? WHERE id = ?",
-                    (state.value, datetime.now().isoformat(), song_id)
-                )
+                if file_path is not None:
+                    cursor.execute("""
+                        UPDATE songs SET
+                            state = ?, file_path = ?, file_size_bytes = ?,
+                            quality_kbps = ?, last_seen_at = ?
+                        WHERE id = ?
+                    """, (
+                        state.value, file_path, file_size_bytes,
+                        quality_kbps, datetime.now().isoformat(), song_id
+                    ))
+                else:
+                    cursor.execute(
+                        "UPDATE songs SET state = ?, last_seen_at = ? WHERE id = ?",
+                        (state.value, datetime.now().isoformat(), song_id)
+                    )
                 return cursor.rowcount > 0
 
     def update_song_file(

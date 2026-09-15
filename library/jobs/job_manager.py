@@ -18,7 +18,7 @@ from library.models import (
     ImportJob, ImportJobItem, JobStatus, ItemState, LibrarySong, SongState, SongSource
 )
 from library.url_resolver.detector import UniversalUrlDetector
-from library.url_resolver.base import ResolvedContent, TrackMeta, ContentType
+from library.url_resolver.base import ResolvedContent, TrackMeta, ContentType, PlatformType
 from library.providers.registry import ProviderRegistry
 from library.providers.base import AudioCandidate, DownloadResult
 from library.matching.matcher import TrackMatcher, ConfidenceTier
@@ -116,7 +116,31 @@ class ImportJobManager:
                 items.append(item)
                 continue
 
-            # 2. Search candidate audio sources across providers
+            # 2. Check for direct audio URL
+            is_direct_audio = resolved.platform == PlatformType.DIRECT_AUDIO or (
+                track.source_identifier and any(
+                    track.source_identifier.split("?")[0].lower().endswith(ext)
+                    for ext in [".mp3", ".m4a", ".flac", ".wav", ".aac", ".ogg", ".opus"]
+                )
+            )
+            if is_direct_audio:
+                item = ImportJobItem(
+                    job_id=job_id,
+                    track_index=idx,
+                    title=track.title,
+                    artist=track.artist,
+                    album=track.album or resolved.title,
+                    duration_seconds=track.duration_seconds,
+                    state=ItemState.READY,
+                    selected_provider="direct_http",
+                    selected_source_url=track.source_identifier or url,
+                    match_confidence=1.0,
+                    match_explanation="Direct audio source",
+                )
+                items.append(item)
+                continue
+
+            # 3. Search candidate audio sources across providers
             scored_candidates = self.provider_registry.search_and_rank_candidates(
                 title=track.title,
                 artist=track.artist,
@@ -159,7 +183,8 @@ class ImportJobManager:
         # Persist to database
         self.db.create_import_job(job)
         self.db.add_import_job_items(items)
-        return job, items
+        persisted_items = self.db.get_import_job_items(job.id)
+        return job, persisted_items or items
 
     def execute_job(
         self,
@@ -356,5 +381,5 @@ class ImportJobManager:
         )
 
         song_id = self.db.add_song(song)
-        self.db.update_song_state(song_id, SongState.OWNED, file_path=str(file_path), quality_kbps=320)
+        self.db.update_song_file(song_id, file_path=str(file_path), file_size_bytes=file_size, quality_kbps=320)
         return song_id
