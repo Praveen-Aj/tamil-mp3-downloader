@@ -53,10 +53,20 @@ class LibraryService:
     Central service coordinating backend components for the UI.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or settings.library_db_path
-        self.db = SQLiteDatabase(self.db_path)
-        self.db.connect()
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        db: Optional[SQLiteDatabase] = None,
+        download_dir: Optional[str] = None,
+    ):
+        if db is not None:
+            self.db = db
+            self.db_path = getattr(db, "db_path", Path("library.db"))
+        else:
+            self.db_path = db_path or settings.library_db_path
+            self.db = SQLiteDatabase(self.db_path)
+            self.db.connect()
+        self.download_dir = download_dir or settings.output_dir
 
         self.pipeline = DiscoveryPipeline(self.db)
         self.planner = DownloadPlanner(self.db)
@@ -75,6 +85,15 @@ class LibraryService:
         self._lock = threading.RLock()
         self._last_discovery_session: Optional[Dict[str, Any]] = None
         self._init_default_sources()
+        # Reconcile filesystem integrity on service startup
+        self.reconcile_library_files()
+
+    def reconcile_library_files(self) -> int:
+        """
+        Actively reconcile SQLite database records with physical files on disk.
+        Resets any orphaned OWNED records (missing or empty files) to NEW.
+        """
+        return self.db.reconcile_filesystem_integrity()
 
     def _init_default_sources(self) -> None:
         """Register default core sources in SourceRegistry."""
@@ -139,14 +158,17 @@ class LibraryService:
 
     # ── Summary & Stats ──────────────────────────────────────────
     def get_dashboard_stats(self) -> Dict[str, Any]:
-        """Get consumer-facing summary metrics for Dashboard."""
+        """Get consumer-facing summary metrics for Dashboard with real disk verification."""
+        # Active reconciliation of orphaned files
+        self.reconcile_library_files()
+
         lib_stats = self.db.get_library_stats()
         sources = self.source_registry.get_all_sources()
         enabled_sources = [s for s in sources if s.enabled]
         disabled_sources = [s for s in sources if not s.enabled]
         healthy_enabled = sum(1 for s in enabled_sources if s.is_usable)
 
-        # Count quality upgrades available
+        # Count quality upgrades available and verified storage on disk
         owned = self.db.get_songs_by_state(SongState.OWNED)
         
         upgrades_count = 0
@@ -155,15 +177,12 @@ class LibraryService:
         for s in owned:
             if s.file_path and os.path.isfile(s.file_path):
                 verified_downloaded_count += 1
-                if s.file_size_bytes:
-                    total_storage_bytes += s.file_size_bytes
-                else:
-                    try:
-                        total_storage_bytes += os.path.getsize(s.file_path)
-                    except OSError:
-                        pass
-            elif s.file_size_bytes:
-                total_storage_bytes += s.file_size_bytes
+                try:
+                    fsize = os.path.getsize(s.file_path)
+                    if fsize > 0:
+                        total_storage_bytes += fsize
+                except OSError:
+                    pass
 
             if s.quality_kbps and s.quality_kbps < 320:
                 s_sources = self.db.get_sources_for_song(s.id)
@@ -180,12 +199,12 @@ class LibraryService:
         )
 
         total_cnt = lib_stats.get("total_songs", 0)
-        # Downloaded count is based on songs in library with verified state
-        downloaded_cnt = max(len(owned), verified_downloaded_count)
+        # Downloaded count is strictly based on songs verified physically on disk
+        downloaded_cnt = verified_downloaded_count
         not_downloaded_cnt = max(0, total_cnt - downloaded_cnt)
 
-        # Storage in MB
-        storage_mb = int(total_storage_bytes / (1024 * 1024)) if total_storage_bytes else downloaded_cnt * 8
+        # Storage in MB strictly from real bytes on disk
+        storage_mb = max(1, int(total_storage_bytes / (1024 * 1024))) if total_storage_bytes > 0 else 0
 
         # Compact source status items
         source_pills = [
@@ -205,6 +224,7 @@ class LibraryService:
             "active_downloads": active_downloads,
             "failed_downloads": failed_count,
             "storage_mb": storage_mb,
+            "storage_bytes": total_storage_bytes,
             "healthy_sources": f"{healthy_enabled}/{len(enabled_sources)} Core Healthy",
             "disabled_sources": len(disabled_sources),
             "source_pills": source_pills,
@@ -313,97 +333,176 @@ class LibraryService:
         new_songs = self.db.get_songs_by_state(SongState.NEW)
         return self.planner.plan_downloads_for_songs(new_songs)
 
-    def execute_single_download(self, download_id: int) -> bool:
+    def execute_single_download(self, target_id: int) -> bool:
         """
-        Execute a complete production download pipeline for a single download slot.
-
-        Workflow:
-        Download Plan -> DownloadRegistry acquire -> resolve source download URL
-        -> invoke existing HTTPDownloader -> write file to configured location
-        -> verify successful download -> update database/library state
-        -> DownloadRegistry complete -> Canonical Song becomes OWNED.
-
-        For Tamilmp3:
-        SongSource.download_reference -> Tamilmp3Scraper.get_download_url()
-        -> fresh token.php request -> fresh signed CDN URL -> HTTPDownloader -> filesystem.
+        Execute a complete production download pipeline for a single download slot or song ID.
+        Includes automatic fallback across scrapers and providers.
         """
-        dl = self.db.get_download(download_id)
+        dl = self.db.get_download(target_id)
         if not dl:
-            logger.error(f"execute_single_download: download_id {download_id} not found")
-            return False
+            # Check if target_id was passed as a song_id directly
+            song = self.db.get_song(target_id)
+            if song:
+                sources = self.db.get_sources_for_song(song.id)
+                src_id = sources[0].id if sources else 0
+                download_id = self.registry.acquire(song.id, src_id) or 0
+                dl = self.db.get_download(download_id) if download_id else None
+            if not dl:
+                logger.error(f"execute_single_download: target_id {target_id} not found as download or song")
+                return False
+        else:
+            download_id = dl.id
+            song = self.db.get_song(dl.song_id)
 
-        song = self.db.get_song(dl.song_id)
         if not song:
             self.registry.fail(dl.song_id, download_id, "Song record missing from database", dl.song_source_id)
             return False
 
-        source = self.db.get_source_by_id(dl.song_source_id)
-        if not source:
-            self.registry.fail(dl.song_id, download_id, "Source variant missing from database", dl.song_source_id)
-            return False
-
-        # Resolve fresh download URL via registered scraper if available
-        download_url = None
-        reg_src = self.source_registry.get_source(source.source_name)
-        if reg_src and reg_src.scraper and hasattr(reg_src.scraper, "get_download_url"):
-            try:
-                download_url = reg_src.scraper.get_download_url(source, quality=str(source.quality_kbps or 320))
-            except Exception as e:
-                logger.warning(f"Error resolving download URL from scraper '{source.source_name}': {e}")
-
-        if not download_url:
-            download_url = source.download_reference or source.source_url
-
-        if not download_url or not (download_url.startswith("http://") or download_url.startswith("https://")):
-            err_msg = f"Invalid or empty download URL: '{download_url}'"
-            self.registry.fail(song.id, download_id, err_msg, source.id)
-            return False
+        source = self.db.get_source_by_id(dl.song_source_id) if dl.song_source_id else None
 
         from models.song import Song as DownloadSong
         from downloaders.http_downloader import HTTPDownloader
 
-        dl_song = DownloadSong(
-            name=song.title,
-            url=download_url,
-            quality=f"{source.quality_kbps or 320}kbps",
-            album_name=song.album or "Unknown Album",
-            artist=song.artist,
-            year=song.year,
-        )
+        # 1. Attempt download with primary source if available
+        if source:
+            download_url = None
+            reg_src = self.source_registry.get_source(source.source_name)
+            if reg_src and reg_src.scraper and hasattr(reg_src.scraper, "get_download_url"):
+                try:
+                    download_url = reg_src.scraper.get_download_url(source, quality=str(source.quality_kbps or 320))
+                except Exception as e:
+                    logger.warning(f"Error resolving download URL from scraper '{source.source_name}': {e}")
 
-        try:
-            downloader = HTTPDownloader(
-                output_dir=Path(settings.output_dir),
-                max_workers=settings.get("download.max_workers", 3),
-                show_progress=False,
-            )
-            result = downloader.download_song(dl_song)
+            if not download_url:
+                download_url = source.download_reference or source.source_url
 
-            if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
-                was_upgrade = (song.state == SongState.OWNED)
-                file_size = result.size_downloaded or result.file_path.stat().st_size
-                self.registry.complete(
-                    song_id=song.id,
-                    download_id=download_id,
-                    file_path=str(result.file_path),
-                    file_size_bytes=file_size,
-                    quality_kbps=source.quality_kbps,
-                    library_location_id=1,
-                    was_upgrade=was_upgrade,
-                    previous_file_path=song.file_path,
-                    previous_quality_kbps=song.quality_kbps,
+            if download_url and (download_url.startswith("http://") or download_url.startswith("https://")):
+                dl_song = DownloadSong(
+                    name=song.title,
+                    url=download_url,
+                    quality=f"{source.quality_kbps or 320}kbps",
+                    album_name=song.album or "Unknown Album",
+                    artist=song.artist,
+                    year=song.year,
                 )
-                self.registry.reward_source(source.id)
-                return True
-            else:
-                err_msg = result.error_message or "Download verification failed (empty or missing file)"
-                self.registry.fail(song.id, download_id, err_msg, source.id)
-                return False
+                try:
+                    downloader = HTTPDownloader(
+                        output_dir=Path(self.download_dir or settings.output_dir),
+                        max_workers=settings.get("download.max_workers", 3),
+                        show_progress=False,
+                    )
+                    result = downloader.download_song(dl_song)
+                    if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
+                        was_upgrade = (song.state == SongState.OWNED)
+                        file_size = result.size_downloaded or result.file_path.stat().st_size
+                        self.registry.complete(
+                            song_id=song.id,
+                            download_id=download_id,
+                            file_path=str(result.file_path),
+                            file_size_bytes=file_size,
+                            quality_kbps=source.quality_kbps or 320,
+                            library_location_id=1,
+                            was_upgrade=was_upgrade,
+                            previous_file_path=song.file_path,
+                            previous_quality_kbps=song.quality_kbps,
+                        )
+                        self.registry.reward_source(source.id)
+                        return True
+                except Exception as exc:
+                    logger.warning(f"Primary source download exception for '{song.title}': {exc}")
 
-        except Exception as exc:
-            err_msg = f"Download execution exception: {exc}"
-            self.registry.fail(song.id, download_id, err_msg, source.id)
-            return False
+        # 2. Attempt alternative registered scrapers / sources for this song
+        alt_sources = [s for s in self.db.get_sources_for_song(song.id) if (not source or s.id != source.id) and s.is_available]
+        for alt_src in alt_sources:
+            alt_url = None
+            reg_alt = self.source_registry.get_source(alt_src.source_name)
+            if reg_alt and reg_alt.scraper and hasattr(reg_alt.scraper, "get_download_url"):
+                try:
+                    alt_url = reg_alt.scraper.get_download_url(alt_src, quality=str(alt_src.quality_kbps or 320))
+                except Exception:
+                    pass
+            if not alt_url:
+                alt_url = alt_src.download_reference or alt_src.source_url
+            if alt_url and (alt_url.startswith("http://") or alt_url.startswith("https://")):
+                dl_song = DownloadSong(
+                    name=song.title,
+                    url=alt_url,
+                    quality=f"{alt_src.quality_kbps or 320}kbps",
+                    album_name=song.album or "Unknown Album",
+                    artist=song.artist,
+                    year=song.year,
+                )
+                try:
+                    downloader = HTTPDownloader(
+                        output_dir=Path(self.download_dir or settings.output_dir),
+                        max_workers=settings.get("download.max_workers", 3),
+                        show_progress=False,
+                    )
+                    res = downloader.download_song(dl_song)
+                    if res.success and res.file_path and res.file_path.exists() and res.file_path.stat().st_size > 0:
+                        was_upgrade = (song.state == SongState.OWNED)
+                        file_size = res.size_downloaded or res.file_path.stat().st_size
+                        self.registry.complete(
+                            song_id=song.id,
+                            download_id=download_id,
+                            file_path=str(res.file_path),
+                            file_size_bytes=file_size,
+                            quality_kbps=alt_src.quality_kbps or 320,
+                            library_location_id=1,
+                            was_upgrade=was_upgrade,
+                            previous_file_path=song.file_path,
+                            previous_quality_kbps=song.quality_kbps,
+                        )
+                        self.registry.reward_source(alt_src.id)
+                        return True
+                except Exception:
+                    pass
+
+        # 3. Fallback to ProviderRegistry (YouTube / Direct Audio / Regional Providers)
+        try:
+            candidates = self.provider_registry.search_and_rank_candidates(
+                title=song.title,
+                artist=song.artist,
+                duration_seconds=song.duration_seconds,
+            )
+            if candidates:
+                cand_list = [c for c, _ in candidates]
+                clean_stem = re.sub(r'[\\/*?:"<>|]', "", f"{song.artist or 'Track'} - {song.title}")[:80].strip()
+                prov_res = self.provider_registry.download_with_fallback(
+                    candidates=cand_list,
+                    output_dir=Path(self.download_dir or settings.output_dir),
+                    filename_stem=clean_stem,
+                )
+                if prov_res.success and prov_res.file_path and prov_res.file_path.exists() and prov_res.file_path.stat().st_size > 0:
+                    # Tag ID3 metadata
+                    self.job_manager._tag_audio_file(
+                        file_path=prov_res.file_path,
+                        title=song.title,
+                        artist=song.artist or "",
+                        album=song.album or "Downloaded",
+                        track_num=1,
+                    )
+                    was_upgrade = (song.state == SongState.OWNED)
+                    file_size = prov_res.size_bytes or prov_res.file_path.stat().st_size
+                    self.registry.complete(
+                        song_id=song.id,
+                        download_id=download_id,
+                        file_path=str(prov_res.file_path),
+                        file_size_bytes=file_size,
+                        quality_kbps=320,
+                        library_location_id=1,
+                        was_upgrade=was_upgrade,
+                        previous_file_path=song.file_path,
+                        previous_quality_kbps=song.quality_kbps,
+                    )
+                    return True
+        except Exception as prov_exc:
+            logger.warning(f"Provider fallback download exception for '{song.title}': {prov_exc}")
+
+        # If all attempts fail
+        err_msg = "All download sources and provider fallbacks failed (HTTP 404 / unavailable)"
+        self.registry.fail(song.id, download_id, err_msg, source.id if source else None)
+        return False
 
     def execute_download_plan(
         self,
@@ -496,41 +595,64 @@ class LibraryService:
         return retried_ids
 
     # ── Deletion & File System Operations ───────────────────────
-    def delete_downloaded_song(self, song_id: int, delete_physical_file: bool = True) -> bool:
+    def delete_downloaded_song(
+        self,
+        song_id: int,
+        delete_from_disk: bool = True,
+        delete_file_from_disk: Optional[bool] = None,
+        delete_physical_file: Optional[bool] = None,
+    ) -> bool:
         """
-        Safely delete a downloaded song from the computer and reset its database library state.
+        Safely delete a downloaded song from the computer and reset its database library state,
+        or remove it from library while preserving physical file.
 
         Args:
             song_id: Song ID in SQLite library
-            delete_physical_file: Whether to delete the physical .mp3 file on disk
+            delete_from_disk: If True, deletes physical .mp3 file on disk and resets song state to NEW
+            delete_file_from_disk: Alias for delete_from_disk
+            delete_physical_file: Alias for delete_from_disk
 
         Returns:
-            True if deletion and state reset succeeded, False otherwise
+            True if deletion succeeded, False otherwise
         """
         with self._lock:
+            if delete_physical_file is not None:
+                do_delete_disk = delete_physical_file
+            elif delete_file_from_disk is not None:
+                do_delete_disk = delete_file_from_disk
+            else:
+                do_delete_disk = delete_from_disk
+
             song = self.db.get_song(song_id)
             if not song:
                 logger.warning(f"delete_downloaded_song: song_id {song_id} not found in database")
                 return False
 
-            # Delete physical file safely
-            if delete_physical_file and song.file_path:
-                try:
-                    fpath = Path(song.file_path)
-                    if fpath.is_file() and fpath.exists():
-                        fpath.unlink(missing_ok=True)
-                        logger.info(f"Deleted physical file: {song.file_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to delete physical file '{song.file_path}': {e}")
+            if do_delete_disk:
+                # Delete physical file safely
+                if song.file_path:
+                    try:
+                        fpath = Path(song.file_path)
+                        if fpath.is_file() and fpath.exists():
+                            fpath.unlink(missing_ok=True)
+                            logger.info(f"Deleted physical file: {song.file_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete physical file '{song.file_path}': {e}")
 
-            # Reset song state back to NEW and clear file details
-            self.db.clear_song_download_state(song_id)
+                # Reset song state back to NEW and clear file details
+                self.db.clear_song_download_state(song_id)
 
-            # Update corresponding completed download records
-            dls = self.db.get_downloads_for_song(song_id)
-            for d in dls:
-                if d.state == DownloadState.COMPLETED:
+                # Delete corresponding completed download records
+                dls = self.db.get_downloads_for_song(song_id)
+                for d in dls:
                     self.db.delete_download_record(d.id)
+                try:
+                    self.db.execute_write("DELETE FROM downloads WHERE song_id = ?", (song_id,))
+                except Exception:
+                    pass
+            else:
+                # Remove from library only (keep physical file on disk)
+                self.db.delete_song(song_id)
 
             return True
 
@@ -668,6 +790,10 @@ class LibraryService:
         owned = self.db.get_songs_by_state(SongState.OWNED)
         valid_songs = []
         for s in owned:
+            # Strictly verify that file physically exists on disk
+            if not s.file_path or not os.path.isfile(s.file_path):
+                continue
+
             # Check if query matches
             if query:
                 q = query.lower()
@@ -739,4 +865,5 @@ class LibraryService:
     def resume_downloads(self) -> None:
         """Resume pending downloads."""
         pass
+
 

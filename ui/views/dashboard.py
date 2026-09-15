@@ -386,7 +386,7 @@ class DashboardView(ctk.CTkFrame):
         ready = stats.get("ready_downloads", 0)
         active = stats.get("active_downloads", 0)
         failed = stats.get("failed_downloads", 0)
-        storage_mb = stats.get("storage_mb", owned * 8)
+        storage_mb = stats.get("storage_mb", 0)
 
         self._card_vars["total_songs"].set(f"{total:,}")
         self._card_vars["owned_songs"].set(f"{owned:,}")

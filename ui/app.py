@@ -48,7 +48,11 @@ class TamilMP3App(ctk.CTk):
     Main Modular GUI Window.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        service: Optional[LibraryService] = None,
+    ) -> None:
         super().__init__()
 
         self.title("🎵 Tamil MP3 Downloader — Desktop Music Downloader & Library Manager")
@@ -69,7 +73,7 @@ class TamilMP3App(ctk.CTk):
             pass
 
         # ── Initialize Central Service ──────────────────────────────
-        self.service = LibraryService(db_path=db_path)
+        self.service = service or LibraryService(db_path=db_path)
 
         self.configure(fg_color=theme.BG_APP)
         self.grid_rowconfigure(0, weight=1)
@@ -183,6 +187,10 @@ class TamilMP3App(ctk.CTk):
             target_view.refresh()
 
         self.refresh_status_bar()
+
+    def navigate_to(self, view_name: str) -> None:
+        """Alias for show_view."""
+        self.show_view(view_name)
 
     def refresh_status_bar(self) -> None:
         """Update global status bar metrics and sidebar badge counters."""

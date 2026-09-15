@@ -530,6 +530,18 @@ class HTTPDownloader(BaseDownloader):
                             pbar.update(len(chunk))
 
             tmp_path.rename(out_path)
+
+            # Invariant: Verify that downloaded file is genuine audio and not an HTML error/anti-bot payload
+            if not self._is_valid_audio_file(out_path):
+                if out_path.exists():
+                    out_path.unlink()
+                logger.error("Download payload for '%s' failed audio validation (HTML or corrupt)", song.display_name)
+                return DownloadResult(
+                    success=False,
+                    song_name=song.display_name,
+                    error_message="Downloaded content is not valid audio (HTML error page or corrupted stream)",
+                )
+
             self._apply_id3_tags(song, out_path)
         except Exception:
             self._update_state_entry(
@@ -568,6 +580,36 @@ class HTTPDownloader(BaseDownloader):
             file_path=out_path,
             size_downloaded=downloaded,
         )
+
+    def _is_valid_audio_file(self, file_path: Path) -> bool:
+        """Verify downloaded file is a valid audio file and not HTML / corrupt data."""
+        if not file_path.exists() or file_path.stat().st_size == 0:
+            return False
+        try:
+            with open(file_path, "rb") as f:
+                header = f.read(512)
+            if len(header) < 4:
+                return False
+            lower_header = header.lower()
+            if b"<!doctype" in lower_header or b"<html" in lower_header or b"<head" in lower_header or b"cloudflare" in lower_header:
+                return False
+            if header.startswith(b"ID3"):
+                return True
+            if header[0] == 0xFF and (header[1] & 0xE0) == 0xE0:
+                return True
+            if b"ftyp" in header[:32]:
+                return True
+            if header.startswith(b"RIFF") and b"WAVE" in header[:16]:
+                return True
+            if _MUTAGEN_AVAILABLE and MP3 is not None:
+                try:
+                    MP3(str(file_path))
+                    return True
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
 

@@ -74,10 +74,15 @@ def make_album(name: str, url_suffix: str = "") -> Album:
 
 
 def mark_owned(db: SQLiteDatabase, song_id: int, quality_kbps: int, file_path: str = None) -> None:
-    """Helper: mark a library song as OWNED with given quality."""
+    """Helper: mark a library song as OWNED with given quality and physical file."""
+    target_path = file_path or str(db.db_path.parent / f"song_{song_id}.mp3")
+    p = Path(target_path)
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 400)
     db.update_song_file(
         song_id=song_id,
-        file_path=file_path or f"/music/song_{song_id}.mp3",
+        file_path=str(p),
         file_size_bytes=quality_kbps * 1000,
         quality_kbps=quality_kbps,
         library_location_id=0,
@@ -712,14 +717,15 @@ class TestConcurrentDownloadPrevention:
         song_id = pipeline.register_song(song, "site1")
         sources = db.get_sources_for_song(song_id)
         source_id = sources[0].id
-
         dl_id = registry.acquire(song_id, source_id)
         assert dl_id is not None
 
+        real_file = tmp_path / "owned-song.mp3"
+        real_file.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 400)
         registry.complete(
             song_id=song_id,
             download_id=dl_id,
-            file_path="/music/owned-song.mp3",
+            file_path=str(real_file),
             file_size_bytes=8 * 1024 * 1024,
             quality_kbps=320,
             library_location_id=0,
@@ -968,10 +974,12 @@ class TestFullPipeline:
         assert registry.is_downloading(chosen.song_id)
 
         # 5. Simulate download complete
+        real_file = tmp_path / "vaathi-coming.mp3"
+        real_file.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 400)
         registry.complete(
             song_id=chosen.song_id,
             download_id=dl_id,
-            file_path="/music/master/vaathi-coming.mp3",
+            file_path=str(real_file),
             file_size_bytes=8 * 1024 * 1024,
             quality_kbps=320,
             library_location_id=0,

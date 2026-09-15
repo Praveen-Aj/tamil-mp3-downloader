@@ -14,14 +14,14 @@ A modern, library-centric desktop application for acquiring, organizing, and man
 
 ## Key Features
 
-- **Universal Music URL Import:** Paste links from Spotify (playlists, albums, tracks), YouTube, YouTube Music, Tamil regional sources, or direct audio streams into the new centerpiece Add Music view.
-- **Interactive Playlist Result UI:** Review analyzed playlists with track selection checkboxes, status filter dropdowns, and batch one-click downloading.
+- **Filesystem as Single Source of Truth:** A song is marked as downloaded if and only if a real, valid audio file exists on disk. No synthetic or fabricated metrics.
+- **Universal Music URL Import:** Paste links from Spotify (playlists, albums, tracks), YouTube, YouTube Music, Tamil regional sources, or direct audio streams into the centerpiece Add Music view.
+- **Dedicated Downloaded Songs View:** Browse your offline collection, play audio, open folder in Windows Explorer, or perform dual-mode deletion (Delete from Disk vs. Remove from Library).
+- **Automatic Fallback & Bounded Retry:** Automatically tries alternative providers if the primary source fails (HTTP 404/unavailable) with exponential backoff on transient errors.
+- **Interactive Playlist Results UI:** Review analyzed playlists with track selection checkboxes, status filter dropdowns, and batch one-click downloading.
 - **Full Desktop Download Manager:** Live aggregate queue progress, transfer speeds, ETA timers, and file explorer actions.
 - **Audio Provider Abstraction & Matching:** Uses `TrackMatcher` to find and score the closest matching audio stream across multiple providers with fuzzy title and duration similarity.
-- **Persistent Resumable Playlist Jobs:** Multi-track playlist downloads survive application restarts and allow single-click retries of failed tracks.
-- **Canonical SQLite Library:** Central database automatically deduplicates tracks, tracks owned files, and prevents duplicate downloads.
 - **Automatic ID3v2.3 Tagging:** Embeds Title, Artist, Album, Year, Track Number, and Cover Artwork directly into downloaded audio files.
-- **Local Library Import:** Existing MP3 directories can be scanned into the canonical library as `OWNED` via `Library → Import Existing Files`.
 - **Modern Dark Design System:** Curated obsidian/navy aesthetic with semantic indicators, categorized navigation, and live notification badge pills.
 
 ## Quick Start
@@ -37,46 +37,18 @@ pip install -r requirements.txt
 To run the application:
 Double-click `launch_app.bat` or run `python main.py`.
 
-## Project Structure
-
-```text
-tamil-mp3-downloader/
-|-- main.py              # Application entry point
-|-- launch_app.bat       # Windows batch launcher
-|-- config/              # User settings (settings.json)
-|-- docs/                # Project documentation and architecture guide
-|-- downloaders/         # Concurrent HTTP download logic
-|-- library/             # SQLite library backend and database schemas
-|-- models/              # Dataclasses and core models
-|-- scrapers/            # Source-specific HTML scrapers
-|-- scripts/             # Build scripts
-|-- tests/               # Pytest suite
-|-- ui/                  # CustomTkinter Modular UI 
-`-- utils/               # Shared utilities
-```
-
-## Build EXE (Windows)
-
-See `docs/DOWNLOAD.md` for full steps.
-
-Quick command:
-
-```cmd
-scripts\build_exe.bat
-```
-
 ## Testing
 
-Run the local, mocked test suite (fast and offline):
+Run the multi-tier test suite (fast, deterministic, uses local HTTP audio streams):
 
 ```bash
-pytest tests/ -v
+pytest -v
 ```
 
-Run the live scraper protocol test suite (requires internet connection):
+Run opt-in live network tests (requires active internet connection):
 
 ```bash
-pytest tests/ -m live -v
+pytest -m live -v
 ```
 
 ## Documentation

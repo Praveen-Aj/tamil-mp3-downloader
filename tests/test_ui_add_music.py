@@ -22,16 +22,24 @@ def service(tmp_path):
     svc.db.close()
 
 
+_SHARED_TK_ROOT = None
+
 @pytest.fixture
 def tk_root():
+    global _SHARED_TK_ROOT
     try:
-        root = ctk.CTk()
-        root.withdraw()
+        if _SHARED_TK_ROOT is None or not _SHARED_TK_ROOT.winfo_exists():
+            _SHARED_TK_ROOT = ctk.CTk()
+            _SHARED_TK_ROOT.withdraw()
     except Exception as e:
         pytest.skip(f"Tkinter GUI environment not available: {e}")
-    yield root
+    
+    yield _SHARED_TK_ROOT
+    
+    # Clean up child widgets without destroying root Tcl interpreter
     try:
-        root.destroy()
+        for child in _SHARED_TK_ROOT.winfo_children():
+            child.destroy()
     except Exception:
         pass
 

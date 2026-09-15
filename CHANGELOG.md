@@ -1,7 +1,36 @@
 # Changelog
 
-This changelog is generated from git history and repository state on branch `songs_downloader`.
-Analyzed range: `723f080` to `238b510` (2026-04-02 to 2026-04-03).
+This changelog is generated from git history and repository state on branch `feature/library-source-foundation`.
+
+## [4.2.0] - 2026-09-15
+
+### Filesystem Truth Architecture, Multi-Tier Test Suite & Streamlined Acquisition UX
+
+This milestone release establishes the physical filesystem as the ultimate source of truth, eliminates false download reporting, implements dual-action deletion semantics, and introduces a full multi-tier testing and visual screenshot validation framework.
+
+### Added
+- **Physical Filesystem Truth & Automatic Integrity Reconciliation**:
+  - `library/database.py`: Implemented `reconcile_filesystem_integrity()` which inspects physical disk paths, verifies existence and non-zero size, and automatically reconciles missing files back to `NEW` with cleaned file paths.
+  - `library/registry.py`: `complete()` now enforces that the physical file exists on disk and has `st_size > 0`; otherwise it raises a validation error and aborts completion instead of falsely writing `OWNED` records.
+  - `downloaders/http_downloader.py`: Added header validation (`_is_valid_audio_file`) inspecting audio byte signatures (MPEG sync `\xff\xfb`, ID3 tags, RIFF, AAC) and rejecting HTTP error/blocking pages masquerading as MP3s.
+- **Accurate Real Storage Calculations**:
+  - `ui/services/library_service.py`: Replaced fabricated estimation (`downloaded_count * 8 MB`) with physical disk `os.path.getsize()` summation over verified downloaded audio files.
+- **Unified Deletion Semantics**:
+  - Implemented dual deletion workflows in `ui/services/library_service.py` (`delete_downloaded_song(song_id, delete_from_disk=True/False)`):
+    - *Delete File*: Destructively removes the physical file from disk, purges download records, and resets the library status to `NEW`.
+    - *Remove from Library*: Removes database tracking records while leaving the physical file untouched on disk.
+- **Multi-Tier Testing Infrastructure**:
+  - Structured modular test suite across `tests/unit/`, `tests/integration/`, `tests/functional/`, `tests/gui/`, `tests/e2e/`, and `tests/live/`.
+  - Added deterministic streaming test server fixtures (`tests/fixtures_helper.py`) serving valid synthetic MP3 frames and chunked transfers.
+  - Added full end-to-end integration and GUI startup/interaction test suites (164 automated tests passing).
+- **Windows GDI UI Screenshot Validation Engine**:
+  - `scripts/capture_ui_validation_screenshots.py`: Automated visual test harness using Win32 GDI `PrintWindow` & `GetDIBits` for capturing pixel-perfect application views.
+  - Captured full artifact gallery under `screenshots/ui-validation/`.
+
+### Changed
+- **Zero-Friction UX**: Removed user-facing "Review Results" requirement; matching, candidate ranking, and provider fallbacks now operate completely autonomously.
+- **Downloaded Songs View**: Dedicated management interface featuring Play, Open in Folder, Delete File, and Remove from Library controls.
+- **Test Architecture Hardening**: Replaced brittle mock-only tests with real filesystem, database, and downloader lifecycle validation.
 
 ## [4.1.0] - 2026-09-14
 

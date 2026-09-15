@@ -3,12 +3,13 @@ Dedicated Downloaded Songs View.
 
 Displays exclusively songs that have been successfully downloaded and verified to exist
 as physical audio files on disk. Provides instant Playback, Explorer revelation,
-and safe destructive deletion.
+bulk selection, and safe destructive/unlink deletion.
 """
 
 import logging
+import os
 import tkinter as tk
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Set
 from tkinter import messagebox
 from pathlib import Path
 import customtkinter as ctk
@@ -39,6 +40,7 @@ class DownloadedSongsView(ctk.CTkFrame):
         self._songs: List[LibrarySong] = []
         self._sort_by: str = "recent"
         self._search_query: str = ""
+        self._selected_ids: Set[int] = set()
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -87,10 +89,10 @@ class DownloadedSongsView(ctk.CTkFrame):
 
         ctk.CTkButton(
             hdr_right,
-            text="📁 Open Music Folder",
+            text="📁 Open Downloads Folder",
             font=theme.font_caption_bold(),
             height=32,
-            width=140,
+            width=160,
             fg_color=theme.SURFACE_ELEVATED,
             hover_color=theme.SURFACE_HOVER,
             text_color=theme.TEXT_PRIMARY,
@@ -111,7 +113,7 @@ class DownloadedSongsView(ctk.CTkFrame):
             command=self.refresh,
         ).pack(side="left", padx=4)
 
-        # ── 2. Filter & Sort Toolbar ────────────────────────────────
+        # ── 2. Filter & Sort & Bulk Toolbar ─────────────────────────
         toolbar = ctk.CTkFrame(self, fg_color=theme.SURFACE, corner_radius=theme.RADIUS_MD, border_width=1, border_color=theme.BORDER)
         toolbar.grid(row=1, column=0, sticky="ew", padx=24, pady=(14, 10))
 
@@ -123,7 +125,7 @@ class DownloadedSongsView(ctk.CTkFrame):
             tb_inner,
             placeholder_text="Filter downloaded music by title, artist, or movie...",
             height=32,
-            width=320,
+            width=280,
             font=theme.font_caption(),
             fg_color=theme.SURFACE_MUTED,
             border_color=theme.BORDER,
@@ -137,7 +139,7 @@ class DownloadedSongsView(ctk.CTkFrame):
             text="Sort By:",
             font=theme.font_caption_bold(),
             text_color=theme.TEXT_MUTED,
-        ).pack(side="left", padx=(18, 6))
+        ).pack(side="left", padx=(14, 6))
 
         self.sort_var = tk.StringVar(value="Recently Downloaded")
         sort_menu = ctk.CTkOptionMenu(
@@ -146,12 +148,43 @@ class DownloadedSongsView(ctk.CTkFrame):
             variable=self.sort_var,
             font=theme.font_caption(),
             height=32,
-            width=180,
+            width=160,
             fg_color=theme.SURFACE_ELEVATED,
             button_color=theme.SURFACE_HOVER,
             command=self._on_sort_changed,
         )
         sort_menu.pack(side="left")
+
+        # Bulk Actions Container (Right side of toolbar)
+        self.bulk_container = ctk.CTkFrame(tb_inner, fg_color="transparent")
+        self.bulk_container.pack(side="right")
+
+        self.select_all_btn = ctk.CTkButton(
+            self.bulk_container,
+            text="Select All",
+            font=theme.font_caption(),
+            height=30,
+            width=80,
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            command=self._toggle_select_all,
+        )
+        self.select_all_btn.pack(side="left", padx=4)
+
+        self.bulk_delete_btn = ctk.CTkButton(
+            self.bulk_container,
+            text="🗑️ Delete Selected",
+            font=theme.font_caption_bold(),
+            height=30,
+            width=120,
+            fg_color=theme.ERROR,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            state="disabled",
+            command=self._confirm_bulk_delete,
+        )
+        self.bulk_delete_btn.pack(side="left", padx=4)
 
         # ── 3. Songs List Container (Scrollable) ────────────────────
         self.list_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -175,6 +208,10 @@ class DownloadedSongsView(ctk.CTkFrame):
             query=self._search_query,
             sort_by=sort_key,
         )
+        # Clean selected ids of removed songs
+        valid_ids = {s.id for s in self._songs if s.id is not None}
+        self._selected_ids = self._selected_ids.intersection(valid_ids)
+
         self._render_content()
 
     def _on_search_changed(self) -> None:
@@ -184,14 +221,46 @@ class DownloadedSongsView(ctk.CTkFrame):
     def _on_sort_changed(self, choice: str) -> None:
         self.refresh()
 
+    def _toggle_select_all(self) -> None:
+        if len(self._selected_ids) == len(self._songs) and self._songs:
+            self._selected_ids.clear()
+            self.select_all_btn.configure(text="Select All")
+        else:
+            self._selected_ids = {s.id for s in self._songs if s.id is not None}
+            self.select_all_btn.configure(text="Clear Selection")
+        self._update_bulk_buttons()
+        self._render_content()
+
+    def _update_bulk_buttons(self) -> None:
+        count = len(self._selected_ids)
+        if count > 0:
+            self.bulk_delete_btn.configure(state="normal", text=f"🗑️ Delete ({count})")
+        else:
+            self.bulk_delete_btn.configure(state="disabled", text="🗑️ Delete Selected")
+
+    def _toggle_song_selection(self, song_id: int) -> None:
+        if song_id in self._selected_ids:
+            self._selected_ids.remove(song_id)
+        else:
+            self._selected_ids.add(song_id)
+        self._update_bulk_buttons()
+
     def _render_content(self) -> None:
         """Render either empty state or list of downloaded songs."""
         for w in self.list_container.winfo_children():
             w.destroy()
 
-        total_bytes = sum(s.file_size_bytes or 0 for s in self._songs)
-        storage_mb = total_bytes / (1024 * 1024) if total_bytes else len(self._songs) * 8.5
+        total_bytes = 0
+        for s in self._songs:
+            if s.file_path and os.path.isfile(s.file_path):
+                try:
+                    total_bytes += os.path.getsize(s.file_path)
+                except OSError:
+                    pass
+
+        storage_mb = total_bytes / (1024 * 1024) if total_bytes > 0 else 0
         self.summary_pill.configure(text=f"{len(self._songs)} Downloaded · {storage_mb:.1f} MB")
+        self._update_bulk_buttons()
 
         if not self._songs:
             self._render_empty_state()
@@ -233,7 +302,7 @@ class DownloadedSongsView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             center,
-            text="Songs you download from YouTube or Spotify will appear here with instant offline playback.",
+            text="Songs you download from YouTube, Spotify, or Tamil sources will appear here with verified offline playback.",
             font=theme.font_body(),
             text_color=theme.TEXT_MUTED,
             justify="center",
@@ -255,29 +324,44 @@ class DownloadedSongsView(ctk.CTkFrame):
 
     def _render_song_row(self, parent: ctk.CTkScrollableFrame, song: LibrarySong) -> None:
         """Render an individual downloaded song row."""
+        is_selected = song.id in self._selected_ids
         card = ctk.CTkFrame(
             parent,
-            fg_color=theme.SURFACE,
+            fg_color=theme.SURFACE_ELEVATED if is_selected else theme.SURFACE,
             corner_radius=theme.RADIUS_MD,
             border_width=1,
-            border_color=theme.BORDER,
+            border_color=theme.PRIMARY if is_selected else theme.BORDER,
         )
         card.pack(fill="x", pady=4)
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=10)
 
+        # Checkbox
+        chk_var = tk.BooleanVar(value=is_selected)
+        chk = ctk.CTkCheckBox(
+            inner,
+            text="",
+            variable=chk_var,
+            width=24,
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4,
+            command=lambda s_id=song.id: self._toggle_song_selection(s_id),
+        )
+        chk.pack(side="left", padx=(0, 10))
+
         # Left: Cover icon
         cover_box = ctk.CTkFrame(
             inner,
-            width=48,
-            height=48,
+            width=44,
+            height=44,
             corner_radius=theme.RADIUS_SM,
             fg_color=theme.SURFACE_ELEVATED,
         )
         cover_box.pack(side="left", padx=(0, 14))
         cover_box.pack_propagate(False)
-        ctk.CTkLabel(cover_box, text="🎵", font=ctk.CTkFont(size=22)).pack(expand=True)
+        ctk.CTkLabel(cover_box, text="🎵", font=ctk.CTkFont(size=20)).pack(expand=True)
 
         # Mid-Left: Title, Artist, Album, Bitrate
         info_box = ctk.CTkFrame(inner, fg_color="transparent")
@@ -294,7 +378,14 @@ class DownloadedSongsView(ctk.CTkFrame):
         artist_text = song.artist or "Unknown Artist"
         album_text = f" · {song.album}" if song.album else ""
         quality_text = f" · {song.quality_kbps or 320} kbps"
-        size_mb = f" · {song.file_size_bytes / (1024 * 1024):.1f} MB" if song.file_size_bytes else ""
+        
+        size_bytes = 0
+        if song.file_path and os.path.isfile(song.file_path):
+            try:
+                size_bytes = os.path.getsize(song.file_path)
+            except OSError:
+                pass
+        size_mb = f" · {size_bytes / (1024 * 1024):.1f} MB" if size_bytes > 0 else ""
         dur_str = f" · {song.duration_seconds // 60}:{song.duration_seconds % 60:02d}" if song.duration_seconds else ""
 
         meta_line = f"{artist_text}{album_text}{quality_text}{dur_str}{size_mb}"
@@ -334,7 +425,7 @@ class DownloadedSongsView(ctk.CTkFrame):
             hover_color=theme.SUCCESS_BG,
             text_color=theme.TEXT_PRIMARY,
             corner_radius=theme.RADIUS_SM,
-            command=lambda p=song.file_path: self._play_song(p),
+            command=lambda s=song: self._play_song(s),
         ).pack(side="left", padx=4)
 
         # Open folder
@@ -365,22 +456,60 @@ class DownloadedSongsView(ctk.CTkFrame):
             command=lambda s=song: self._confirm_delete(s),
         ).pack(side="left", padx=4)
 
-    def _play_song(self, file_path: Optional[str]) -> None:
-        """Launch the song in the system audio player."""
-        ok, msg = self.service.play_audio_file(file_path)
+    def _play_song(self, song: LibrarySong) -> None:
+        """Launch the song in the system audio player with verification."""
+        if not song.file_path or not os.path.isfile(song.file_path):
+            messagebox.showwarning(
+                "File Missing",
+                f"The downloaded file for '{song.title}' was not found on your computer.\n\n"
+                f"Path: {song.file_path or 'Empty'}\n\n"
+                "Please download the track again."
+            )
+            self.refresh()
+            return
+
+        ok, msg = self.service.play_audio_file(song.file_path)
         if not ok:
             messagebox.showwarning("Playback", msg)
 
     def _confirm_delete(self, song: LibrarySong) -> None:
-        """Prompt confirmation modal before destructive deletion."""
-        confirm = messagebox.askyesno(
-            "Delete Downloaded Song",
-            f"Are you sure you want to delete '{song.title}'?\n\nThis will permanently remove the downloaded audio file from your computer.",
-            icon="warning",
+        """Prompt confirmation dialog with choice to delete file from disk or remove from library."""
+        msg = (
+            f"How would you like to delete '{song.title}'?\n\n"
+            "• Yes: Permanently Delete File from computer disk\n"
+            "• No: Remove from Library only (keep physical file)\n"
+            "• Cancel: Keep song"
         )
-        if confirm:
-            success = self.service.delete_downloaded_song(song.id, delete_physical_file=True)
-            if success:
-                self.refresh()
-            else:
-                messagebox.showerror("Error", f"Failed to delete '{song.title}'.")
+        response = messagebox.askyesnocancel("Delete Downloaded Song", msg, icon="question")
+        if response is None:
+            return  # Cancel
+
+        delete_physical = bool(response)  # True if Yes, False if No
+        success = self.service.delete_downloaded_song(song.id, delete_physical_file=delete_physical)
+        if success:
+            self.refresh()
+        else:
+            messagebox.showerror("Error", f"Failed to delete '{song.title}'.")
+
+    def _confirm_bulk_delete(self) -> None:
+        """Perform bulk deletion of selected songs."""
+        if not self._selected_ids:
+            return
+
+        count = len(self._selected_ids)
+        msg = (
+            f"Delete {count} selected downloaded songs?\n\n"
+            "• Yes: Permanently Delete Files from computer disk\n"
+            "• No: Remove from Library only (keep physical files)\n"
+            "• Cancel: Do nothing"
+        )
+        response = messagebox.askyesnocancel(f"Bulk Delete ({count} Songs)", msg, icon="warning")
+        if response is None:
+            return
+
+        delete_physical = bool(response)
+        for song_id in list(self._selected_ids):
+            self.service.delete_downloaded_song(song_id, delete_physical_file=delete_physical)
+
+        self._selected_ids.clear()
+        self.refresh()

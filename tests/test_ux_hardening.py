@@ -30,11 +30,11 @@ from ui.services.library_service import LibraryService
 @pytest.fixture
 def temp_ux_service(tmp_path):
     orig_out_dir = settings.get("download.output_dir", "downloads")
-    db_path = tmp_path / "test_ux_library.db"
-    service = LibraryService(db_path=db_path)
     out_dir = tmp_path / "downloads"
     out_dir.mkdir(parents=True, exist_ok=True)
     settings.set("download.output_dir", str(out_dir))
+    db_path = tmp_path / "test_ux_library.db"
+    service = LibraryService(db_path=db_path, download_dir=str(out_dir))
     yield service
     service.db.close()
     settings.set("download.output_dir", orig_out_dir)

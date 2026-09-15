@@ -9,6 +9,7 @@ a threading lock.
 import logging
 import threading
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, List, TYPE_CHECKING
 
 from library.models import Download, DownloadState, SongState
@@ -130,11 +131,28 @@ class DownloadRegistry:
             previous_quality_kbps: Old quality if upgrade
         """
         with self._lock:
+            # Enforce physical filesystem invariant: file must exist and be > 0 bytes
+            if not file_path:
+                err = "Physical file validation failed: file_path is empty"
+                logger.error(f"Cannot complete download for song {song_id}: {err}")
+                self.fail(song_id, download_id, err, None)
+                return
+
+            p = Path(file_path)
+            if not p.is_file() or not p.exists() or p.stat().st_size <= 0:
+                err = f"Physical file validation failed for '{file_path}': file is missing, empty, or not a regular file"
+                logger.error(f"Cannot complete download for song {song_id}: {err}")
+                self.fail(song_id, download_id, err, None)
+                return
+
+            actual_size = p.stat().st_size
+            effective_size = file_size_bytes if (file_size_bytes and file_size_bytes > 0) else actual_size
+
             # Update download record
             self.db.update_download_completed(
                 download_id=download_id,
                 output_path=file_path,
-                file_size_bytes=file_size_bytes,
+                file_size_bytes=effective_size,
                 download_speed_bps=download_speed_bps,
                 was_upgrade=was_upgrade,
                 previous_file_path=previous_file_path,
@@ -146,12 +164,12 @@ class DownloadRegistry:
             self.db.update_song_file(
                 song_id=song_id,
                 file_path=file_path,
-                file_size_bytes=file_size_bytes,
+                file_size_bytes=effective_size,
                 quality_kbps=quality_kbps,
                 library_location_id=library_location_id,
             )
 
-            logger.info(f"complete: song {song_id} download finished → OWNED")
+            logger.info(f"complete: song {song_id} download verified on disk ({effective_size} bytes) → OWNED")
 
     def fail(
         self,

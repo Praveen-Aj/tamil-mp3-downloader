@@ -808,6 +808,44 @@ class SQLiteDatabase:
             'downloads_by_state': downloads_by_state,
         }
 
+    def reconcile_filesystem_integrity(self) -> int:
+        """
+        Reconcile database records against the physical filesystem.
+
+        Scans all songs marked as OWNED (Downloaded):
+        If file_path is NULL, empty, or does not exist on disk,
+        resets the song state to NEW and clears file path/size attributes.
+
+        Returns:
+            Number of orphaned records reconciled
+        """
+        import os
+        reconciled_count = 0
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT id, file_path FROM songs WHERE state = ?", (SongState.OWNED.value,))
+            rows = cursor.fetchall()
+            orphans = []
+            for row in rows:
+                song_id, fpath = row[0], row[1]
+                if not fpath or not os.path.isfile(fpath) or os.path.getsize(fpath) == 0:
+                    orphans.append(song_id)
+
+            if orphans:
+                with self._conn:
+                    for song_id in orphans:
+                        cursor.execute("""
+                            UPDATE songs SET
+                                file_path = NULL,
+                                file_size_bytes = NULL,
+                                state = ?,
+                                last_seen_at = ?
+                            WHERE id = ?
+                        """, (SongState.NEW.value, datetime.now().isoformat(), song_id))
+                        reconciled_count += 1
+                logger.info(f"Reconciled {reconciled_count} orphaned songs in SQLite database with missing files")
+        return reconciled_count
+
     def vacuum(self) -> None:
         """Run VACUUM to optimize database."""
         self._conn.execute("VACUUM")
@@ -953,3 +991,13 @@ class SQLiteDatabase:
             total = cursor.fetchone()[0]
             counts['TOTAL'] = total
             return counts
+
+    def delete_song(self, song_id: int) -> bool:
+        """Delete a song and its associated sources and download records from the database."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM song_sources WHERE song_id = ?", (song_id,))
+                cursor.execute("DELETE FROM downloads WHERE song_id = ?", (song_id,))
+                cursor.execute("DELETE FROM songs WHERE id = ?", (song_id,))
+                return cursor.rowcount > 0

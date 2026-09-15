@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-The Audio Provider abstraction decouples user-facing platform URLs from actual audio streams.
+The Audio Provider abstraction completely decouples user-facing platform metadata from physical audio streams.
 
-When a user submits a music URL (such as a Spotify track or playlist), Spotify acts solely as a **Canonical Metadata Provider**. The application never attempts to stream from Spotify directly. Instead, the requested track is matched against registered **Audio Providers** to identify, rank, and download the best available audio stream.
+When a user submits a music URL (such as a Spotify track or playlist) or searches by title, the platform source acts solely as a **Metadata Provider**. The application does not require user intervention to pick streams; instead, the requested track is automatically matched against registered **Audio Providers** to identify, rank, and download the best available verified audio stream.
 
 ---
 
@@ -44,7 +44,7 @@ class AudioProvider(ABC):
 
 ---
 
-## 4. Multi-Factor Match Evaluation & Scoring
+## 4. Multi-Factor Match Evaluation & Autonomous Scoring
 
 Candidates returned by providers are evaluated by [`TrackMatcher`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/tamil-mp3-downloader/library/matching/matcher.py) using a composite similarity formula:
 
@@ -57,17 +57,15 @@ $$\text{Score} = 0.45 \cdot S_{\text{title}} + 0.30 \cdot S_{\text{artist}} + 0.
   * $|\Delta t| \le 30\text{s} \implies 0.60$
   * $|\Delta t| > 90\text{s} \implies$ heavily penalized ($40\%$ of score).
 
-### Confidence Classification:
-* **`HIGH CONFIDENCE` ($\ge 82\%$)**: Auto-selected and marked `READY` for immediate batch download.
-* **`MEDIUM CONFIDENCE` ($60\% - 81\%$)**: Flagged as `NEEDS REVIEW` in the UI to allow user verification.
-* **`LOW CONFIDENCE` ($< 60\%$)**: Marked `NEEDS REVIEW` / skipped by default to prevent incorrect audio matching.
-* **`NO MATCH`**: Marked `NO SOURCE`.
+### Autonomous Ranking & Selection:
+The provider pipeline sorts all candidate streams by match score and audio bitrate. The best match is selected automatically. The end-user is never burdened with reviewing candidate lists or configuring match percentages.
 
 ---
 
-## 5. Automatic Fallback Execution
+## 5. Autonomous Fallback & Stream Validation Execution
 
-When a playlist batch is executed:
-1. Provider 1 candidate is attempted first.
-2. If network failure, rate limiting, or file validation fails, the engine automatically attempts Provider 2.
-3. Partial playlist failures never abort the entire batch; remaining tracks proceed normally, and failed tracks are isolated for one-click retry.
+When a track download executes:
+1. The highest-ranked candidate audio stream is attempted first.
+2. The downloaded file is verified via binary header inspection (`_is_valid_audio_file`) to reject corrupted streams or HTML block pages.
+3. If network errors, HTTP rate limits (429/503), or validation failures occur, the engine automatically falls back to the next best provider candidate in the hierarchy.
+4. Partial playlist failures never abort the entire batch; remaining tracks proceed smoothly, and failed items are kept in the queue for automatic or one-click retry.

@@ -1,6 +1,14 @@
 # Troubleshooting & FAQ
-
+ 
 ## 1. Common Issues and Solutions
+
+### Issue: "Song shows as NEW even though it was previously downloaded"
+* **Cause**: The application maintains a strict **Filesystem Truth** invariant. If an audio file is moved, renamed, corrupted, or deleted on disk externally, the database automatically reconciles its status to `NEW`.
+* **Resolution**: Keep downloaded songs in their designated library directories, or use `Library → Import Existing Files` to rescan songs stored in custom directories.
+
+### Issue: "Download failed: File appears to be HTML or corrupted stream"
+* **Cause**: Some upstream mirrors or cloud protection proxies return an HTML error or verification page with a `.mp3` extension. The downloader checks binary header signatures (MPEG sync `\xff\xfb`, ID3v2 tags, RIFF, AAC) and immediately rejects false payloads to prevent unplayable files on disk.
+* **Resolution**: Click `Retry` on the download task to trigger automatic fallback to alternate audio providers.
 
 ### Issue: "yt-dlp is required to analyze YouTube URLs"
 * **Cause**: The `yt-dlp` Python package is not installed in the environment.
@@ -22,17 +30,11 @@
   2. Copy the fresh share link (`https://open.spotify.com/playlist/...`) and paste it into Add Music.
 
 ### Issue: "HTTP Error 429: Too Many Requests"
-* **Cause**: The upstream streaming platform is rate-limiting rapid consecutive metadata queries.
+* **Cause**: Upstream streaming platforms rate-limiting rapid consecutive queries.
 * **Resolution**:
   1. Wait 60 seconds.
   2. In Settings, lower the **Max Concurrent Download Workers** to 1 or 2.
-  3. Click **Retry Failed Only** in the Add Music view or Downloads view.
-
-### Issue: "No matching audio source found across providers"
-* **Cause**: Rare or indie track title could not be matched with sufficient confidence on YouTube or regional sources.
-* **Resolution**:
-  1. In Settings, lower the **Match Confidence Threshold** (e.g. from 85% to 75%).
-  2. Verify that the song title does not contain special unprintable characters.
+  3. Click **Retry Failed** in the Downloads view.
 
 ---
 
