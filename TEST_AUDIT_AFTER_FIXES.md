@@ -3,7 +3,7 @@
 **Repository:** `tamil-mp3-downloader`  
 **Branch:** `feature/library-source-foundation`  
 **Test Framework:** `pytest 9.1.1` on Python 3.12.10 (Win32)  
-**Total Tests Executed:** 165 Passing / 0 Failing / 7 Deselected (Opt-in Live Tests)  
+**Total Tests Collected:** 177 (170 Passing / 0 Failing / 7 Deselected Live Tests)  
 **Pass Rate:** **100%**
 
 ---
@@ -75,12 +75,36 @@ tests/
 
 ## 4. Test Quality Classification Audit
 
-| Classification | Description | Action Taken |
-| :--- | :--- | :--- |
-| **GREEN** (High Value) | Tests genuinely validating physical filesystem artifacts, real SQLite transactions, streaming chunk integrity, and real GUI events. | Created / Retained (165 active tests). |
-| **YELLOW** (Useful Incomplete) | Tests validating isolated data models and algorithm helpers without touching disk. | Upgraded with real filesystem validation wherever relevant. |
-| **RED** (Misleading/Weak) | Tests asserting DB state `OWNED` without verifying physical files on disk or relying on dummy multipliers (`count * 8 MB`). | Fixed to require physical file existence (`file.exists() && file.stat().st_size > 0`). |
-| **BLACK** (Tautological/Obsolete) | Tests testing empty mocks or tautological assertions (`assert True`). | Removed or replaced with live/deterministic fixtures. |
+Every test file in the repository has been audited and classified according to the 5 standard categories:
+
+| Test File / Suite | Classification | Description & Rationale | Action Taken |
+| :--- | :---: | :--- | :--- |
+| `tests/unit/test_canonical_identity.py` | **VALID** | Pure unit tests for SHA-256 canonical hashing, noise stripping, filename sanitization, and state transitions. | Retained. |
+| `tests/unit/test_filesystem_reconciliation.py` | **VALID** | Strictly verifies that missing files reset `OWNED` records to `NEW` and valid physical files are preserved. | Retained. |
+| `tests/unit/test_planner.py` | **VALID** | Verifies quality prioritization (320k > 128k) and duplicate skipping logic in planner. | Retained. |
+| `tests/unit/test_retry_policy.py` | **VALID** | Tests exponential backoff, transient vs permanent error classification. | Retained. |
+| `tests/unit/test_track_matcher.py` | **VALID** | Algorithmic fuzzy matching and descriptor stripping tests. | Retained. |
+| `tests/unit/test_url_detector.py` | **VALID** | Regex parsing and platform type detection for Spotify, YouTube, Regional, and Direct audio URLs. | Retained. |
+| `tests/integration/test_database_persistence.py` | **VALID** | Real SQLite database CRUD and registry protection preventing fake DB completions. | Retained. |
+| `tests/integration/test_http_downloader_real_stream.py` | **VALID** | Real chunk streaming socket server, validating audio headers and rejecting HTML error blocks. | Retained. |
+| `tests/functional/test_single_song_download_workflow.py` | **VALID** | Full single-song pipeline: discovery -> download -> physical file on disk -> DB state `OWNED`. | Retained. |
+| `tests/functional/test_provider_fallback_workflow.py` | **VALID** | Full multi-source failover and provider fallback when all database sources return HTTP 404. | Repaired & validated (fixed missing `re` import). |
+| `tests/functional/test_playlist_import_workflow.py` | **VALID** | Multi-track playlist queueing, individual item state tracking, and summary generation. | Retained. |
+| `tests/functional/test_spotify_playlist_import.py` | **VALID** | Modern Spotify embed parsing (`__NEXT_DATA__`), subtitle artist extraction, multi-track physical file execution, and zero-track error handling. | Created & validated. |
+| `tests/functional/test_delete_and_library_management.py` | **VALID** | Destructive physical file deletion (`os.unlink`) vs non-destructive library removal. | Retained. |
+| `tests/gui/test_gui_app_startup.py` | **VALID** | Real CustomTkinter window initialization, layout rendering, and view switching. | Retained. |
+| `tests/gui/test_gui_downloaded_songs.py` | **VALID** | Verified downloaded songs table, search filter, selection toggling, and action callbacks. | Retained. |
+| `tests/gui/test_gui_e2e_workflow.py` | **VALID** | Complete user journey: Add Music -> Analyze -> Download -> Physical file -> Downloaded Songs -> Play -> Delete. | Retained. |
+| `tests/e2e/test_e2e_download_and_filesystem_truth.py` | **VALID** | End-to-end download pipeline with physical disk validation and ID3 tag inspection. | Retained. |
+| `tests/test_audit_fixes.py` | **PARTIALLY VALID** | Tests priority ranking, schema contracts, thread safety. Initial retry test was weak (allowed fallback to pass initial attempt). | Repaired: isolated initial attempt to verify retry recovery deterministically. |
+| `tests/test_ux_hardening.py` | **PARTIALLY VALID** | Tests absence of developer jargon, real metadata, explorer revelation, and dashboard KPIs. | Retained & strengthened. |
+| `tests/test_integration_dedup.py` | **PARTIALLY VALID** | Exhaustive deduplication test matrix; uses in-memory dataclasses rather than downloading media files. | Retained as fast dedup logic validation. |
+| `tests/test_library_core.py` | **PARTIALLY VALID** | Unit tests for database CRUD, hashing, and migrations; does not touch physical files. | Retained as database unit test. |
+| `tests/test_library_phases24.py` | **PARTIALLY VALID** | Discovery pipeline and slot acquire/release state transitions; synthetic objects. | Retained. |
+| `tests/test_tamilmp3_scraper.py` | **PARTIALLY VALID** | Parses static HTML fixtures for TamilMP3/Kuttyweb; mocks network sessions. | Retained for offline parser regression. |
+| `tests/test_masstamilan_scraper.py` | **MISLEADING / OBSOLETE** | Previously contained tautological assertion `assert test_connection() is True or False` and was unconditionally skipped. | Replaced tautology with real boolean assertion; categorized as opt-in `@pytest.mark.live`. |
+| `tests/test_providers.py` | **REDUNDANT** | Uses mock provider classes writing dummy string bytes; superseded by `test_provider_fallback_workflow.py`. | Retained for backward-compatibility. |
+| `tests/live/test_live_sources.py` | **MISSING COVERAGE (IN CI)** | External network tests contacting live servers; can fail due to Cloudflare Turnstile or network outages. | Isolated under `@pytest.mark.live` (deselected by default in CI runs). |
 
 ---
 
