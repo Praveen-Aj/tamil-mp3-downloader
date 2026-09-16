@@ -72,3 +72,65 @@ def test_fallback_to_second_source_when_first_returns_404(tmp_path: Path, http_s
     assert song is not None
     assert song.state == SongState.OWNED
     assert song.file_path == str(target_file)
+
+
+@pytest.mark.functional
+def test_normal_download_falls_back_to_provider_registry_when_sources_exhausted(tmp_path: Path, http_server: str):
+    """
+    Test that when all database SongSources 404, execute_single_download invokes
+    provider_registry.search_and_rank_candidates / download_with_fallback and succeeds,
+    verifying that no NameError (e.g. name 're' is not defined) occurs.
+    """
+    db_path = tmp_path / "fallback_provider.db"
+    dl_dir = tmp_path / "downloads"
+    dl_dir.mkdir(parents=True, exist_ok=True)
+
+    db = SQLiteDatabase(db_path)
+    db.connect()
+    service = LibraryService(db=db, download_dir=str(dl_dir))
+
+    song_id = db.add_song(
+        LibrarySong(
+            title="Nenjame",
+            artist="Anirudh",
+            album="Doctor",
+            state=SongState.NEW,
+        )
+    )
+
+    # Broken source that returns 404
+    db.add_source(
+        SongSource(
+            song_id=song_id,
+            source_name="BrokenMassTamilan",
+            source_url=f"{http_server}/not-found.mp3",
+            quality_kbps=320,
+            is_available=True,
+        )
+    )
+
+    from library.providers.base import AudioCandidate
+    # Mock provider_registry to return a working local direct audio candidate
+    mock_candidate = AudioCandidate(
+        provider_name="direct_http",
+        source_url=f"{http_server}/valid-song.mp3",
+        title="Nenjame",
+        uploader="Anirudh",
+        duration_seconds=200,
+    )
+    import unittest.mock as mock
+    with mock.patch.object(service.provider_registry, "search_and_rank_candidates", return_value=[(mock_candidate, 0.95)]):
+        success = service.execute_single_download(song_id)
+
+    assert success is True
+    # Verify file physically exists on disk
+    downloaded_files = list(dl_dir.glob("**/*.mp3"))
+    assert len(downloaded_files) == 1
+    assert downloaded_files[0].exists()
+    assert downloaded_files[0].stat().st_size > 0
+
+    # Verify song state in DB
+    song = db.get_song(song_id)
+    assert song is not None
+    assert song.state == SongState.OWNED
+    assert song.file_path == str(downloaded_files[0])
