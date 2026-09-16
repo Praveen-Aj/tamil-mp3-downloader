@@ -155,9 +155,11 @@ class TestAuditFixes:
         )
         source_id = service.db.add_source(src)
 
-        # Initial download attempt -> fails due to 500 error
+        # Initial download attempt -> fails due to 500 error and no candidate fallback
         plan = service.preview_download_plan([song_id])
-        service.execute_download_plan(plan, run_async=False)
+        import unittest.mock as mock
+        with mock.patch.object(service.provider_registry, "search_and_rank_candidates", return_value=[]):
+            service.execute_download_plan(plan, run_async=False)
 
         failed_song = service.db.get_song(song_id)
         assert failed_song.state == SongState.FAILED

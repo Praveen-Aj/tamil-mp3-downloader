@@ -12,6 +12,7 @@ Provides a unified interface for UI views to interact with:
 """
 
 import os
+import re
 import subprocess
 import sys
 import logging
@@ -23,6 +24,7 @@ from config.settings import settings
 from library.database import SQLiteDatabase
 from library.discovery import DiscoveryPipeline
 from library.importer import LibraryImporter
+from library.providers.base import AudioCandidate
 from library.models import (
     LibrarySong, SongSource, SongState, DownloadState, Download,
     ImportJob, ImportJobItem, JobStatus, ItemState
@@ -466,7 +468,7 @@ class LibraryService:
                 duration_seconds=song.duration_seconds,
             )
             if candidates:
-                cand_list = [c for c, _ in candidates]
+                cand_list = [c if isinstance(c, AudioCandidate) else c[0] for c in candidates]
                 clean_stem = re.sub(r'[\\/*?:"<>|]', "", f"{song.artist or 'Track'} - {song.title}")[:80].strip()
                 prov_res = self.provider_registry.download_with_fallback(
                     candidates=cand_list,

@@ -73,17 +73,8 @@ class ImportJobManager:
 
         items: List[ImportJobItem] = []
         if not resolved.is_valid:
-            # Single error item
-            err_item = ImportJobItem(
-                job_id=job_id,
-                track_index=1,
-                title=resolved.title,
-                state=ItemState.FAILED,
-                error_message=resolved.error_message or "Failed to resolve URL metadata.",
-            )
-            items.append(err_item)
+            # When resolution fails, save failed job with 0 tracks and do not fabricate fake song items
             self.db.create_import_job(job)
-            self.db.add_import_job_items(items)
             return job, items
 
         total_tracks = len(resolved.tracks)

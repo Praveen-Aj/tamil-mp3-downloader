@@ -43,7 +43,7 @@
     }
   },
   "download": {
-    "output_dir": "C:\\Users\\Praveen\\AppData\\Local\\Temp\\pytest-of-Praveen\\pytest-128\\test_retry_alternate_source_fa0\\downloads",
+    "output_dir": "downloads",
     "chunk_size": 65536,
     "timeout": 90,
     "concurrent_enabled": true,

@@ -210,7 +210,9 @@ class SpotifyResolver(PlatformResolver):
                 t = item.get("track") if "track" in item and isinstance(item["track"], dict) else item
                 t_title = t.get("name") or t.get("title") or f"Track {idx}"
                 t_artist = ""
-                if "artists" in t and isinstance(t["artists"], list):
+                if t.get("subtitle"):
+                    t_artist = str(t["subtitle"])
+                elif "artists" in t and isinstance(t["artists"], list):
                     t_artist = ", ".join(a.get("name", "") for a in t["artists"] if isinstance(a, dict))
                 elif "artist" in t:
                     t_artist = str(t["artist"])
