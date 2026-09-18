@@ -17,8 +17,8 @@ import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
 
-from library.models import DownloadState, Download, LibrarySong
-from ui.services.library_service import LibraryService
+from library.models import Download, DownloadState, SongState
+from ui.services.library_service import LibraryService, DownloadProgressEvent
 from ui import theme
 
 
@@ -49,6 +49,10 @@ class DownloadsView(ctk.CTkFrame):
         self._cached_downloads: List[Download] = []
         self._selected_download_ids: Set[int] = set()
         self._card_check_vars: Dict[int, ctk.BooleanVar] = {}
+        self._card_widgets: Dict[int, Dict[str, Any]] = {}
+        self._display_limit: int = 35
+
+        self.service.add_progress_listener(self._on_download_progress)
 
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -241,6 +245,58 @@ class DownloadsView(ctk.CTkFrame):
         self._render_download_cards()
 
 
+    def destroy(self) -> None:
+        try:
+            self.service.remove_progress_listener(self._on_download_progress)
+        except Exception:
+            pass
+        super().destroy()
+
+    def _on_download_progress(self, event: DownloadProgressEvent) -> None:
+        try:
+            self.after(0, self._apply_progress_event, event)
+        except Exception:
+            pass
+
+    def _apply_progress_event(self, event: DownloadProgressEvent) -> None:
+        if not event.download_id:
+            return
+
+        dl_id = event.download_id
+        if dl_id in self._card_widgets:
+            refs = self._card_widgets[dl_id]
+            prog_bar = refs.get("prog_bar")
+            metric_lbl = refs.get("metric_label")
+            status_pill = refs.get("status_pill")
+
+            if prog_bar:
+                prog_bar.set(event.percent)
+
+            if metric_lbl:
+                if event.status == "DOWNLOADING":
+                    txt = f"Downloading · {event.speed_str} ({event.percent*100:.0f}%)" if event.speed_str else f"Downloading... ({event.percent*100:.0f}%)"
+                    metric_lbl.configure(text=txt, text_color=theme.INFO_LIGHT)
+                elif event.status == "COMPLETED":
+                    metric_lbl.configure(text="Downloaded · 320 kbps MP3 · Ready to play", text_color=theme.TEXT_MUTED)
+                elif event.status == "FAILED":
+                    metric_lbl.configure(text=event.error_message or "Download failed", text_color=theme.ERROR_LIGHT)
+
+            if status_pill:
+                if event.status == "COMPLETED":
+                    status_pill.configure(text="COMPLETED", fg_color=theme.SUCCESS_BG, text_color=theme.SUCCESS_LIGHT)
+                    if prog_bar:
+                        prog_bar.configure(progress_color=theme.SUCCESS)
+                elif event.status == "FAILED":
+                    status_pill.configure(text="FAILED", fg_color=theme.ERROR_BG, text_color=theme.ERROR_LIGHT)
+                    if prog_bar:
+                        prog_bar.configure(progress_color=theme.ERROR)
+
+            if event.status in ("COMPLETED", "FAILED"):
+                self.refresh()
+        else:
+            if event.status in ("DOWNLOADING", "QUEUED"):
+                self.refresh()
+
     def _update_aggregate_banner(self) -> None:
         """Update aggregate counts and progress."""
         total = len(self._cached_downloads)
@@ -256,13 +312,20 @@ class DownloadsView(ctk.CTkFrame):
         self.progress_bar.set(pct)
 
         if active > 0:
+            speeds = []
+            for d in self._cached_downloads:
+                if d.state == DownloadState.DOWNLOADING and d.id:
+                    prog = self.service.get_active_download_progress(d.id)
+                    if prog and prog.speed_str:
+                        speeds.append(prog.speed_str)
+            spd_summary = " · ".join(speeds[:2]) if speeds else "in progress"
             self.rate_label.configure(
-                text=f"Active: {active} downloading · 2.4 MB/s · est 00:18",
+                text=f"Active: {active} downloading · {spd_summary}",
                 text_color=theme.INFO,
             )
         else:
             self.rate_label.configure(
-                text=f"Status: Idle · {queued} queued · {failed} failed",
+                text=f"Status: Idle · {completed} completed · {failed} failed · {queued} queued",
                 text_color=theme.TEXT_MUTED,
             )
 
@@ -272,6 +335,7 @@ class DownloadsView(ctk.CTkFrame):
             w.destroy()
 
         self._card_check_vars.clear()
+        self._card_widgets.clear()
 
         # Apply tab filter
         filtered = []
@@ -290,7 +354,8 @@ class DownloadsView(ctk.CTkFrame):
             self._render_empty_state()
             return
 
-        for d in filtered:
+        visible = filtered[:self._display_limit]
+        for d in visible:
             # Resolve actual song metadata to prevent generic "Audio Track #494"
             song = self.service.db.get_song(d.song_id) if d.song_id else None
             if song:
@@ -405,30 +470,38 @@ class DownloadsView(ctk.CTkFrame):
                 prog_row,
                 height=5,
                 corner_radius=3,
-                progress_color=theme.SUCCESS if d.state == DownloadState.COMPLETED else theme.INFO,
+                progress_color=theme.SUCCESS if d.state == DownloadState.COMPLETED else (theme.ERROR if d.state == DownloadState.FAILED else theme.INFO),
                 fg_color=theme.SURFACE_MUTED,
             )
             item_prog.grid(row=0, column=0, sticky="ew", padx=(0, 12))
-            pct = 1.0 if d.state == DownloadState.COMPLETED else (0.45 if d.state == DownloadState.DOWNLOADING else 0.0)
-            item_prog.set(pct)
 
-            # Metrics / Failure Explanation text
-            if d.state == DownloadState.COMPLETED:
+            # Read live progress if active
+            live_prog = self.service.get_active_download_progress(d.id) if d.id else None
+            if live_prog:
+                pct = live_prog.percent
+                metric_txt = f"Downloading · {live_prog.speed_str} ({live_prog.percent*100:.0f}%)" if live_prog.speed_str else f"Downloading... ({live_prog.percent*100:.0f}%)"
+            elif d.state == DownloadState.COMPLETED:
+                pct = 1.0
                 metric_txt = "Downloaded · 320 kbps MP3 · Ready to play"
             elif d.state == DownloadState.DOWNLOADING:
-                metric_txt = "Downloading · 2.4 MB/s · 00:18 remaining"
+                pct = 0.3
+                metric_txt = "Downloading in background..."
             elif d.state == DownloadState.FAILED:
-                metric_txt = "Automatic source resolution failed. Click Retry to re-resolve across sources."
+                pct = 0.0
+                metric_txt = d.error_message or "Automatic source resolution failed. Click Retry to re-resolve across sources."
             else:
+                pct = 0.0
                 metric_txt = "Queued in background"
 
+            item_prog.set(pct)
 
-            ctk.CTkLabel(
+            metric_lbl = ctk.CTkLabel(
                 prog_row,
                 text=metric_txt,
                 font=theme.font_caption(),
-                text_color=theme.ERROR_LIGHT if d.state == DownloadState.FAILED else theme.TEXT_MUTED,
-            ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+                text_color=theme.ERROR_LIGHT if d.state == DownloadState.FAILED else (theme.INFO_LIGHT if d.state == DownloadState.DOWNLOADING else theme.TEXT_MUTED),
+            )
+            metric_lbl.grid(row=1, column=0, sticky="w", pady=(2, 0))
 
             # Actions Box
             action_box = ctk.CTkFrame(prog_row, fg_color="transparent")
@@ -441,7 +514,7 @@ class DownloadsView(ctk.CTkFrame):
                     text="🗑️ Delete",
                     font=theme.font_caption_bold(),
                     height=24,
-                    width=70,
+                    width=65,
                     fg_color=theme.SURFACE_ELEVATED,
                     hover_color=theme.ERROR,
                     text_color=theme.TEXT_SECONDARY,
@@ -453,12 +526,25 @@ class DownloadsView(ctk.CTkFrame):
                     text="📁 Open Folder",
                     font=theme.font_caption_bold(),
                     height=24,
-                    width=95,
+                    width=90,
                     fg_color=theme.SURFACE_ELEVATED,
                     hover_color=theme.SURFACE_HOVER,
                     text_color=theme.TEXT_SECONDARY,
                     command=lambda p=target_path: self._open_folder(p),
-                ).pack(side="right")
+                ).pack(side="right", padx=(4, 0))
+
+                if target_path and os.path.isfile(target_path):
+                    ctk.CTkButton(
+                        action_box,
+                        text="▶ Play",
+                        font=theme.font_caption_bold(),
+                        height=24,
+                        width=60,
+                        fg_color=theme.SUCCESS,
+                        hover_color=theme.SUCCESS_BG,
+                        text_color=theme.TEXT_PRIMARY,
+                        command=lambda p=target_path: self.service.play_audio_file(p),
+                    ).pack(side="right")
 
             elif d.state == DownloadState.FAILED:
                 ctk.CTkButton(
@@ -498,6 +584,35 @@ class DownloadsView(ctk.CTkFrame):
                     text_color=theme.TEXT_SECONDARY,
                     command=self._pause_queue,
                 ).pack(side="right")
+
+            if d.id:
+                self._card_widgets[d.id] = {
+                    "card": card,
+                    "prog_bar": item_prog,
+                    "metric_label": metric_lbl,
+                    "status_pill": status_pill,
+                    "action_box": action_box,
+                }
+
+        if len(filtered) > len(visible):
+            remaining = len(filtered) - len(visible)
+            more_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
+            more_frame.pack(fill="x", pady=10)
+            ctk.CTkButton(
+                more_frame,
+                text=f"⬇️ Load More Downloads ({remaining} remaining)",
+                font=theme.font_caption_bold(),
+                height=32,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.SURFACE_HOVER,
+                text_color=theme.PRIMARY_LIGHT,
+                corner_radius=theme.RADIUS_MD,
+                command=self._load_more_downloads,
+            ).pack(expand=True)
+
+    def _load_more_downloads(self) -> None:
+        self._display_limit += 35
+        self._render_download_cards()
 
     def _on_card_checked(self, download_id: int, checked: bool) -> None:
         if checked:

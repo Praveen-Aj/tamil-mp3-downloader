@@ -17,10 +17,13 @@ import subprocess
 import sys
 import logging
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Callable, Tuple
 
 from config.settings import settings
+from downloaders.http_downloader import HTTPDownloader
+from models.song import Song as DownloadSong
 from library.database import SQLiteDatabase
 from library.discovery import DiscoveryPipeline
 from library.importer import LibraryImporter
@@ -48,6 +51,22 @@ from scrapers.source_registry import (
 from scrapers.tamilmp3 import Tamilmp3Scraper
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DownloadProgressEvent:
+    download_id: Optional[int] = None
+    song_id: Optional[int] = None
+    title: str = ""
+    status: str = "DOWNLOADING"  # QUEUED, DOWNLOADING, COMPLETED, FAILED
+    bytes_downloaded: int = 0
+    total_bytes: Optional[int] = None
+    speed_bps: float = 0.0
+    eta_seconds: Optional[int] = None
+    percent: float = 0.0  # 0.0 to 1.0
+    speed_str: str = ""
+    eta_str: str = ""
+    error_message: Optional[str] = None
 
 
 class LibraryService:
@@ -86,9 +105,36 @@ class LibraryService:
 
         self._lock = threading.RLock()
         self._last_discovery_session: Optional[Dict[str, Any]] = None
+        self._progress_listeners: List[Callable[[DownloadProgressEvent], None]] = []
+        self._active_progress: Dict[int, DownloadProgressEvent] = {}
         self._init_default_sources()
         # Reconcile filesystem integrity on service startup
         self.reconcile_library_files()
+
+    def add_progress_listener(self, listener: Callable[[DownloadProgressEvent], None]) -> None:
+        with self._lock:
+            if listener not in self._progress_listeners:
+                self._progress_listeners.append(listener)
+
+    def remove_progress_listener(self, listener: Callable[[DownloadProgressEvent], None]) -> None:
+        with self._lock:
+            if listener in self._progress_listeners:
+                self._progress_listeners.remove(listener)
+
+    def emit_progress(self, event: DownloadProgressEvent) -> None:
+        with self._lock:
+            if event.download_id:
+                self._active_progress[event.download_id] = event
+            listeners = list(self._progress_listeners)
+        for listener in listeners:
+            try:
+                listener(event)
+            except Exception as e:
+                logger.debug(f"Progress listener error: {e}")
+
+    def get_active_download_progress(self, download_id: int) -> Optional[DownloadProgressEvent]:
+        with self._lock:
+            return self._active_progress.get(download_id)
 
     def reconcile_library_files(self) -> int:
         """
@@ -393,7 +439,16 @@ class LibraryService:
                         max_workers=settings.get("download.max_workers", 3),
                         show_progress=False,
                     )
-                    result = downloader.download_song(dl_song)
+                    def _http_prog(ratio: float, msg: str):
+                        self.emit_progress(DownloadProgressEvent(
+                            download_id=download_id,
+                            song_id=song.id,
+                            title=song.title,
+                            status="DOWNLOADING",
+                            percent=ratio,
+                            speed_str=msg,
+                        ))
+                    result = downloader.download_song(dl_song, progress_cb=_http_prog)
                     if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
                         was_upgrade = (song.state == SongState.OWNED)
                         file_size = result.size_downloaded or result.file_path.stat().st_size
@@ -409,6 +464,14 @@ class LibraryService:
                             previous_quality_kbps=song.quality_kbps,
                         )
                         self.registry.reward_source(source.id)
+                        self.emit_progress(DownloadProgressEvent(
+                            download_id=download_id,
+                            song_id=song.id,
+                            title=song.title,
+                            status="COMPLETED",
+                            percent=1.0,
+                            speed_str="Downloaded · 320 kbps MP3 · Ready to play",
+                        ))
                         return True
                 except Exception as exc:
                     logger.warning(f"Primary source download exception for '{song.title}': {exc}")
@@ -440,7 +503,16 @@ class LibraryService:
                         max_workers=settings.get("download.max_workers", 3),
                         show_progress=False,
                     )
-                    res = downloader.download_song(dl_song)
+                    def _alt_prog(ratio: float, msg: str):
+                        self.emit_progress(DownloadProgressEvent(
+                            download_id=download_id,
+                            song_id=song.id,
+                            title=song.title,
+                            status="DOWNLOADING",
+                            percent=ratio,
+                            speed_str=msg,
+                        ))
+                    res = downloader.download_song(dl_song, progress_cb=_alt_prog)
                     if res.success and res.file_path and res.file_path.exists() and res.file_path.stat().st_size > 0:
                         was_upgrade = (song.state == SongState.OWNED)
                         file_size = res.size_downloaded or res.file_path.stat().st_size
@@ -456,6 +528,14 @@ class LibraryService:
                             previous_quality_kbps=song.quality_kbps,
                         )
                         self.registry.reward_source(alt_src.id)
+                        self.emit_progress(DownloadProgressEvent(
+                            download_id=download_id,
+                            song_id=song.id,
+                            title=song.title,
+                            status="COMPLETED",
+                            percent=1.0,
+                            speed_str="Downloaded · 320 kbps MP3 · Ready to play",
+                        ))
                         return True
                 except Exception:
                     pass
@@ -470,10 +550,20 @@ class LibraryService:
             if candidates:
                 cand_list = [c if isinstance(c, AudioCandidate) else c[0] for c in candidates]
                 clean_stem = re.sub(r'[\\/*?:"<>|]', "", f"{song.artist or 'Track'} - {song.title}")[:80].strip()
+                def _prov_prog(ratio: float, msg: str):
+                    self.emit_progress(DownloadProgressEvent(
+                        download_id=download_id,
+                        song_id=song.id,
+                        title=song.title,
+                        status="DOWNLOADING",
+                        percent=ratio,
+                        speed_str=msg,
+                    ))
                 prov_res = self.provider_registry.download_with_fallback(
                     candidates=cand_list,
                     output_dir=Path(self.download_dir or settings.output_dir),
                     filename_stem=clean_stem,
+                    progress_cb=_prov_prog,
                 )
                 if prov_res.success and prov_res.file_path and prov_res.file_path.exists() and prov_res.file_path.stat().st_size > 0:
                     # Tag ID3 metadata
@@ -497,6 +587,14 @@ class LibraryService:
                         previous_file_path=song.file_path,
                         previous_quality_kbps=song.quality_kbps,
                     )
+                    self.emit_progress(DownloadProgressEvent(
+                        download_id=download_id,
+                        song_id=song.id,
+                        title=song.title,
+                        status="COMPLETED",
+                        percent=1.0,
+                        speed_str="Downloaded · 320 kbps MP3 · Ready to play",
+                    ))
                     return True
         except Exception as prov_exc:
             logger.warning(f"Provider fallback download exception for '{song.title}': {prov_exc}")
@@ -504,6 +602,14 @@ class LibraryService:
         # If all attempts fail
         err_msg = "All download sources and provider fallbacks failed (HTTP 404 / unavailable)"
         self.registry.fail(song.id, download_id, err_msg, source.id if source else None)
+        self.emit_progress(DownloadProgressEvent(
+            download_id=download_id,
+            song_id=song.id,
+            title=song.title,
+            status="FAILED",
+            percent=0.0,
+            error_message=err_msg,
+        ))
         return False
 
     def execute_download_plan(
@@ -691,27 +797,36 @@ class LibraryService:
         Selects the file if it exists, otherwise opens the containing directory.
         """
         try:
-            out_dir = Path(settings.output_dir)
+            out_dir = Path(settings.output_dir).resolve()
             out_dir.mkdir(parents=True, exist_ok=True)
 
             if file_or_dir_path:
                 target = Path(file_or_dir_path)
+                if not target.is_absolute():
+                    candidate = (Path.cwd() / target).resolve()
+                    if candidate.exists():
+                        target = candidate
+                    else:
+                        target = (out_dir / target.name).resolve()
+                else:
+                    target = target.resolve()
+
                 if target.is_file() and target.exists():
                     if sys.platform == "win32":
-                        subprocess.run(["explorer", f"/select,{str(target)}"], check=False)
+                        subprocess.run(["explorer", f'/select,"{str(target)}"'], check=False)
                     else:
                         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target.parent)], check=False)
                     return True, f"Opened {target.name} in Explorer"
                 elif target.is_dir() and target.exists():
                     if sys.platform == "win32":
-                        subprocess.run(["explorer", str(target)], check=False)
+                        subprocess.run(["explorer", f'"{str(target)}"'], check=False)
                     else:
                         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target)], check=False)
                     return True, f"Opened directory {target}"
 
             # Fallback to configured output directory
             if sys.platform == "win32":
-                subprocess.run(["explorer", str(out_dir)], check=False)
+                subprocess.run(["explorer", f'"{str(out_dir)}"'], check=False)
             else:
                 subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(out_dir)], check=False)
             return True, f"Opened downloads folder: {out_dir}"
@@ -742,6 +857,17 @@ class LibraryService:
         Start executing downloads for an analyzed import job.
         """
         target_dir = output_dir or Path(self.download_dir)
+        def _item_prog(dl_id: int, s_id: int, title: str, ratio: float, msg: str):
+            status = "COMPLETED" if ratio >= 1.0 and "Downloaded" in msg else ("FAILED" if "failed" in msg.lower() else "DOWNLOADING")
+            self.emit_progress(DownloadProgressEvent(
+                download_id=dl_id,
+                song_id=s_id,
+                title=title,
+                status=status,
+                percent=ratio,
+                speed_str=msg,
+            ))
+
         if run_async:
             def _worker():
                 try:
@@ -750,6 +876,7 @@ class LibraryService:
                         item_ids=item_ids,
                         output_dir=target_dir,
                         progress_cb=progress_cb,
+                        item_progress_cb=_item_prog,
                     )
                 except Exception as e:
                     logger.error(f"Error executing import job {job_id}: {e}", exc_info=True)
@@ -762,6 +889,7 @@ class LibraryService:
                 item_ids=item_ids,
                 output_dir=target_dir,
                 progress_cb=progress_cb,
+                item_progress_cb=_item_prog,
             )
             return None
 

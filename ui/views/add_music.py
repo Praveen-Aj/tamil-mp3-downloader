@@ -55,9 +55,9 @@ class AddMusicView(ctk.CTkFrame):
         self._all_items: List[ImportJobItem] = []
         self._filtered_items: List[ImportJobItem] = []
         self._selected_item_ids: Set[int] = set()
-        self._is_analyzing = False
-
         self._item_checkbox_vars: Dict[int, tk.BooleanVar] = {}
+        self._is_analyzing: bool = False
+        self._track_display_limit: int = 40
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -366,14 +366,18 @@ class AddMusicView(ctk.CTkFrame):
         owned_cnt = sum(1 for i in items if i.state in (ItemState.OWNED, ItemState.COMPLETED))
         ready_cnt = sum(1 for i in items if i.state in (ItemState.READY, ItemState.NEEDS_REVIEW))
         failed_cnt = sum(1 for i in items if i.state in (ItemState.FAILED, ItemState.NO_SOURCE))
+        dup_cnt = sum(1 for i in items if i.match_explanation and ("duplicate" in i.match_explanation.lower() or "reuses" in i.match_explanation.lower()))
+        unique_cnt = len(items) - dup_cnt
 
-        stats_parts = [f"📊 {len(items)} songs found"]
+        stats_parts = [f"📊 {len(items)} tracks found", f"🎵 {unique_cnt} unique songs"]
+        if dup_cnt > 0:
+            stats_parts.append(f"♻️ {dup_cnt} playlist duplicates reused")
         if owned_cnt > 0:
-            stats_parts.append(f"✓ {owned_cnt} already downloaded")
+            stats_parts.append(f"✓ {owned_cnt} already in library")
         if ready_cnt > 0:
             stats_parts.append(f"↓ {ready_cnt} ready to download")
         if failed_cnt > 0:
-            stats_parts.append(f"⚠ {failed_cnt} couldn't download")
+            stats_parts.append(f"⚠ {failed_cnt} unavailable")
 
         stats_str = "  ·  ".join(stats_parts)
         ctk.CTkLabel(
@@ -502,8 +506,9 @@ class AddMusicView(ctk.CTkFrame):
             w.destroy()
 
         self._item_checkbox_vars.clear()
+        visible_items = self._filtered_items[:self._track_display_limit]
 
-        for idx, item in enumerate(self._filtered_items):
+        for idx, item in enumerate(visible_items):
             row_card = ctk.CTkFrame(
                 self.track_scroll,
                 fg_color=theme.SURFACE_ELEVATED,
@@ -571,6 +576,11 @@ class AddMusicView(ctk.CTkFrame):
                 item.state,
                 (item.state.value, theme.SURFACE_MUTED, theme.TEXT_MUTED)
             )
+            if item.match_explanation and ("duplicate" in item.match_explanation.lower() or "reuses" in item.match_explanation.lower()):
+                label = "♻️ Duplicate Reused"
+                bg_col = theme.SURFACE_MUTED
+                text_col = theme.TEXT_MUTED
+
             state_pill = ctk.CTkLabel(
                 inner,
                 text=label,
@@ -582,6 +592,26 @@ class AddMusicView(ctk.CTkFrame):
                 pady=4,
             )
             state_pill.pack(side="right", padx=(8, 0))
+
+        if len(self._filtered_items) > len(visible_items):
+            remaining = len(self._filtered_items) - len(visible_items)
+            more_frame = ctk.CTkFrame(self.track_scroll, fg_color="transparent")
+            more_frame.pack(fill="x", pady=10)
+            ctk.CTkButton(
+                more_frame,
+                text=f"⬇️ Load More Tracks ({remaining} remaining)",
+                font=theme.font_caption_bold(),
+                height=32,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.SURFACE_HOVER,
+                text_color=theme.PRIMARY_LIGHT,
+                corner_radius=theme.RADIUS_MD,
+                command=self._load_more_tracks,
+            ).pack(expand=True)
+
+    def _load_more_tracks(self) -> None:
+        self._track_display_limit += 40
+        self._render_track_rows()
 
 
     def _on_item_toggled(self, item_id: int, var: tk.BooleanVar) -> None:

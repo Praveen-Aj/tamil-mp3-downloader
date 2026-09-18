@@ -15,7 +15,8 @@ from config.settings import settings
 from library.database import SQLiteDatabase
 from library.canonical import Canonicalizer
 from library.models import (
-    ImportJob, ImportJobItem, JobStatus, ItemState, LibrarySong, SongState, SongSource
+    ImportJob, ImportJobItem, JobStatus, ItemState, LibrarySong, SongState, SongSource,
+    Download, DownloadState
 )
 from library.url_resolver.detector import UniversalUrlDetector
 from library.url_resolver.base import ResolvedContent, TrackMeta, ContentType, PlatformType
@@ -78,6 +79,7 @@ class ImportJobManager:
             return job, items
 
         total_tracks = len(resolved.tracks)
+        seen_canonical_hashes: Dict[str, int] = {}
         for idx, track in enumerate(resolved.tracks, start=1):
             if progress_cb:
                 progress_cb(f"Evaluating track {idx}/{total_tracks}: {track.title}", idx, total_tracks)
@@ -91,7 +93,15 @@ class ImportJobManager:
             )
             existing_song = self.db.get_song_by_hash(canonical_hash)
 
+            is_playlist_duplicate = canonical_hash in seen_canonical_hashes
+            earlier_idx = seen_canonical_hashes.get(canonical_hash)
+            if not is_playlist_duplicate:
+                seen_canonical_hashes[canonical_hash] = idx
+
             if existing_song and existing_song.state == SongState.OWNED:
+                expl = "Already in library"
+                if is_playlist_duplicate:
+                    expl += f" (Duplicate of track #{earlier_idx} in playlist)"
                 item = ImportJobItem(
                     job_id=job_id,
                     track_index=idx,
@@ -101,8 +111,25 @@ class ImportJobManager:
                     duration_seconds=track.duration_seconds,
                     state=ItemState.OWNED,
                     match_confidence=1.0,
-                    match_explanation="Already in library at high quality",
+                    match_explanation=expl,
                     canonical_song_id=existing_song.id,
+                )
+                items.append(item)
+                continue
+
+            if is_playlist_duplicate:
+                # Same canonical song appears multiple times in playlist
+                item = ImportJobItem(
+                    job_id=job_id,
+                    track_index=idx,
+                    title=track.title,
+                    artist=track.artist,
+                    album=track.album,
+                    duration_seconds=track.duration_seconds,
+                    state=ItemState.READY,
+                    match_confidence=1.0,
+                    match_explanation=f"Reuses track #{earlier_idx} in playlist (duplicate)",
+                    canonical_song_id=existing_song.id if existing_song else None,
                 )
                 items.append(item)
                 continue
@@ -183,10 +210,12 @@ class ImportJobManager:
         item_ids: Optional[List[int]] = None,
         output_dir: Optional[Path] = None,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
+        item_progress_cb: Optional[Callable[[int, int, str, float, str], None]] = None,
     ) -> Dict[str, int]:
         """
         Execute downloads for job items in READY, NEEDS_REVIEW, or FAILED state.
-        Synchronizes downloaded tracks with the canonical SQLite library as OWNED.
+        Synchronizes downloaded tracks with the canonical SQLite library as OWNED
+        and creates unified Download tracking records.
         """
         job = self.db.get_import_job(job_id)
         if not job:
@@ -214,6 +243,75 @@ class ImportJobManager:
             if progress_cb:
                 progress_cb(idx, total, f"Downloading: {item.title}")
 
+            # Check if canonical song is already OWNED and physical file exists
+            c_hash = Canonicalizer.compute_hash(item.title, item.artist or "", item.album or "", item.duration_seconds)
+            existing_song = self.db.get_song_by_hash(c_hash) or (self.db.get_song(item.canonical_song_id) if item.canonical_song_id else None)
+            if existing_song and existing_song.state == SongState.OWNED and existing_song.file_path:
+                p = Path(existing_song.file_path)
+                if not p.is_absolute():
+                    p = (out_dir.parent / p).resolve() if not (Path.cwd() / p).exists() else (Path.cwd() / p).resolve()
+                if p.is_file() and p.exists() and p.stat().st_size > 0:
+                    self.db.update_import_job_item_state(
+                        item_id=item.id,
+                        state=ItemState.COMPLETED,
+                        canonical_song_id=existing_song.id,
+                    )
+                    completed_count += 1
+                    if progress_cb:
+                        progress_cb(idx, total, f"Reused existing file: {item.title}")
+                    continue
+
+            # Ensure canonical song record exists in DB
+            if not existing_song:
+                norm_title = Canonicalizer.normalize_text(item.title)
+                norm_artist = Canonicalizer.normalize_text(item.artist or "")
+                norm_album = Canonicalizer.normalize_text(item.album or job.title)
+                song_obj = LibrarySong(
+                    canonical_hash=c_hash,
+                    title_normalized=norm_title,
+                    artist_normalized=norm_artist,
+                    album_normalized=norm_album,
+                    duration_seconds=item.duration_seconds,
+                    title=item.title,
+                    artist=item.artist or "",
+                    album=item.album or job.title,
+                    state=SongState.DOWNLOADING,
+                    library_location_id=1,
+                )
+                song_id = self.db.add_song(song_obj)
+            else:
+                song_id = existing_song.id
+                self.db.update_song_state(song_id, SongState.DOWNLOADING)
+
+            # Ensure a valid song_source exists in database for this song
+            source_id = None
+            sources = self.db.get_sources_for_song(song_id)
+            if sources:
+                source_id = sources[0].id
+            else:
+                source_obj = SongSource(
+                    song_id=song_id,
+                    source_name=item.selected_provider or "direct_http",
+                    source_url=item.selected_source_url or f"item:{item.id}",
+                    quality_kbps=getattr(item, "quality_kbps", 320) or 320,
+                    is_available=True,
+                    reliability_score=1.0,
+                )
+                source_id = self.db.add_source(source_obj)
+
+            # Create unified Download tracking record in database
+            now_iso = datetime.now().isoformat()
+            dl_record = Download(
+                song_id=song_id,
+                song_source_id=source_id,
+                planned_at=now_iso,
+                queued_at=now_iso,
+                started_at=now_iso,
+                state=DownloadState.DOWNLOADING,
+                library_location_id=1,
+            )
+            dl_id = self.db.add_download(dl_record)
+            item.download_id = dl_id
             self.db.update_import_job_item_state(item.id, ItemState.DOWNLOADING)
 
             # Sanitize filename
@@ -241,14 +339,19 @@ class ImportJobManager:
                 if not any(existing.source_url == c.source_url for existing in candidates):
                     candidates.append(c)
 
+            def _item_hook(ratio: float, msg: str):
+                if item_progress_cb:
+                    item_progress_cb(dl_id, song_id, item.title, ratio, msg)
 
             dl_res: DownloadResult = self.provider_registry.download_with_fallback(
                 candidates=candidates,
                 output_dir=out_dir,
                 filename_stem=clean_name,
+                progress_cb=_item_hook,
             )
 
             if dl_res.success and dl_res.file_path and dl_res.file_path.exists():
+                file_size = dl_res.size_bytes or dl_res.file_path.stat().st_size
                 # Apply ID3 tags & artwork
                 self._tag_audio_file(
                     file_path=dl_res.file_path,
@@ -259,13 +362,25 @@ class ImportJobManager:
                     artwork_url=job.artwork_url,
                 )
 
-                # Register in canonical SQLite library
-                song_id = self._register_in_library(
+                # Register in canonical SQLite library as OWNED
+                self._register_in_library(
                     file_path=dl_res.file_path,
                     title=item.title,
                     artist=item.artist or "",
                     album=item.album or job.title,
                     duration_sec=item.duration_seconds,
+                )
+
+                # Update Download record
+                self.db.update_download_completed(
+                    download_id=dl_id,
+                    output_path=str(dl_res.file_path),
+                    file_size_bytes=file_size,
+                    download_speed_bps=None,
+                    was_upgrade=False,
+                    previous_file_path=None,
+                    previous_quality_kbps=None,
+                    library_location_id=1,
                 )
 
                 self.db.update_import_job_item_state(
@@ -274,13 +389,20 @@ class ImportJobManager:
                     canonical_song_id=song_id,
                 )
                 completed_count += 1
+                if item_progress_cb:
+                    item_progress_cb(dl_id, song_id, item.title, 1.0, "Downloaded · 320 kbps MP3 · Ready to play")
             else:
+                err = dl_res.error_message or "Download failed"
+                self.db.update_download_state(dl_id, state=DownloadState.FAILED, error_message=err)
+                self.db.update_song_state(song_id, state=SongState.FAILED)
                 self.db.update_import_job_item_state(
                     item_id=item.id,
                     state=ItemState.FAILED,
-                    error_message=dl_res.error_message or "Download failed",
+                    error_message=err,
                 )
                 failed_count += 1
+                if item_progress_cb:
+                    item_progress_cb(dl_id, song_id, item.title, 0.0, err)
 
         final_status = JobStatus.COMPLETED if failed_count == 0 else JobStatus.READY
         self.db.update_import_job_status(job_id, final_status)

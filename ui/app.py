@@ -76,6 +76,10 @@ class TamilMP3App(ctk.CTk):
         self.service = service or LibraryService(db_path=db_path)
 
         self.configure(fg_color=theme.BG_APP)
+        try:
+            self.config(bg=theme.BG_APP)
+        except Exception:
+            pass
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -174,13 +178,16 @@ class TamilMP3App(ctk.CTk):
             logger.warning(f"Unknown view name requested: {view_name}")
             return
 
-        if self.current_view_name and self.current_view_name in self.views:
-            self.views[self.current_view_name].grid_forget()
+        for name, v in self.views.items():
+            if name == view_name:
+                v.grid(row=0, column=0, sticky="nsew")
+                v.tkraise()
+            else:
+                v.grid_remove()
 
         self.current_view_name = view_name
         self.sidebar.set_active(view_name)
         target_view = self.views[view_name]
-        target_view.grid(row=0, column=0, sticky="nsew")
 
         # Refresh view if method present
         if hasattr(target_view, "refresh"):

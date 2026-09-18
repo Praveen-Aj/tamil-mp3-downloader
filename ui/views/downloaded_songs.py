@@ -41,6 +41,7 @@ class DownloadedSongsView(ctk.CTkFrame):
         self._sort_by: str = "recent"
         self._search_query: str = ""
         self._selected_ids: Set[int] = set()
+        self._display_limit: int = 35
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -250,13 +251,14 @@ class DownloadedSongsView(ctk.CTkFrame):
         for w in self.list_container.winfo_children():
             w.destroy()
 
-        total_bytes = 0
-        for s in self._songs:
-            if s.file_path and os.path.isfile(s.file_path):
-                try:
-                    total_bytes += os.path.getsize(s.file_path)
-                except OSError:
-                    pass
+        total_bytes = sum(s.file_size_bytes or 0 for s in self._songs)
+        if total_bytes == 0:
+            for s in self._songs:
+                if s.file_path and os.path.isfile(s.file_path):
+                    try:
+                        total_bytes += os.path.getsize(s.file_path)
+                    except OSError:
+                        pass
 
         storage_mb = total_bytes / (1024 * 1024) if total_bytes > 0 else 0
         self.summary_pill.configure(text=f"{len(self._songs)} Downloaded · {storage_mb:.1f} MB")
@@ -274,8 +276,29 @@ class DownloadedSongsView(ctk.CTkFrame):
         scroll.pack(fill="both", expand=True)
         scroll.grid_columnconfigure(0, weight=1)
 
-        for song in self._songs:
+        visible_songs = self._songs[:self._display_limit]
+        for song in visible_songs:
             self._render_song_row(scroll, song)
+
+        if len(self._songs) > len(visible_songs):
+            remaining = len(self._songs) - len(visible_songs)
+            more_card = ctk.CTkFrame(scroll, fg_color="transparent")
+            more_card.pack(fill="x", pady=12)
+            ctk.CTkButton(
+                more_card,
+                text=f"⬇️ Load More Songs ({remaining} remaining)",
+                font=theme.font_caption_bold(),
+                height=34,
+                fg_color=theme.SURFACE_ELEVATED,
+                hover_color=theme.SURFACE_HOVER,
+                text_color=theme.PRIMARY_LIGHT,
+                corner_radius=theme.RADIUS_MD,
+                command=self._load_more,
+            ).pack(expand=True)
+
+    def _load_more(self) -> None:
+        self._display_limit += 35
+        self._render_content()
 
     def _render_empty_state(self) -> None:
         """Render empty state when no songs are downloaded yet."""
@@ -379,8 +402,8 @@ class DownloadedSongsView(ctk.CTkFrame):
         album_text = f" · {song.album}" if song.album else ""
         quality_text = f" · {song.quality_kbps or 320} kbps"
         
-        size_bytes = 0
-        if song.file_path and os.path.isfile(song.file_path):
+        size_bytes = song.file_size_bytes or 0
+        if not size_bytes and song.file_path and os.path.isfile(song.file_path):
             try:
                 size_bytes = os.path.getsize(song.file_path)
             except OSError:

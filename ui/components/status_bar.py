@@ -21,8 +21,6 @@ class StatusBar(ctk.CTkFrame):
             height=34,
             corner_radius=0,
             fg_color=theme.BG_HEADER,
-            border_width=1,
-            border_color=theme.BORDER,
             **kwargs
         )
         self.grid_columnconfigure(3, weight=1)

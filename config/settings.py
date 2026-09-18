@@ -159,11 +159,14 @@ class Settings:
 
     @property
     def output_dir(self) -> Path:
-        """Get output directory."""
+        """Get authoritative absolute output directory."""
         val = self.get("download.output_dir", "downloads")
         p = Path(val) if val else Path("downloads")
         if "pytest" in str(p).lower() and not p.exists():
-            return Path("downloads")
+            p = Path("downloads")
+        if not p.is_absolute():
+            project_root = Path(__file__).resolve().parent.parent
+            p = (project_root / p).resolve()
         return p
 
     @property

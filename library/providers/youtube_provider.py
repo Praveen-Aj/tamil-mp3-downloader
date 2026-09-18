@@ -165,12 +165,34 @@ class YouTubeProvider(AudioProvider):
         target_template = str(output_dir / f"{filename_stem}.%(ext)s")
 
         def _hook(d):
-            if progress_cb and d.get("status") == "downloading":
+            if not progress_cb:
+                return
+            status = d.get("status")
+            if status == "downloading":
                 total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
                 downloaded = d.get("downloaded_bytes") or 0
                 ratio = (downloaded / total) if total > 0 else 0.0
-                speed_str = d.get("_speed_str", "")
-                progress_cb(ratio, f"Downloading: {speed_str}")
+                speed = d.get("speed")
+                speed_str = d.get("_speed_str")
+                if not speed_str and speed:
+                    if speed > 1024 * 1024:
+                        speed_str = f"{speed / (1024*1024):.1f} MB/s"
+                    else:
+                        speed_str = f"{speed / 1024:.0f} KB/s"
+                eta = d.get("eta")
+                eta_str = d.get("_eta_str")
+                if not eta_str and eta is not None:
+                    eta_str = f"{int(eta)//60:02d}:{int(eta)%60:02d}"
+
+                detail = []
+                if speed_str:
+                    detail.append(speed_str.strip())
+                if eta_str:
+                    detail.append(f"{eta_str.strip()} remaining")
+                msg = " · ".join(detail) if detail else "Downloading..."
+                progress_cb(ratio, msg)
+            elif status == "finished":
+                progress_cb(1.0, "Finalizing audio...")
 
         ydl_opts: Dict[str, Any] = {
             "outtmpl": target_template,

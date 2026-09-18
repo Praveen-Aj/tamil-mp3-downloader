@@ -19,7 +19,7 @@ import time
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 import requests
@@ -77,10 +77,14 @@ class HTTPDownloader(BaseDownloader):
     # Public API
     # ------------------------------------------------------------------
 
-    def download_song(self, song: Song) -> DownloadResult:
+    def download_song(
+        self,
+        song: Song,
+        progress_cb: Optional[Callable[[float, str], None]] = None,
+    ) -> DownloadResult:
         """Download a single song (blocking, no rich UI)."""
         album_dir = self._album_dir(song.album_name, year=song.year)
-        return self._download_with_progress(song, album_dir, pbar=None)
+        return self._download_with_progress(song, album_dir, pbar=None, progress_cb=progress_cb)
 
     def download_songs(self, songs: List[Song]) -> List[DownloadResult]:
         """Sequential download – used as fallback."""
@@ -355,6 +359,7 @@ class HTTPDownloader(BaseDownloader):
         song: Song,
         dest_dir: Path,
         pbar: Optional[tqdm] = None,
+        progress_cb: Optional[Callable[[float, str], None]] = None,
     ) -> DownloadResult:
         """Resolve URL, download with progress, retry on failure."""
 
@@ -363,7 +368,7 @@ class HTTPDownloader(BaseDownloader):
 
         for attempt in range(self.max_retries):
             try:
-                result = self._attempt_download(song, url, dest_dir, pbar)
+                result = self._attempt_download(song, url, dest_dir, pbar, progress_cb)
                 if result.success:
                     return result
                 # non-retriable HTTP errors
@@ -392,6 +397,7 @@ class HTTPDownloader(BaseDownloader):
         url: str,
         dest_dir: Path,
         pbar: Optional[tqdm] = None,
+        progress_cb: Optional[Callable[[float, str], None]] = None,
     ) -> DownloadResult:
         """Single download attempt (no retry logic here)."""
 
@@ -519,6 +525,8 @@ class HTTPDownloader(BaseDownloader):
             },
         )
 
+        start_time = time.time()
+        last_progress_time = start_time
         try:
             write_mode = "ab" if resumed else "wb"
             with open(tmp_path, write_mode) as fh:
@@ -528,6 +536,25 @@ class HTTPDownloader(BaseDownloader):
                         downloaded += len(chunk)
                         if pbar is not None:
                             pbar.update(len(chunk))
+                        now = time.time()
+                        if progress_cb and (now - last_progress_time >= 0.25 or (total and downloaded >= total)):
+                            last_progress_time = now
+                            elapsed = max(0.001, now - start_time)
+                            speed = (downloaded - resume_from) / elapsed
+                            if speed > 1024 * 1024:
+                                spd_str = f"{speed / (1024*1024):.1f} MB/s"
+                            else:
+                                spd_str = f"{speed / 1024:.0f} KB/s"
+                            eta_str = ""
+                            if total and speed > 0:
+                                rem = max(0, total - downloaded)
+                                eta_s = int(rem / speed)
+                                eta_str = f"{eta_s//60:02d}:{eta_s%60:02d} remaining"
+                            ratio = (downloaded / total) if (total and total > 0) else 0.0
+                            detail = [spd_str]
+                            if eta_str:
+                                detail.append(eta_str)
+                            progress_cb(ratio, " · ".join(detail))
 
             tmp_path.rename(out_path)
 
