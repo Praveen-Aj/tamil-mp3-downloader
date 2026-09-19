@@ -386,7 +386,66 @@ class DownloadedSongsView(ctk.CTkFrame):
         cover_box.pack_propagate(False)
         ctk.CTkLabel(cover_box, text="🎵", font=ctk.CTkFont(size=20)).pack(expand=True)
 
-        # Mid-Left: Title, Artist, Album, Bitrate
+        # Right Actions (Pack first to guarantee layout space)
+        act_box = ctk.CTkFrame(inner, fg_color="transparent")
+        act_box.pack(side="right", padx=(8, 0))
+
+        # Play button
+        ctk.CTkButton(
+            act_box,
+            text="▶ Play",
+            font=theme.font_caption_bold(),
+            height=32,
+            width=70,
+            fg_color=theme.SUCCESS,
+            hover_color=theme.SUCCESS_BG,
+            text_color=theme.TEXT_PRIMARY,
+            corner_radius=theme.RADIUS_SM,
+            command=lambda s=song: self._play_song(s),
+        ).pack(side="left", padx=3)
+
+        # Open folder
+        ctk.CTkButton(
+            act_box,
+            text="📁 Folder",
+            font=theme.font_caption_bold(),
+            height=32,
+            width=70,
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER,
+            text_color=theme.TEXT_SECONDARY,
+            corner_radius=theme.RADIUS_SM,
+            command=lambda p=song.file_path: self.service.open_path_in_explorer(p),
+        ).pack(side="left", padx=3)
+
+        # Delete button
+        ctk.CTkButton(
+            act_box,
+            text="🗑️",
+            font=theme.font_body(),
+            height=32,
+            width=34,
+            fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.ERROR,
+            text_color=theme.TEXT_MUTED,
+            corner_radius=theme.RADIUS_SM,
+            command=lambda s=song: self._delete_single_song(s),
+        ).pack(side="left", padx=3)
+
+        # Status Tag
+        status_badge = ctk.CTkLabel(
+            inner,
+            text="✓ Downloaded",
+            font=theme.font_badge(),
+            text_color=theme.SUCCESS_LIGHT,
+            fg_color=theme.SUCCESS_BG,
+            corner_radius=6,
+            padx=8,
+            pady=3,
+        )
+        status_badge.pack(side="right", padx=8)
+
+        # Mid-Left: Title, Artist, Album, Bitrate (Expands to fill remaining center)
         info_box = ctk.CTkFrame(inner, fg_color="transparent")
         info_box.pack(side="left", fill="both", expand=True)
 
@@ -398,9 +457,24 @@ class DownloadedSongsView(ctk.CTkFrame):
             anchor="w",
         ).pack(anchor="w")
 
+        # Determine format/codec from file extension or path
+        ext = os.path.splitext(song.file_path or "")[1].lower()
+        if ext == ".webm":
+            fmt_codec = "Opus (WebM)"
+            default_kbps = 160
+        elif ext == ".m4a":
+            fmt_codec = "AAC (M4A)"
+            default_kbps = 128
+        elif ext == ".mp3":
+            fmt_codec = "MP3"
+            default_kbps = 320
+        else:
+            fmt_codec = (ext.replace(".", "").upper() if ext else "Audio")
+            default_kbps = song.quality_kbps or 320
+
         artist_text = song.artist or "Unknown Artist"
         album_text = f" · {song.album}" if song.album else ""
-        quality_text = f" · {song.quality_kbps or 320} kbps"
+        quality_text = f" · {fmt_codec} · {song.quality_kbps or default_kbps} kbps"
         
         size_bytes = song.file_size_bytes or 0
         if not size_bytes and song.file_path and os.path.isfile(song.file_path):
@@ -419,65 +493,6 @@ class DownloadedSongsView(ctk.CTkFrame):
             text_color=theme.TEXT_MUTED,
             anchor="w",
         ).pack(anchor="w", pady=(2, 0))
-
-        # Status Tag
-        status_badge = ctk.CTkLabel(
-            inner,
-            text="✓ Downloaded",
-            font=theme.font_badge(),
-            text_color=theme.SUCCESS_LIGHT,
-            fg_color=theme.SUCCESS_BG,
-            corner_radius=6,
-            padx=8,
-            pady=3,
-        )
-        status_badge.pack(side="left", padx=12)
-
-        # Right Actions
-        act_box = ctk.CTkFrame(inner, fg_color="transparent")
-        act_box.pack(side="right")
-
-        # Play button
-        ctk.CTkButton(
-            act_box,
-            text="▶ Play",
-            font=theme.font_caption_bold(),
-            height=32,
-            width=75,
-            fg_color=theme.SUCCESS,
-            hover_color=theme.SUCCESS_BG,
-            text_color=theme.TEXT_PRIMARY,
-            corner_radius=theme.RADIUS_SM,
-            command=lambda s=song: self._play_song(s),
-        ).pack(side="left", padx=4)
-
-        # Open folder
-        ctk.CTkButton(
-            act_box,
-            text="📁 Folder",
-            font=theme.font_caption_bold(),
-            height=32,
-            width=75,
-            fg_color=theme.SURFACE_ELEVATED,
-            hover_color=theme.SURFACE_HOVER,
-            text_color=theme.TEXT_SECONDARY,
-            corner_radius=theme.RADIUS_SM,
-            command=lambda p=song.file_path: self.service.open_path_in_explorer(p),
-        ).pack(side="left", padx=4)
-
-        # Delete button
-        ctk.CTkButton(
-            act_box,
-            text="🗑️",
-            font=theme.font_body(),
-            height=32,
-            width=36,
-            fg_color=theme.SURFACE_ELEVATED,
-            hover_color=theme.ERROR,
-            text_color=theme.TEXT_MUTED,
-            corner_radius=theme.RADIUS_SM,
-            command=lambda s=song: self._confirm_delete(s),
-        ).pack(side="left", padx=4)
 
     def _play_song(self, song: LibrarySong) -> None:
         """Launch the song in the system audio player with verification."""

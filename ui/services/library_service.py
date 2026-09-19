@@ -575,13 +575,23 @@ class LibraryService:
                         track_num=1,
                     )
                     was_upgrade = (song.state == SongState.OWNED)
+                    ext = prov_res.file_path.suffix.lower()
+                    if ext == ".webm":
+                        q_kbps = 160
+                        fmt_label = "Opus (WebM)"
+                    elif ext == ".m4a":
+                        q_kbps = 128
+                        fmt_label = "AAC (M4A)"
+                    else:
+                        q_kbps = 320
+                        fmt_label = "320 kbps MP3"
                     file_size = prov_res.size_bytes or prov_res.file_path.stat().st_size
                     self.registry.complete(
                         song_id=song.id,
                         download_id=download_id,
                         file_path=str(prov_res.file_path),
                         file_size_bytes=file_size,
-                        quality_kbps=320,
+                        quality_kbps=q_kbps,
                         library_location_id=1,
                         was_upgrade=was_upgrade,
                         previous_file_path=song.file_path,
@@ -593,7 +603,7 @@ class LibraryService:
                         title=song.title,
                         status="COMPLETED",
                         percent=1.0,
-                        speed_str="Downloaded · 320 kbps MP3 · Ready to play",
+                        speed_str=f"Downloaded · {fmt_label} · Ready to play",
                     ))
                     return True
         except Exception as prov_exc:

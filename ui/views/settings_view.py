@@ -329,6 +329,26 @@ class SettingsView(ctk.CTkFrame):
             fg_color=theme.PRIMARY,
         ).pack(anchor="w", pady=4)
 
+        # FFmpeg Detection Info Banner
+        import shutil
+        ffmpeg_ok = shutil.which("ffmpeg") is not None
+        ffmpeg_box = ctk.CTkFrame(body, fg_color=theme.SURFACE_MUTED, corner_radius=theme.RADIUS_SM)
+        ffmpeg_box.pack(fill="x", pady=(10, 4))
+
+        status_icon = "🟢" if ffmpeg_ok else "ℹ️"
+        status_msg = (
+            "FFmpeg Detected: Automatic MP3 transcoding active for all streams."
+            if ffmpeg_ok else
+            "FFmpeg Not Installed: Native streams preserved without quality loss (.webm Opus / .m4a AAC)."
+        )
+        ctk.CTkLabel(
+            ffmpeg_box,
+            text=f"{status_icon}  {status_msg}",
+            font=theme.font_caption(),
+            text_color=theme.SUCCESS if ffmpeg_ok else theme.TEXT_MUTED,
+            anchor="w",
+        ).pack(side="left", padx=12, pady=6)
+
     def _build_about_card(self) -> None:
         card = self._create_card("ABOUT & LEGAL NOTICE", "ℹ️")
         body = ctk.CTkFrame(card, fg_color="transparent")

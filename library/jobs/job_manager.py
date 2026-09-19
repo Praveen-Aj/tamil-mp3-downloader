@@ -390,7 +390,16 @@ class ImportJobManager:
                 )
                 completed_count += 1
                 if item_progress_cb:
-                    item_progress_cb(dl_id, song_id, item.title, 1.0, "Downloaded · 320 kbps MP3 · Ready to play")
+                    ext = dl_res.file_path.suffix.lower() if dl_res.file_path else ""
+                    if ext == ".webm":
+                        fmt_desc = "Opus (WebM) · 160 kbps"
+                    elif ext == ".m4a":
+                        fmt_desc = "AAC (M4A) · 128 kbps"
+                    elif ext == ".mp3":
+                        fmt_desc = "320 kbps MP3"
+                    else:
+                        fmt_desc = f"{ext.lstrip('.').upper()} Audio"
+                    item_progress_cb(dl_id, song_id, item.title, 1.0, f"Downloaded · {fmt_desc} · Ready to play")
             else:
                 err = dl_res.error_message or "Download failed"
                 self.db.update_download_state(dl_id, state=DownloadState.FAILED, error_message=err)
@@ -476,6 +485,15 @@ class ImportJobManager:
         c_hash = Canonicalizer.compute_hash(title, artist, album, duration_sec)
 
         file_size = file_path.stat().st_size if file_path.exists() else 0
+        ext = file_path.suffix.lower() if file_path else ""
+        if ext == ".webm":
+            detected_quality = 160
+        elif ext == ".m4a":
+            detected_quality = 128
+        elif ext == ".mp3":
+            detected_quality = 320
+        else:
+            detected_quality = None
 
         song = LibrarySong(
             canonical_hash=c_hash,
@@ -487,12 +505,12 @@ class ImportJobManager:
             artist=artist,
             album=album,
             state=SongState.OWNED,
-            quality_kbps=320,
+            quality_kbps=detected_quality,
             file_size_bytes=file_size,
             library_location_id=1,
             file_path=str(file_path),
         )
 
         song_id = self.db.add_song(song)
-        self.db.update_song_file(song_id, file_path=str(file_path), file_size_bytes=file_size, quality_kbps=320)
+        self.db.update_song_file(song_id, file_path=str(file_path), file_size_bytes=file_size, quality_kbps=detected_quality)
         return song_id

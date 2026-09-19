@@ -12,6 +12,7 @@ Full desktop download-manager experience with:
 """
 
 import os
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Set
 import tkinter as tk
 from tkinter import messagebox
@@ -277,7 +278,8 @@ class DownloadsView(ctk.CTkFrame):
                     txt = f"Downloading · {event.speed_str} ({event.percent*100:.0f}%)" if event.speed_str else f"Downloading... ({event.percent*100:.0f}%)"
                     metric_lbl.configure(text=txt, text_color=theme.INFO_LIGHT)
                 elif event.status == "COMPLETED":
-                    metric_lbl.configure(text="Downloaded · 320 kbps MP3 · Ready to play", text_color=theme.TEXT_MUTED)
+                    txt = event.speed_str if (event.speed_str and "Downloaded" in event.speed_str) else "Downloaded · Ready to play"
+                    metric_lbl.configure(text=txt, text_color=theme.TEXT_MUTED)
                 elif event.status == "FAILED":
                     metric_lbl.configure(text=event.error_message or "Download failed", text_color=theme.ERROR_LIGHT)
 
@@ -482,7 +484,20 @@ class DownloadsView(ctk.CTkFrame):
                 metric_txt = f"Downloading · {live_prog.speed_str} ({live_prog.percent*100:.0f}%)" if live_prog.speed_str else f"Downloading... ({live_prog.percent*100:.0f}%)"
             elif d.state == DownloadState.COMPLETED:
                 pct = 1.0
-                metric_txt = "Downloaded · 320 kbps MP3 · Ready to play"
+                out_p = d.output_path or (song.file_path if song else "")
+                ext = Path(out_p).suffix.lower() if out_p else ""
+                if ext == ".webm":
+                    fmt_desc = "Opus (WebM) · 160 kbps"
+                elif ext == ".m4a":
+                    fmt_desc = "AAC (M4A) · 128 kbps"
+                elif ext == ".mp3":
+                    kbps = song.quality_kbps if song and song.quality_kbps else 320
+                    fmt_desc = f"{kbps} kbps MP3"
+                elif ext:
+                    fmt_desc = f"{ext.lstrip('.').upper()} Audio"
+                else:
+                    fmt_desc = "320 kbps MP3"
+                metric_txt = f"Downloaded · {fmt_desc} · Ready to play"
             elif d.state == DownloadState.DOWNLOADING:
                 pct = 0.3
                 metric_txt = "Downloading in background..."
