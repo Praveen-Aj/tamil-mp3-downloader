@@ -28,7 +28,9 @@ class TestAudioHTTPHandler(http.server.BaseHTTPRequestHandler):
     """Local HTTP Server handler for serving deterministic test audio and simulating failure modes."""
 
     def do_GET(self) -> None:
-        if self.path == "/valid-song.mp3" or self.path == "/track1.mp3" or self.path == "/track2.mp3":
+        if self.path in ("/valid-song.mp3", "/track0.mp3", "/track1.mp3", "/track2.mp3") or (
+            self.path.endswith(".mp3") and self.path not in ("/html-masquerade.mp3", "/empty.mp3", "/not-found.mp3", "/flaky-song.mp3")
+        ):
             content = generate_valid_mp3_bytes(15)
             self.send_response(200)
             self.send_header("Content-Type", "audio/mpeg")

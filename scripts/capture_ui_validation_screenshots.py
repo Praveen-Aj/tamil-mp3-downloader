@@ -18,9 +18,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from library.database import SQLiteDatabase
-from library.models import LibrarySong, SongState, ImportJob, ImportJobItem, JobStatus, ItemState, DownloadState
+from library.models import LibrarySong, SongState, ImportJob, ImportJobItem, JobStatus, ItemState, Download, DownloadState
 from library.canonical import compute_canonical_hash
-from ui.services.library_service import LibraryService
+from ui.services.library_service import LibraryService, DownloadProgressEvent
 from ui.app import TamilMP3App
 
 
@@ -160,7 +160,7 @@ def run_visual_capture() -> None:
     )
 
     # Populate unowned catalog songs
-    db.add_song(
+    s4_id = db.add_song(
         LibrarySong(
             title="Katchi Sera",
             artist="Sai Abhyankkar",
@@ -170,7 +170,7 @@ def run_visual_capture() -> None:
             quality_kbps=320,
         )
     )
-    db.add_song(
+    s5_id = db.add_song(
         LibrarySong(
             title="Naa Ready",
             artist="Thalapathy Vijay",
@@ -287,10 +287,42 @@ def run_visual_capture() -> None:
     time.sleep(0.5)
     capture_view_screenshot(app, "add_music", output_dir / "05-playlist-import.png")
 
-    # 6. Downloads Manager Queue
+    # 6. Set up Downloads records: 1 Completed, 1 Active with Live Progress
+    dl_comp_id = db.add_download(
+        Download(
+            song_id=s1_id,
+            song_source_id=1,
+            state=DownloadState.COMPLETED,
+            output_path=str(f1),
+            file_size_bytes=f1.stat().st_size,
+            completed_at=time.strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+    )
+    dl_active_id = db.add_download(
+        Download(
+            song_id=s4_id,
+            song_source_id=2,
+            state=DownloadState.DOWNLOADING,
+            started_at=time.strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+    )
+    service.emit_progress(
+        DownloadProgressEvent(
+            download_id=dl_active_id,
+            song_id=s4_id,
+            title="Katchi Sera",
+            status="DOWNLOADING",
+            percent=0.65,
+            speed_str="2.4 MB/s · 00:03 remaining",
+        )
+    )
+    app.navigate_to("downloads")
+    app.update()
+    time.sleep(0.5)
+    capture_view_screenshot(app, "downloads", output_dir / "06-downloads-active-progress.png")
     capture_view_screenshot(app, "downloads", output_dir / "06-downloads.png")
 
-    # 7. Settings
+    # 7. Settings (Download directory and configuration)
     capture_view_screenshot(app, "settings", output_dir / "07-settings.png")
 
     # 8. Help & User Guide

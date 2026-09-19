@@ -162,12 +162,13 @@ class SQLiteDatabase:
         Returns:
             LibrarySong if found, None otherwise
         """
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM songs WHERE id = ?", (song_id,))
-        row = cursor.fetchone()
-        if row:
-            return LibrarySong.from_row(row)
-        return None
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM songs WHERE id = ?", (song_id,))
+            row = cursor.fetchone()
+            if row:
+                return LibrarySong.from_row(row)
+            return None
 
     def get_song_by_canonical_hash(
         self, canonical_hash: str
@@ -181,12 +182,13 @@ class SQLiteDatabase:
         Returns:
             LibrarySong if found, None otherwise
         """
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM songs WHERE canonical_hash = ?", (canonical_hash,))
-        row = cursor.fetchone()
-        if row:
-            return LibrarySong.from_row(row)
-        return None
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM songs WHERE canonical_hash = ?", (canonical_hash,))
+            row = cursor.fetchone()
+            if row:
+                return LibrarySong.from_row(row)
+            return None
 
     def get_song_by_hash(self, canonical_hash: str) -> Optional[LibrarySong]:
         """Alias for get_song_by_canonical_hash."""
@@ -298,12 +300,24 @@ class SQLiteDatabase:
         Returns:
             List of LibrarySong
         """
-        cursor = self._conn.cursor()
-        query = "SELECT * FROM songs WHERE state = ? ORDER BY first_discovered_at DESC"
-        if limit:
-            query += f" LIMIT {limit}"
-        cursor.execute(query, (state.value,))
-        return [LibrarySong.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            query = "SELECT * FROM songs WHERE state = ? ORDER BY first_discovered_at DESC"
+            if limit:
+                query += f" LIMIT {limit}"
+            cursor.execute(query, (state.value,))
+            return [LibrarySong.from_row(row) for row in cursor.fetchall()]
+
+    def update_song_quality(self, song_id: int, quality_kbps: int) -> bool:
+        """Update song quality in kbps."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    "UPDATE songs SET quality_kbps = ?, last_seen_at = ? WHERE id = ?",
+                    (quality_kbps, datetime.now().isoformat(), song_id)
+                )
+                return cursor.rowcount > 0
 
     def search_songs(self, query: str, limit: int = 50) -> List[LibrarySong]:
         """
@@ -316,15 +330,16 @@ class SQLiteDatabase:
         Returns:
             List of matching LibrarySong
         """
-        cursor = self._conn.cursor()
-        search_pattern = f"%{query}%"
-        cursor.execute("""
-            SELECT * FROM songs
-            WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?
-            ORDER BY last_seen_at DESC
-            LIMIT ?
-        """, (search_pattern, search_pattern, search_pattern, limit))
-        return [LibrarySong.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            search_pattern = f"%{query}%"
+            cursor.execute("""
+                SELECT * FROM songs
+                WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?
+                ORDER BY last_seen_at DESC
+                LIMIT ?
+            """, (search_pattern, search_pattern, search_pattern, limit))
+            return [LibrarySong.from_row(row) for row in cursor.fetchall()]
 
     def get_paginated_songs(
         self,
@@ -431,9 +446,10 @@ class SQLiteDatabase:
         Returns:
             List of SongSource
         """
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM song_sources WHERE song_id = ?", (song_id,))
-        return [SongSource.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM song_sources WHERE song_id = ?", (song_id,))
+            return [SongSource.from_row(row) for row in cursor.fetchall()]
 
     def update_source_availability(self, source_id: int, is_available: bool) -> bool:
         """
@@ -446,14 +462,15 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute("""
-                UPDATE song_sources
-                SET is_available = ?, availability_last_checked = ?
-                WHERE id = ?
-            """, (is_available, datetime.now().isoformat(), source_id))
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE song_sources
+                    SET is_available = ?, availability_last_checked = ?
+                    WHERE id = ?
+                """, (is_available, datetime.now().isoformat(), source_id))
+                return cursor.rowcount > 0
 
     def update_source_reliability(self, source_id: int, reliability_score: float) -> bool:
         """
@@ -466,13 +483,14 @@ class SQLiteDatabase:
         Returns:
             True if updated, False otherwise
         """
-        with self._conn:
-            cursor = self._conn.cursor()
-            cursor.execute(
-                "UPDATE song_sources SET reliability_score = ? WHERE id = ?",
-                (reliability_score, source_id)
-            )
-            return cursor.rowcount > 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    "UPDATE song_sources SET reliability_score = ? WHERE id = ?",
+                    (reliability_score, source_id)
+                )
+                return cursor.rowcount > 0
 
     # ------------------------------------------------------------------
     # Download operations
@@ -607,25 +625,28 @@ class SQLiteDatabase:
         Returns:
             List of Download
         """
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT * FROM downloads WHERE song_id = ? ORDER BY planned_at DESC",
-            (song_id,)
-        )
-        return [Download.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                "SELECT * FROM downloads WHERE song_id = ? ORDER BY planned_at DESC",
+                (song_id,)
+            )
+            return [Download.from_row(row) for row in cursor.fetchall()]
 
     def get_download(self, download_id: int) -> Optional[Download]:
         """Get a download by ID."""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM downloads WHERE id = ?", (download_id,))
-        row = cursor.fetchone()
-        return Download.from_row(row) if row else None
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM downloads WHERE id = ?", (download_id,))
+            row = cursor.fetchone()
+            return Download.from_row(row) if row else None
 
     def get_all_downloads(self) -> List[Download]:
         """Get all downloads."""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM downloads ORDER BY id DESC")
-        return [Download.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM downloads ORDER BY id DESC")
+            return [Download.from_row(row) for row in cursor.fetchall()]
 
     def delete_download_record(self, download_id: int) -> bool:
         """Delete a download record by ID."""
@@ -637,10 +658,11 @@ class SQLiteDatabase:
 
     def get_source_by_id(self, source_id: int) -> Optional[SongSource]:
         """Get a song source by ID."""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM song_sources WHERE id = ?", (source_id,))
-        row = cursor.fetchone()
-        return SongSource.from_row(row) if row else None
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM song_sources WHERE id = ?", (source_id,))
+            row = cursor.fetchone()
+            return SongSource.from_row(row) if row else None
 
     # ------------------------------------------------------------------
     # Discovery context operations
@@ -680,12 +702,13 @@ class SQLiteDatabase:
         Returns:
             List of DiscoveryContext
         """
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT * FROM discovery_context WHERE song_id = ? ORDER BY discovered_at DESC",
-            (song_id,)
-        )
-        return [DiscoveryContext.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                "SELECT * FROM discovery_context WHERE song_id = ? ORDER BY discovered_at DESC",
+                (song_id,)
+            )
+            return [DiscoveryContext.from_row(row) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------
     # Library location operations
@@ -720,9 +743,10 @@ class SQLiteDatabase:
         Returns:
             List of LibraryLocation
         """
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM library_locations ORDER BY is_primary DESC, created_at")
-        return [LibraryLocation.from_row(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM library_locations ORDER BY is_primary DESC, created_at")
+            return [LibraryLocation.from_row(row) for row in cursor.fetchall()]
 
     def get_primary_library_location(self) -> Optional[LibraryLocation]:
         """
@@ -731,12 +755,13 @@ class SQLiteDatabase:
         Returns:
             LibraryLocation if found, None otherwise
         """
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM library_locations WHERE is_primary = 1 LIMIT 1")
-        row = cursor.fetchone()
-        if row:
-            return LibraryLocation.from_row(row)
-        return None
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM library_locations WHERE is_primary = 1 LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                return LibraryLocation.from_row(row)
+            return None
 
     def set_primary_library_location(self, location_id: int) -> bool:
         """

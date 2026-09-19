@@ -894,14 +894,13 @@ class LibraryService:
             t.start()
             return t
         else:
-            self.job_manager.execute_job(
+            return self.job_manager.execute_job(
                 job_id=job_id,
                 item_ids=item_ids,
                 output_dir=target_dir,
                 progress_cb=progress_cb,
                 item_progress_cb=_item_prog,
             )
-            return None
 
     def get_import_job(self, job_id: str) -> Optional[ImportJob]:
         return self.db.get_import_job(job_id)
