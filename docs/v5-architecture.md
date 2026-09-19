@@ -115,8 +115,10 @@ erDiagram
     SONGS ||--o{ DOWNLOADS : "tracks execution"
     SONGS ||--o{ PLAYLIST_ITEMS : "included in"
     SONGS ||--o{ CHART_ENTRIES : "ranked in"
-    SONGS }o--o{ ARTISTS : "credited in"
-    SONGS }o--o{ MOVIES : "featured in"
+    SONGS ||--o{ SONG_ARTISTS : "credits"
+    ARTISTS ||--o{ SONG_ARTISTS : "participates"
+    SONGS ||--o{ SONG_MOVIES : "features"
+    MOVIES ||--o{ SONG_MOVIES : "includes"
     SONGS ||--o{ USER_METADATA : "user properties"
     MOVIES ||--o{ MOVIE_ACTORS : "stars"
     MOVIES ||--o{ MOVIE_COMPOSERS : "composed by"
@@ -136,7 +138,18 @@ erDiagram
         int quality_kbps
         int file_size_bytes
         string file_path
-        int movie_id FK
+    }
+
+    SONG_MOVIES {
+        int song_id PK,FK
+        int movie_id PK,FK
+        int track_number
+    }
+
+    SONG_ARTISTS {
+        int song_id PK,FK
+        int artist_id PK,FK
+        string role
     }
 
     USER_METADATA {

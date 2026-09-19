@@ -481,3 +481,263 @@ class ImportJobItem:
             download_id=row['download_id'],
             canonical_song_id=row['canonical_song_id'] if 'canonical_song_id' in row.keys() else None,
         )
+
+
+# ==============================================================================
+# V5.1 Multi-Dimensional Music Discovery & Personal Library Models
+# ==============================================================================
+
+@dataclass
+class Movie:
+    """
+    Represents a Tamil movie in the discovery catalog.
+    """
+    id: Optional[int] = None
+    title: str = ""
+    title_normalized: str = ""
+    year: Optional[int] = None
+    director: Optional[str] = None
+    poster_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    local_poster_path: Optional[str] = None
+    track_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'Movie':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            id=row['id'],
+            title=row['title'],
+            title_normalized=row['title_normalized'],
+            year=row['year'],
+            director=row['director'] if 'director' in keys else None,
+            poster_url=row['poster_url'] if 'poster_url' in keys else None,
+            banner_url=row['banner_url'] if 'banner_url' in keys else None,
+            local_poster_path=row['local_poster_path'] if 'local_poster_path' in keys else None,
+            track_count=row['track_count'] if 'track_count' in keys else 0,
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+        )
+
+
+@dataclass
+class Artist:
+    """
+    Represents an artist, singer, composer, or actor in the music directory.
+    """
+    id: Optional[int] = None
+    name: str = ""
+    name_normalized: str = ""
+    role: str = "artist"
+    photo_url: Optional[str] = None
+    local_photo_path: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'Artist':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            id=row['id'],
+            name=row['name'],
+            name_normalized=row['name_normalized'],
+            role=row['role'] if 'role' in keys else 'artist',
+            photo_url=row['photo_url'] if 'photo_url' in keys else None,
+            local_photo_path=row['local_photo_path'] if 'local_photo_path' in keys else None,
+            bio=row['bio'] if 'bio' in keys else None,
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+        )
+
+
+@dataclass
+class MovieActor:
+    """Join record linking a movie to an actor."""
+    movie_id: int = 0
+    actor_id: int = 0
+    character_name: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'MovieActor':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            movie_id=row['movie_id'],
+            actor_id=row['actor_id'],
+            character_name=row['character_name'] if 'character_name' in keys else None,
+        )
+
+
+@dataclass
+class MovieComposer:
+    """Join record linking a movie to a music director/composer."""
+    movie_id: int = 0
+    composer_id: int = 0
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'MovieComposer':
+        return cls(
+            movie_id=row['movie_id'],
+            composer_id=row['composer_id'],
+        )
+
+
+@dataclass
+class SongArtist:
+    """Join record linking a canonical song to an artist with role."""
+    song_id: int = 0
+    artist_id: int = 0
+    role: str = "singer"
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'SongArtist':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            song_id=row['song_id'],
+            artist_id=row['artist_id'],
+            role=row['role'] if 'role' in keys else 'singer',
+        )
+
+
+@dataclass
+class SongMovie:
+    """Join record linking a canonical song to a movie."""
+    song_id: int = 0
+    movie_id: int = 0
+    track_number: Optional[int] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'SongMovie':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            song_id=row['song_id'],
+            movie_id=row['movie_id'],
+            track_number=row['track_number'] if 'track_number' in keys else None,
+        )
+
+
+@dataclass
+class UserSongMetadata:
+    """User-owned metadata: personal ratings (1-5), favorites, notes, and tags."""
+    song_id: int = 0
+    rating: Optional[int] = None
+    is_favorite: bool = False
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+    favorited_at: Optional[datetime] = None
+    last_rated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'UserSongMetadata':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            song_id=row['song_id'],
+            rating=row['rating'],
+            is_favorite=bool(row['is_favorite']),
+            notes=row['notes'] if 'notes' in keys else None,
+            tags=row['tags'] if 'tags' in keys else None,
+            favorited_at=datetime.fromisoformat(row['favorited_at']) if row['favorited_at'] else None,
+            last_rated_at=datetime.fromisoformat(row['last_rated_at']) if row['last_rated_at'] else None,
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+        )
+
+
+@dataclass
+class Playlist:
+    """User-defined playlist or smart collection."""
+    id: Optional[int] = None
+    name: str = ""
+    description: Optional[str] = None
+    cover_url: Optional[str] = None
+    is_smart: bool = False
+    smart_criteria_json: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'Playlist':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            id=row['id'],
+            name=row['name'],
+            description=row['description'] if 'description' in keys else None,
+            cover_url=row['cover_url'] if 'cover_url' in keys else None,
+            is_smart=bool(row['is_smart']),
+            smart_criteria_json=row['smart_criteria_json'] if 'smart_criteria_json' in keys else None,
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+        )
+
+
+@dataclass
+class PlaylistItem:
+    """An individual song entry inside a playlist."""
+    id: Optional[int] = None
+    playlist_id: int = 0
+    song_id: int = 0
+    position: int = 0
+    added_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'PlaylistItem':
+        return cls(
+            id=row['id'],
+            playlist_id=row['playlist_id'],
+            song_id=row['song_id'],
+            position=row['position'],
+            added_at=datetime.fromisoformat(row['added_at']) if row['added_at'] else None,
+        )
+
+
+@dataclass
+class Chart:
+    """Curated chart or ranking feed."""
+    id: str = ""
+    title: str = ""
+    chart_type: str = ""
+    provider_name: str = ""
+    snapshot_date: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'Chart':
+        return cls(
+            id=row['id'],
+            title=row['title'],
+            chart_type=row['chart_type'],
+            provider_name=row['provider_name'],
+            snapshot_date=datetime.fromisoformat(row['snapshot_date']) if row['snapshot_date'] else None,
+            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+        )
+
+
+@dataclass
+class ChartEntry:
+    """An individual ranked song entry within a chart snapshot."""
+    id: Optional[int] = None
+    chart_id: str = ""
+    rank: int = 0
+    previous_rank: Optional[int] = None
+    song_id: Optional[int] = None
+    raw_title: str = ""
+    raw_artist: Optional[str] = None
+    raw_movie: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> 'ChartEntry':
+        keys = row.keys() if hasattr(row, 'keys') else []
+        return cls(
+            id=row['id'],
+            chart_id=row['chart_id'],
+            rank=row['rank'],
+            previous_rank=row['previous_rank'] if 'previous_rank' in keys else None,
+            song_id=row['song_id'] if 'song_id' in keys else None,
+            raw_title=row['raw_title'],
+            raw_artist=row['raw_artist'] if 'raw_artist' in keys else None,
+            raw_movie=row['raw_movie'] if 'raw_movie' in keys else None,
+        )

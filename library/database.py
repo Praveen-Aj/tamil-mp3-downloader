@@ -10,11 +10,13 @@ import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from library.models import (
     LibrarySong, SongSource, Download, LibraryLocation, DiscoveryContext,
-    SongState, DownloadState, ImportJob, ImportJobItem, JobStatus, ItemState
+    SongState, DownloadState, ImportJob, ImportJobItem, JobStatus, ItemState,
+    Movie, Artist, MovieActor, MovieComposer, SongArtist, SongMovie,
+    UserSongMetadata, Playlist, PlaylistItem, Chart, ChartEntry
 )
 from library.migrator import DatabaseMigrator
 
@@ -1012,3 +1014,545 @@ class SQLiteDatabase:
                 cursor.execute("DELETE FROM downloads WHERE song_id = ?", (song_id,))
                 cursor.execute("DELETE FROM songs WHERE id = ?", (song_id,))
                 return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # V5.1 Discovery & Library Models: Movies
+    # ------------------------------------------------------------------
+
+    def add_movie(self, movie: Movie) -> int:
+        """Add a movie to the catalog or return existing ID."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO movies (
+                        title, title_normalized, year, director, poster_url,
+                        banner_url, local_poster_path, track_count, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    movie.title,
+                    movie.title_normalized,
+                    movie.year,
+                    movie.director,
+                    movie.poster_url,
+                    movie.banner_url,
+                    movie.local_poster_path,
+                    movie.track_count,
+                    (movie.created_at or datetime.now()).isoformat(),
+                    (movie.updated_at or datetime.now()).isoformat(),
+                ))
+                if cursor.rowcount > 0:
+                    return cursor.lastrowid
+                cursor.execute("SELECT id FROM movies WHERE title = ?", (movie.title,))
+                row = cursor.fetchone()
+                return row[0] if row else 0
+
+    def get_movie(self, movie_id: int) -> Optional[Movie]:
+        """Get movie by database ID."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM movies WHERE id = ?", (movie_id,))
+            row = cursor.fetchone()
+            return Movie.from_row(row) if row else None
+
+    def get_movie_by_title(self, title: str) -> Optional[Movie]:
+        """Get movie by title."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM movies WHERE title = ?", (title,))
+            row = cursor.fetchone()
+            return Movie.from_row(row) if row else None
+
+    def list_movies(self, limit: int = 50, offset: int = 0) -> List[Movie]:
+        """List movies ordered by year descending, title ascending."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT * FROM movies
+                ORDER BY year DESC, title ASC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            return [Movie.from_row(r) for r in cursor.fetchall()]
+
+    def delete_movie(self, movie_id: int) -> bool:
+        """Delete a movie by ID (does not delete associated songs)."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM movie_actors WHERE movie_id = ?", (movie_id,))
+                cursor.execute("DELETE FROM movie_composers WHERE movie_id = ?", (movie_id,))
+                cursor.execute("DELETE FROM song_movies WHERE movie_id = ?", (movie_id,))
+                cursor.execute("DELETE FROM movies WHERE id = ?", (movie_id,))
+                return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # V5.1 Discovery & Library Models: Artists
+    # ------------------------------------------------------------------
+
+    def add_artist(self, artist: Artist) -> int:
+        """Add an artist to directory or return existing ID."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO artists (
+                        name, name_normalized, role, photo_url, local_photo_path,
+                        bio, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    artist.name,
+                    artist.name_normalized,
+                    artist.role,
+                    artist.photo_url,
+                    artist.local_photo_path,
+                    artist.bio,
+                    (artist.created_at or datetime.now()).isoformat(),
+                    (artist.updated_at or datetime.now()).isoformat(),
+                ))
+                if cursor.rowcount > 0:
+                    return cursor.lastrowid
+                cursor.execute("SELECT id FROM artists WHERE name = ?", (artist.name,))
+                row = cursor.fetchone()
+                return row[0] if row else 0
+
+    def get_artist(self, artist_id: int) -> Optional[Artist]:
+        """Get artist by database ID."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM artists WHERE id = ?", (artist_id,))
+            row = cursor.fetchone()
+            return Artist.from_row(row) if row else None
+
+    def get_artist_by_name(self, name: str) -> Optional[Artist]:
+        """Get artist by exact name."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM artists WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            return Artist.from_row(row) if row else None
+
+    def list_artists(self, role: Optional[str] = None, limit: int = 50, offset: int = 0) -> List[Artist]:
+        """List artists optionally filtered by role."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            if role:
+                cursor.execute("""
+                    SELECT * FROM artists
+                    WHERE role = ?
+                    ORDER BY name ASC
+                    LIMIT ? OFFSET ?
+                """, (role, limit, offset))
+            else:
+                cursor.execute("""
+                    SELECT * FROM artists
+                    ORDER BY name ASC
+                    LIMIT ? OFFSET ?
+                """, (limit, offset))
+            return [Artist.from_row(r) for r in cursor.fetchall()]
+
+    def delete_artist(self, artist_id: int) -> bool:
+        """Delete an artist by ID (does not delete associated songs)."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM movie_actors WHERE actor_id = ?", (artist_id,))
+                cursor.execute("DELETE FROM movie_composers WHERE composer_id = ?", (artist_id,))
+                cursor.execute("DELETE FROM song_artists WHERE artist_id = ?", (artist_id,))
+                cursor.execute("DELETE FROM artists WHERE id = ?", (artist_id,))
+                return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # V5.1 Relational Join Tables: Movie Actors & Composers
+    # ------------------------------------------------------------------
+
+    def add_movie_actor(self, movie_id: int, actor_id: int, character_name: Optional[str] = None) -> bool:
+        """Link an actor to a movie."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO movie_actors (movie_id, actor_id, character_name)
+                    VALUES (?, ?, ?)
+                """, (movie_id, actor_id, character_name))
+                return cursor.rowcount > 0
+
+    def get_movie_actors(self, movie_id: int) -> List[Tuple[Artist, Optional[str]]]:
+        """Get all actors in a movie with character names."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT a.*, ma.character_name
+                FROM artists a
+                JOIN movie_actors ma ON a.id = ma.actor_id
+                WHERE ma.movie_id = ?
+                ORDER BY a.name ASC
+            """, (movie_id,))
+            return [(Artist.from_row(r), r['character_name']) for r in cursor.fetchall()]
+
+    def add_movie_composer(self, movie_id: int, composer_id: int) -> bool:
+        """Link a music director/composer to a movie."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO movie_composers (movie_id, composer_id)
+                    VALUES (?, ?)
+                """, (movie_id, composer_id))
+                return cursor.rowcount > 0
+
+    def get_movie_composers(self, movie_id: int) -> List[Artist]:
+        """Get all composers/music directors for a movie."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT a.*
+                FROM artists a
+                JOIN movie_composers mc ON a.id = mc.composer_id
+                WHERE mc.movie_id = ?
+                ORDER BY a.name ASC
+            """, (movie_id,))
+            return [Artist.from_row(r) for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # V5.1 Relational Join Tables: Song Artists & Song Movies
+    # ------------------------------------------------------------------
+
+    def add_song_artist(self, song_id: int, artist_id: int, role: str = "singer") -> bool:
+        """Link a canonical song to an artist with a role."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO song_artists (song_id, artist_id, role)
+                    VALUES (?, ?, ?)
+                """, (song_id, artist_id, role))
+                return cursor.rowcount > 0
+
+    def get_song_artists(self, song_id: int) -> List[Tuple[Artist, str]]:
+        """Get all credited artists for a canonical song."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT a.*, sa.role
+                FROM artists a
+                JOIN song_artists sa ON a.id = sa.artist_id
+                WHERE sa.song_id = ?
+                ORDER BY sa.role ASC, a.name ASC
+            """, (song_id,))
+            return [(Artist.from_row(r), r['role']) for r in cursor.fetchall()]
+
+    def get_artist_songs(self, artist_id: int, role: Optional[str] = None) -> List[LibrarySong]:
+        """Get all canonical songs associated with an artist."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            if role:
+                cursor.execute("""
+                    SELECT s.*
+                    FROM songs s
+                    JOIN song_artists sa ON s.id = sa.song_id
+                    WHERE sa.artist_id = ? AND sa.role = ?
+                    ORDER BY s.title ASC
+                """, (artist_id, role))
+            else:
+                cursor.execute("""
+                    SELECT DISTINCT s.*
+                    FROM songs s
+                    JOIN song_artists sa ON s.id = sa.song_id
+                    WHERE sa.artist_id = ?
+                    ORDER BY s.title ASC
+                """, (artist_id,))
+            return [LibrarySong.from_row(r) for r in cursor.fetchall()]
+
+    def add_song_movie(self, song_id: int, movie_id: int, track_number: Optional[int] = None) -> bool:
+        """Link a canonical song to a movie."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO song_movies (song_id, movie_id, track_number)
+                    VALUES (?, ?, ?)
+                """, (song_id, movie_id, track_number))
+                return cursor.rowcount > 0
+
+    def get_song_movies(self, song_id: int) -> List[Movie]:
+        """Get all movies featuring this canonical song."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT m.*
+                FROM movies m
+                JOIN song_movies sm ON m.id = sm.movie_id
+                WHERE sm.song_id = ?
+                ORDER BY m.year DESC
+            """, (song_id,))
+            return [Movie.from_row(r) for r in cursor.fetchall()]
+
+    def get_movie_songs(self, movie_id: int) -> List[LibrarySong]:
+        """Get all canonical songs belonging to a movie ordered by track number."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT s.*
+                FROM songs s
+                JOIN song_movies sm ON s.id = sm.song_id
+                WHERE sm.movie_id = ?
+                ORDER BY COALESCE(sm.track_number, 999), s.title ASC
+            """, (movie_id,))
+            return [LibrarySong.from_row(r) for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # V5.1 User Song Metadata: Ratings, Favorites, Personal Notes
+    # ------------------------------------------------------------------
+
+    def set_user_metadata(self, meta: UserSongMetadata) -> bool:
+        """Set or update user metadata for a canonical song."""
+        if meta.rating is not None and not (1 <= meta.rating <= 5):
+            raise ValueError(f"Rating must be between 1 and 5 (got {meta.rating})")
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO user_song_metadata (
+                        song_id, rating, is_favorite, notes, tags,
+                        favorited_at, last_rated_at, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    meta.song_id,
+                    meta.rating,
+                    1 if meta.is_favorite else 0,
+                    meta.notes,
+                    meta.tags,
+                    meta.favorited_at.isoformat() if meta.favorited_at else None,
+                    meta.last_rated_at.isoformat() if meta.last_rated_at else None,
+                    (meta.created_at or datetime.now()).isoformat(),
+                    datetime.now().isoformat(),
+                ))
+                return cursor.rowcount > 0
+
+    def get_user_metadata(self, song_id: int) -> Optional[UserSongMetadata]:
+        """Get user metadata for a song."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM user_song_metadata WHERE song_id = ?", (song_id,))
+            row = cursor.fetchone()
+            return UserSongMetadata.from_row(row) if row else None
+
+    def set_song_rating(self, song_id: int, rating: Optional[int]) -> bool:
+        """Set rating (1-5 or None to clear) for a song."""
+        if rating is not None and not (1 <= rating <= 5):
+            raise ValueError(f"Rating must be between 1 and 5 (got {rating})")
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT INTO user_song_metadata (song_id, rating, last_rated_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(song_id) DO UPDATE SET
+                        rating = excluded.rating,
+                        last_rated_at = excluded.last_rated_at,
+                        updated_at = excluded.updated_at
+                """, (song_id, rating, datetime.now().isoformat(), datetime.now().isoformat()))
+                return cursor.rowcount > 0
+
+    def toggle_song_favorite(self, song_id: int) -> bool:
+        """Toggle favorite status for a song and return new state."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT is_favorite FROM user_song_metadata WHERE song_id = ?", (song_id,))
+                row = cursor.fetchone()
+                new_state = True
+                if row:
+                    new_state = not bool(row[0])
+                fav_at = datetime.now().isoformat() if new_state else None
+                cursor.execute("""
+                    INSERT INTO user_song_metadata (song_id, is_favorite, favorited_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(song_id) DO UPDATE SET
+                        is_favorite = excluded.is_favorite,
+                        favorited_at = excluded.favorited_at,
+                        updated_at = excluded.updated_at
+                """, (song_id, 1 if new_state else 0, fav_at, datetime.now().isoformat()))
+                return new_state
+
+    def list_favorite_songs(self) -> List[LibrarySong]:
+        """List all canonical songs flagged as favorite."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT s.*
+                FROM songs s
+                JOIN user_song_metadata m ON s.id = m.song_id
+                WHERE m.is_favorite = 1
+                ORDER BY m.favorited_at DESC, s.title ASC
+            """)
+            return [LibrarySong.from_row(r) for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # V5.1 Playlists & Playlist Items
+    # ------------------------------------------------------------------
+
+    def create_playlist(self, playlist: Playlist) -> int:
+        """Create a user playlist or return existing ID."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO playlists (
+                        name, description, cover_url, is_smart, smart_criteria_json,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    playlist.name,
+                    playlist.description,
+                    playlist.cover_url,
+                    1 if playlist.is_smart else 0,
+                    playlist.smart_criteria_json,
+                    (playlist.created_at or datetime.now()).isoformat(),
+                    (playlist.updated_at or datetime.now()).isoformat(),
+                ))
+                if cursor.rowcount > 0:
+                    return cursor.lastrowid
+                cursor.execute("SELECT id FROM playlists WHERE name = ?", (playlist.name,))
+                row = cursor.fetchone()
+                return row[0] if row else 0
+
+    def get_playlist(self, playlist_id: int) -> Optional[Playlist]:
+        """Get playlist by ID."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM playlists WHERE id = ?", (playlist_id,))
+            row = cursor.fetchone()
+            return Playlist.from_row(row) if row else None
+
+    def list_playlists(self) -> List[Playlist]:
+        """List all user playlists."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM playlists ORDER BY name ASC")
+            return [Playlist.from_row(r) for r in cursor.fetchall()]
+
+    def delete_playlist(self, playlist_id: int) -> bool:
+        """Delete a playlist (cascades to playlist_items, preserves songs)."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM playlist_items WHERE playlist_id = ?", (playlist_id,))
+                cursor.execute("DELETE FROM playlists WHERE id = ?", (playlist_id,))
+                return cursor.rowcount > 0
+
+    def add_playlist_item(self, playlist_id: int, song_id: int, position: Optional[int] = None) -> int:
+        """Add a song to a playlist. Auto-assigns next position if not specified."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                if position is None:
+                    cursor.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM playlist_items WHERE playlist_id = ?", (playlist_id,))
+                    position = cursor.fetchone()[0]
+                cursor.execute("""
+                    INSERT OR IGNORE INTO playlist_items (playlist_id, song_id, position, added_at)
+                    VALUES (?, ?, ?, ?)
+                """, (playlist_id, song_id, position, datetime.now().isoformat()))
+                return cursor.lastrowid if cursor.rowcount > 0 else 0
+
+    def remove_playlist_item(self, playlist_id: int, song_id: int) -> bool:
+        """Remove a song from a playlist."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM playlist_items WHERE playlist_id = ? AND song_id = ?", (playlist_id, song_id))
+                return cursor.rowcount > 0
+
+    def get_playlist_songs(self, playlist_id: int) -> List[LibrarySong]:
+        """Get songs in a playlist ordered by position."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT s.*
+                FROM songs s
+                JOIN playlist_items pi ON s.id = pi.song_id
+                WHERE pi.playlist_id = ?
+                ORDER BY pi.position ASC
+            """, (playlist_id,))
+            return [LibrarySong.from_row(r) for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # V5.1 Curated Charts & Snapshots
+    # ------------------------------------------------------------------
+
+    def create_chart(self, chart: Chart) -> str:
+        """Create a chart snapshot."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO charts (
+                        id, title, chart_type, provider_name, snapshot_date, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    chart.id,
+                    chart.title,
+                    chart.chart_type,
+                    chart.provider_name,
+                    chart.snapshot_date.isoformat() if chart.snapshot_date else datetime.now().isoformat(),
+                    (chart.created_at or datetime.now()).isoformat(),
+                ))
+                return chart.id
+
+    def get_chart(self, chart_id: str) -> Optional[Chart]:
+        """Get chart snapshot by ID."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM charts WHERE id = ?", (chart_id,))
+            row = cursor.fetchone()
+            return Chart.from_row(row) if row else None
+
+    def list_charts(self, chart_type: Optional[str] = None) -> List[Chart]:
+        """List charts ordered by snapshot_date descending."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            if chart_type:
+                cursor.execute("SELECT * FROM charts WHERE chart_type = ? ORDER BY snapshot_date DESC", (chart_type,))
+            else:
+                cursor.execute("SELECT * FROM charts ORDER BY snapshot_date DESC")
+            return [Chart.from_row(r) for r in cursor.fetchall()]
+
+    def delete_chart(self, chart_id: str) -> bool:
+        """Delete chart (cascades to chart_entries, preserves songs)."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("DELETE FROM chart_entries WHERE chart_id = ?", (chart_id,))
+                cursor.execute("DELETE FROM charts WHERE id = ?", (chart_id,))
+                return cursor.rowcount > 0
+
+    def add_chart_entry(self, entry: ChartEntry) -> int:
+        """Add a ranked track entry to a chart."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO chart_entries (
+                        chart_id, rank, previous_rank, song_id, raw_title, raw_artist, raw_movie
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    entry.chart_id,
+                    entry.rank,
+                    entry.previous_rank,
+                    entry.song_id,
+                    entry.raw_title,
+                    entry.raw_artist,
+                    entry.raw_movie,
+                ))
+                return cursor.lastrowid
+
+    def get_chart_entries(self, chart_id: str) -> List[ChartEntry]:
+        """Get all ranked entries for a chart ordered by rank ascending."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT * FROM chart_entries
+                WHERE chart_id = ?
+                ORDER BY rank ASC
+            """, (chart_id,))
+            return [ChartEntry.from_row(r) for r in cursor.fetchall()]
