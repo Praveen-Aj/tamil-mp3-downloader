@@ -3,7 +3,18 @@ Pytest configuration and shared deterministic fixtures.
 """
 
 from pathlib import Path
+import os
+import sys
 import pytest
+
+# Ensure tcl/tk library environment is set for Windows
+if sys.platform == "win32":
+    tcl_dir = Path(sys.base_prefix) / "tcl" / "tcl8.6"
+    tk_dir = Path(sys.base_prefix) / "tcl" / "tk8.6"
+    if tcl_dir.exists():
+        os.environ["TCL_LIBRARY"] = str(tcl_dir)
+    if tk_dir.exists():
+        os.environ["TK_LIBRARY"] = str(tk_dir)
 
 from library.database import SQLiteDatabase
 from tests.fixtures_helper import LocalTestServer, generate_valid_mp3_bytes

@@ -6,6 +6,7 @@ filtering track selections, and scheduling downloads into the canonical library.
 """
 
 import logging
+import queue
 import threading
 from typing import Optional, Dict, Any, List, Callable, Set
 import tkinter as tk
@@ -58,11 +59,38 @@ class AddMusicView(ctk.CTkFrame):
         self._item_checkbox_vars: Dict[int, tk.BooleanVar] = {}
         self._is_analyzing: bool = False
         self._track_display_limit: int = 40
+        self._action_queue: queue.Queue = queue.Queue()
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
         self._build_ui()
+        self._schedule_queue_timer()
+
+    def _schedule_queue_timer(self) -> None:
+        try:
+            self.after(50, self._check_queue_timer)
+        except Exception:
+            pass
+
+    def _check_queue_timer(self) -> None:
+        self._drain_action_queue()
+        self._schedule_queue_timer()
+
+    def _dispatch_to_main_thread(self, func: Callable[[], None]) -> None:
+        self._action_queue.put(func)
+        try:
+            self.after(0, self._drain_action_queue)
+        except Exception:
+            pass
+
+    def _drain_action_queue(self) -> None:
+        while not self._action_queue.empty():
+            try:
+                action = self._action_queue.get_nowait()
+                action()
+            except Exception as e:
+                logger.debug(f"Action execution error: {e}")
 
     def _build_ui(self) -> None:
         """Construct view layout."""
@@ -282,15 +310,15 @@ class AddMusicView(ctk.CTkFrame):
         def _worker():
             try:
                 def _prog(msg, cur, tot):
-                    self.after(0, lambda m=msg: self.status_lbl.configure(text=m))
+                    self._dispatch_to_main_thread(lambda m=msg: self.status_lbl.configure(text=m))
 
                 job, items = self.service.analyze_music_url(url, progress_cb=_prog)
-                self.after(0, lambda: self._render_playlist_ui(job, items))
+                self._dispatch_to_main_thread(lambda: self._render_playlist_ui(job, items))
             except Exception as e:
                 logger.error(f"Error during URL analysis: {e}", exc_info=True)
-                self.after(0, lambda err=str(e): self._render_error(err))
+                self._dispatch_to_main_thread(lambda err=str(e): self._render_error(err))
             finally:
-                self.after(0, self._reset_analyze_button)
+                self._dispatch_to_main_thread(self._reset_analyze_button)
 
         threading.Thread(target=_worker, daemon=True).start()
 

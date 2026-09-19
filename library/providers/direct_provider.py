@@ -83,7 +83,8 @@ class DirectAudioProvider(AudioProvider):
 
         target_file = output_dir / f"{filename_stem}.{resolved.audio_format}"
         try:
-            resp = requests.get(resolved.stream_url, stream=True, timeout=30)
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            resp = requests.get(resolved.stream_url, stream=True, timeout=(15, 60), headers=headers)
             resp.raise_for_status()
 
             total_size = int(resp.headers.get("content-length", 0))
@@ -98,6 +99,10 @@ class DirectAudioProvider(AudioProvider):
                             progress_cb(downloaded / total_size, f"Downloading: {downloaded // 1024} KB")
 
             if target_file.exists() and target_file.stat().st_size > 1024:
+                if total_size > 0 and downloaded < total_size:
+                    raise IOError(f"Incomplete download: received {downloaded} of {total_size} bytes")
+                if progress_cb:
+                    progress_cb(1.0, f"Downloaded: {target_file.name}")
                 return DownloadResult(
                     success=True,
                     file_path=target_file,
@@ -111,6 +116,11 @@ class DirectAudioProvider(AudioProvider):
                     provider_name=self.name,
                 )
         except Exception as e:
+            if target_file.exists():
+                try:
+                    target_file.unlink()
+                except Exception:
+                    pass
             return DownloadResult(
                 success=False,
                 error_message=str(e),

@@ -85,13 +85,29 @@ class ImportJobManager:
                 progress_cb(f"Evaluating track {idx}/{total_tracks}: {track.title}", idx, total_tracks)
 
             # 1. Check if already owned in canonical SQLite database
+            effective_album = track.album or (resolved.title if resolved.content_type == ContentType.ALBUM else "")
             canonical_hash = Canonicalizer.compute_hash(
                 title=track.title,
                 artist=track.artist or "",
-                album=track.album or "",
+                album=effective_album,
                 duration_seconds=track.duration_seconds,
             )
             existing_song = self.db.get_song_by_hash(canonical_hash)
+            if not existing_song and resolved.title:
+                for alt_alb in [track.album or "", resolved.title]:
+                    alt_h = Canonicalizer.compute_hash(track.title, track.artist or "", alt_alb, track.duration_seconds)
+                    existing_song = self.db.get_song_by_hash(alt_h)
+                    if existing_song:
+                        canonical_hash = alt_h
+                        break
+            if not existing_song:
+                norm_t = Canonicalizer.normalize_text(track.title)
+                norm_a = Canonicalizer.normalize_text(track.artist or "")
+                for s in self.db.get_songs_by_state(SongState.OWNED):
+                    if s.title_normalized == norm_t and (not norm_a or s.artist_normalized == norm_a):
+                        existing_song = s
+                        canonical_hash = s.canonical_hash
+                        break
 
             is_playlist_duplicate = canonical_hash in seen_canonical_hashes
             earlier_idx = seen_canonical_hashes.get(canonical_hash)
@@ -244,22 +260,65 @@ class ImportJobManager:
                 progress_cb(idx, total, f"Downloading: {item.title}")
 
             # Check if canonical song is already OWNED and physical file exists
-            c_hash = Canonicalizer.compute_hash(item.title, item.artist or "", item.album or "", item.duration_seconds)
+            effective_album = item.album or (job.title if job.content_type == ContentType.ALBUM.value else "")
+            c_hash = Canonicalizer.compute_hash(item.title, item.artist or "", effective_album, item.duration_seconds)
             existing_song = self.db.get_song_by_hash(c_hash) or (self.db.get_song(item.canonical_song_id) if item.canonical_song_id else None)
+            if not existing_song and job.title:
+                for alt_alb in [item.album or "", job.title]:
+                    alt_h = Canonicalizer.compute_hash(item.title, item.artist or "", alt_alb, item.duration_seconds)
+                    existing_song = self.db.get_song_by_hash(alt_h)
+                    if existing_song:
+                        c_hash = alt_h
+                        break
+            if not existing_song:
+                norm_t = Canonicalizer.normalize_text(item.title)
+                norm_a = Canonicalizer.normalize_text(item.artist or "")
+                for s in self.db.get_songs_by_state(SongState.OWNED):
+                    if s.title_normalized == norm_t and (not norm_a or s.artist_normalized == norm_a):
+                        existing_song = s
+                        c_hash = s.canonical_hash
+                        break
+
+            # Check if physical file exists via existing song or expected filename
+            clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{item.artist or 'Track'} - {item.title}")[:80].strip()
+            potential_file = out_dir / f"{clean_name}.mp3"
+
+            reusable_path = None
             if existing_song and existing_song.state == SongState.OWNED and existing_song.file_path:
                 p = Path(existing_song.file_path)
                 if not p.is_absolute():
                     p = (out_dir.parent / p).resolve() if not (Path.cwd() / p).exists() else (Path.cwd() / p).resolve()
                 if p.is_file() and p.exists() and p.stat().st_size > 0:
-                    self.db.update_import_job_item_state(
-                        item_id=item.id,
-                        state=ItemState.COMPLETED,
-                        canonical_song_id=existing_song.id,
+                    reusable_path = p
+            elif potential_file.is_file() and potential_file.exists() and potential_file.stat().st_size > 0:
+                reusable_path = potential_file
+
+            if reusable_path:
+                if not existing_song:
+                    song_id = self._register_in_library(
+                        file_path=reusable_path,
+                        title=item.title,
+                        artist=item.artist or "",
+                        album=effective_album,
+                        duration_sec=item.duration_seconds,
                     )
-                    completed_count += 1
-                    if progress_cb:
-                        progress_cb(idx, total, f"Reused existing file: {item.title}")
-                    continue
+                else:
+                    song_id = existing_song.id
+                    self.db.update_song_file(
+                        song_id=song_id,
+                        file_path=str(reusable_path),
+                        file_size_bytes=reusable_path.stat().st_size,
+                        quality_kbps=320 if reusable_path.suffix.lower() == ".mp3" else None,
+                    )
+                self.db.update_import_job_item_state(
+                    item_id=item.id,
+                    state=ItemState.COMPLETED,
+                    canonical_song_id=song_id,
+                )
+                completed_count += 1
+                if progress_cb:
+                    progress_cb(idx, total, f"Reused existing file: {item.title}")
+                continue
 
             # Ensure canonical song record exists in DB
             if not existing_song:
@@ -353,11 +412,12 @@ class ImportJobManager:
             if dl_res.success and dl_res.file_path and dl_res.file_path.exists():
                 file_size = dl_res.size_bytes or dl_res.file_path.stat().st_size
                 # Apply ID3 tags & artwork
+                effective_album = item.album or (job.title if job.content_type == ContentType.ALBUM.value else "")
                 self._tag_audio_file(
                     file_path=dl_res.file_path,
                     title=item.title,
                     artist=item.artist or "",
-                    album=item.album or job.title,
+                    album=effective_album or job.title,
                     track_num=item.track_index,
                     artwork_url=job.artwork_url,
                 )
@@ -367,7 +427,7 @@ class ImportJobManager:
                     file_path=dl_res.file_path,
                     title=item.title,
                     artist=item.artist or "",
-                    album=item.album or job.title,
+                    album=effective_album,
                     duration_sec=item.duration_seconds,
                 )
 

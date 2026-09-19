@@ -33,12 +33,24 @@ class DirectUrlResolver(PlatformResolver):
         clean = url.split("?")[0].lower()
         if any(clean.endswith(ext) for ext in self.AUDIO_EXTENSIONS):
             return True
+        if any(ext in url.lower() for ext in self.AUDIO_EXTENSIONS):
+            return True
         return any(d in clean for d in self.REGIONAL_DOMAINS)
 
     def resolve(self, url: str) -> ResolvedContent:
         clean = url.split("?")[0]
         # Check if direct audio file
         ext = Path(clean).suffix.lower()
+        if ext not in self.AUDIO_EXTENSIONS:
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(url).query)
+            for k in ("path", "file", "url", "src"):
+                val = qs.get(k, [None])[0]
+                if val and any(val.split("?")[0].lower().endswith(e) for e in self.AUDIO_EXTENSIONS):
+                    clean = val.split("?")[0]
+                    ext = Path(clean).suffix.lower()
+                    break
+
         if ext in self.AUDIO_EXTENSIONS:
             filename = unquote(Path(clean).stem)
             track = TrackMeta(
