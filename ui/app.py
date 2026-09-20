@@ -33,6 +33,8 @@ from ui.views.downloaded_songs import DownloadedSongsView
 from ui.views.help_view import HelpView
 from ui.views.import_view import ImportView
 from ui.views.library import LibraryView
+from ui.views.movies_view import MoviesView
+from ui.views.movie_detail_view import MovieDetailView
 from ui.views.sources import SourcesView
 from ui.views.settings_view import SettingsView
 
@@ -89,7 +91,7 @@ class TamilMP3App(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
 
         # ── 2. Active View Container ─────────────────────────────────
-        self.view_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self.view_container = ctk.CTkFrame(self, corner_radius=0, fg_color=theme.BG_APP)
         self.view_container.grid(row=0, column=1, sticky="nsew")
         self.view_container.grid_rowconfigure(0, weight=1)
         self.view_container.grid_columnconfigure(0, weight=1)
@@ -125,6 +127,20 @@ class TamilMP3App(ctk.CTk):
         self.views["library"] = LibraryView(
             self.view_container,
             service=self.service,
+            on_start_downloads=self._on_downloads_started,
+        )
+
+        self.views["movies"] = MoviesView(
+            self.view_container,
+            service=self.service,
+            on_open_movie=self._open_movie_detail,
+            on_navigate=self.show_view,
+        )
+
+        self.views["movie_detail"] = MovieDetailView(
+            self.view_container,
+            service=self.service,
+            on_back=lambda: self.show_view("movies"),
             on_start_downloads=self._on_downloads_started,
         )
 
@@ -172,6 +188,14 @@ class TamilMP3App(ctk.CTk):
             self.view_container,
         )
 
+    def _open_movie_detail(self, movie_id: int) -> None:
+        """Open detailed movie inspection view."""
+        if "movie_detail" in self.views:
+            detail_view = self.views["movie_detail"]
+            if hasattr(detail_view, "set_movie"):
+                detail_view.set_movie(movie_id)
+            self.show_view("movie_detail")
+
     def show_view(self, view_name: str) -> None:
         """Switch active view frame."""
         if view_name not in self.views:
@@ -186,7 +210,8 @@ class TamilMP3App(ctk.CTk):
                 v.grid_remove()
 
         self.current_view_name = view_name
-        self.sidebar.set_active(view_name)
+        sidebar_key = "movies" if view_name == "movie_detail" else view_name
+        self.sidebar.set_active(sidebar_key)
         target_view = self.views[view_name]
 
         # Refresh view if method present

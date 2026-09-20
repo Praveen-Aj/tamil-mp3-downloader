@@ -30,8 +30,9 @@ from library.importer import LibraryImporter
 from library.providers.base import AudioCandidate
 from library.models import (
     LibrarySong, SongSource, SongState, DownloadState, Download,
-    ImportJob, ImportJobItem, JobStatus, ItemState
+    ImportJob, ImportJobItem, JobStatus, ItemState, Movie
 )
+from library.canonical import normalize_string
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
 from library.filter_engine import SongFilterCriteria
 from library.registry import DownloadRegistry
@@ -1037,5 +1038,168 @@ class LibraryService:
     def resume_downloads(self) -> None:
         """Resume pending downloads."""
         pass
+
+    # ------------------------------------------------------------------
+    # V5.3 Movie Discovery & Movie Library Operations
+    # ------------------------------------------------------------------
+
+    def get_movies_page(
+        self,
+        query: str = "",
+        min_year: Optional[int] = None,
+        max_year: Optional[int] = None,
+        sort_by: str = "year",
+        ascending: bool = False,
+        page: int = 1,
+        page_size: int = 24,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Get a paginated slice of movies with aggregated download state.
+        Ensures filesystem integrity before querying.
+        """
+        self.reconcile_library_files()
+        offset = max(0, (page - 1) * page_size)
+        return self.db.search_and_filter_movies(
+            query=query,
+            min_year=min_year,
+            max_year=max_year,
+            sort_by=sort_by,
+            ascending=ascending,
+            limit=page_size,
+            offset=offset,
+        )
+
+    def get_movie_details(self, movie_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get full details for a movie: metadata, download stats, and song list.
+        """
+        self.reconcile_library_files()
+        movie = self.db.get_movie(movie_id)
+        if not movie:
+            return None
+
+        stats = self.db.get_movie_download_stats(movie_id)
+        songs = self.db.get_movie_songs_detailed(movie_id)
+        composers = self.db.get_movie_composers(movie_id)
+        actors = self.db.get_movie_actors(movie_id)
+
+        return {
+            "movie": movie,
+            "stats": stats,
+            "songs": songs,
+            "composers": [c.name for c in composers],
+            "actors": [(a.name, char) for a, char in actors],
+        }
+
+    def plan_movie_download_all(self, movie_id: int) -> DownloadPlan:
+        """
+        Plan downloads for ALL songs in a movie.
+        Already owned songs are skipped by DownloadPlanner unless higher quality is available.
+        """
+        self.reconcile_library_files()
+        songs = self.db.get_movie_songs(movie_id)
+        return self.planner.plan_downloads_for_songs(songs)
+
+    def plan_movie_download_missing(self, movie_id: int) -> DownloadPlan:
+        """
+        Plan downloads ONLY for missing songs in a movie.
+        Uses physical file verification & reconciliation.
+        """
+        self.reconcile_library_files()
+        songs = self.db.get_movie_songs(movie_id)
+        # Missing means: state != OWNED or physical file is missing from disk
+        missing_songs = []
+        for s in songs:
+            if s.state != SongState.OWNED or not s.file_path or not os.path.isfile(s.file_path):
+                missing_songs.append(s)
+        return self.planner.plan_downloads_for_songs(missing_songs)
+
+    def discover_movies_from_sources(
+        self,
+        query: Optional[str] = None,
+        category: str = "latest",
+        max_pages: int = 1,
+        source_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Discover movies and their tracklists from regional scrapers and register them
+        into the SQLite canonical movies and song_movies tables.
+        DISCOVERY NEVER DIRECTLY DOWNLOADS AUDIO FILES.
+        """
+        sources_to_run = source_names or ["masstamilan", "tamilmp3", "friendstamilmp3"]
+        usable_scrapers = [
+            s for name in sources_to_run
+            if (s := self.source_registry.get_source(name)) and s.is_usable and s.scraper
+        ]
+
+        total_movies = 0
+        total_songs = 0
+
+        for reg_src in usable_scrapers:
+            scraper = reg_src.scraper
+            try:
+                albums = []
+                if query and hasattr(scraper, "search"):
+                    albums = scraper.search(query.strip())
+                elif hasattr(scraper, "get_albums"):
+                    albums = scraper.get_albums(category=category, max_pages=max_pages)
+
+                for album in albums:
+                    if not album.name:
+                        continue
+                    # 1. Register or find Movie
+                    norm_title = normalize_string(album.name)
+                    existing_movie = self.db.get_movie_by_title(album.name)
+                    if not existing_movie:
+                        movie_id = self.db.add_movie(Movie(
+                            title=album.name,
+                            title_normalized=norm_title,
+                            year=album.year,
+                            track_count=album.song_count or 0,
+                            poster_url=getattr(album, "image_url", None) or getattr(album, "artwork_url", None),
+                        ))
+                    else:
+                        movie_id = existing_movie.id
+
+                    total_movies += 1
+
+                    # 2. Discover songs from album
+                    try:
+                        songs = scraper.get_songs(album)
+                    except Exception as err:
+                        logger.warning(f"Failed to fetch songs for album '{album.name}': {err}")
+                        songs = []
+
+                    for idx, s in enumerate(songs, start=1):
+                        track_no = getattr(s, "track_number", None) or idx
+                        song_id = self.pipeline.register_song(
+                            song=s,
+                            source_name=reg_src.name,
+                            album=album,
+                            category=category,
+                        )
+                        if song_id:
+                            total_songs += 1
+                            # Link to movie via song_movies
+                            self.db.add_song_movie(song_id=song_id, movie_id=movie_id, track_number=track_no)
+
+                    # Update movie track_count if songs found
+                    if songs and movie_id:
+                        m = self.db.get_movie(movie_id)
+                        if m and len(songs) > m.track_count:
+                            m.track_count = len(songs)
+                            self.db.update_movie(m)
+
+            except Exception as e:
+                logger.warning(f"Movie discovery error on source '{reg_src.name}': {e}")
+                self.source_registry.record_failure(reg_src.name, str(e))
+
+        return {
+            "query": query,
+            "category": category,
+            "movies_discovered": total_movies,
+            "songs_registered": total_songs,
+        }
+
 
 

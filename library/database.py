@@ -973,6 +973,17 @@ class SQLiteDatabase:
                         """, (SongState.NEW.value, datetime.now().isoformat(), song_id))
                         reconciled_count += 1
                 logger.info(f"Reconciled {reconciled_count} orphaned songs in SQLite database with missing files")
+
+            # Clean up stale transient DOWNLOADING/QUEUED states from crashed/interrupted runs
+            with self._conn:
+                cursor.execute("""
+                    UPDATE songs SET state = ?
+                    WHERE state IN (?, ?) AND file_path IS NULL
+                """, (SongState.NEW.value, SongState.DOWNLOADING.value, SongState.QUEUED.value))
+                cursor.execute("""
+                    UPDATE downloads SET state = ?, error_message = 'Interrupted process'
+                    WHERE state IN (?, ?)
+                """, (DownloadState.FAILED.value, DownloadState.DOWNLOADING.value, DownloadState.QUEUED.value))
         return reconciled_count
 
     def vacuum(self) -> None:
@@ -1179,6 +1190,39 @@ class SQLiteDatabase:
             row = cursor.fetchone()
             return Movie.from_row(row) if row else None
 
+    def update_movie(self, movie: Movie) -> bool:
+        """Update an existing movie record."""
+        if not movie.id:
+            raise ValueError("Movie ID is required for update")
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE movies SET
+                        title = ?,
+                        title_normalized = ?,
+                        year = ?,
+                        director = ?,
+                        poster_url = ?,
+                        banner_url = ?,
+                        local_poster_path = ?,
+                        track_count = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                """, (
+                    movie.title,
+                    movie.title_normalized,
+                    movie.year,
+                    movie.director,
+                    movie.poster_url,
+                    movie.banner_url,
+                    movie.local_poster_path,
+                    movie.track_count,
+                    datetime.now().isoformat(),
+                    movie.id,
+                ))
+                return cursor.rowcount > 0
+
     def list_movies(self, limit: int = 50, offset: int = 0) -> List[Movie]:
         """List movies ordered by year descending, title ascending."""
         with self._lock:
@@ -1189,6 +1233,190 @@ class SQLiteDatabase:
                 LIMIT ? OFFSET ?
             """, (limit, offset))
             return [Movie.from_row(r) for r in cursor.fetchall()]
+
+    def search_and_filter_movies(
+        self,
+        query: str = "",
+        min_year: Optional[int] = None,
+        max_year: Optional[int] = None,
+        sort_by: str = "year",
+        ascending: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Search, filter, and paginate movies with aggregated song counts and download states.
+
+        Returns:
+            Tuple of (List of movie dictionaries with metadata and counts, total matching movie count)
+        """
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = []
+            params: List[Any] = []
+
+            if query and query.strip():
+                clean_q = f"%{query.strip()}%"
+                where_clauses.append("(m.title LIKE ? OR m.director LIKE ? OR m.title_normalized LIKE ?)")
+                params.extend([clean_q, clean_q, clean_q.lower()])
+
+            if min_year is not None:
+                where_clauses.append("m.year >= ?")
+                params.append(min_year)
+
+            if max_year is not None:
+                where_clauses.append("m.year <= ?")
+                params.append(max_year)
+
+            where_str = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+            # 1. Total matching count
+            count_sql = f"SELECT COUNT(*) FROM movies m {where_str}"
+            cursor.execute(count_sql, tuple(params))
+            total_count = cursor.fetchone()[0]
+
+            # 2. Sort ordering
+            direction = "ASC" if ascending else "DESC"
+            sort_map = {
+                "year": f"COALESCE(m.year, 0) {direction}, m.title ASC",
+                "title": f"m.title {direction}",
+                "tracks": f"total_songs {direction}, m.year DESC",
+                "downloaded": f"downloaded_count {direction}, m.year DESC",
+                "id": f"m.id {direction}",
+            }
+            order_by = sort_map.get(sort_by, f"COALESCE(m.year, 0) {direction}, m.title ASC")
+
+            # 3. Query movies with aggregated counts
+            query_sql = f"""
+                SELECT
+                    m.id,
+                    m.title,
+                    m.title_normalized,
+                    m.year,
+                    m.director,
+                    m.poster_url,
+                    m.banner_url,
+                    m.local_poster_path,
+                    m.track_count as stored_track_count,
+                    COUNT(DISTINCT sm.song_id) as total_songs,
+                    COUNT(DISTINCT CASE WHEN s.state = 'OWNED' THEN sm.song_id END) as downloaded_count,
+                    COUNT(DISTINCT CASE WHEN s.state != 'OWNED' OR s.state IS NULL THEN sm.song_id END) as missing_count
+                FROM movies m
+                LEFT JOIN song_movies sm ON m.id = sm.movie_id
+                LEFT JOIN songs s ON sm.song_id = s.id
+                {where_str}
+                GROUP BY m.id
+                ORDER BY {order_by}
+                LIMIT ? OFFSET ?
+            """
+            query_params = list(params) + [limit, offset]
+            cursor.execute(query_sql, tuple(query_params))
+
+            results = []
+            for row in cursor.fetchall():
+                tot_songs = row['total_songs']
+                dl_count = row['downloaded_count']
+                miss_count = row['missing_count']
+                stored_count = row['stored_track_count'] or 0
+
+                # Display track count is max of linked songs or stored track_count
+                display_track_count = max(tot_songs, stored_count)
+                # If there are stored tracks but fewer linked songs, adjust missing
+                if display_track_count > tot_songs and tot_songs == 0:
+                    miss_count = display_track_count
+
+                results.append({
+                    "id": row['id'],
+                    "title": row['title'],
+                    "title_normalized": row['title_normalized'],
+                    "year": row['year'],
+                    "director": row['director'],
+                    "poster_url": row['poster_url'],
+                    "banner_url": row['banner_url'],
+                    "local_poster_path": row['local_poster_path'],
+                    "total_songs": display_track_count,
+                    "downloaded_count": dl_count,
+                    "missing_count": miss_count,
+                    "is_complete": (display_track_count > 0 and dl_count >= display_track_count),
+                })
+
+            return results, total_count
+
+    def get_movie_download_stats(self, movie_id: int) -> Dict[str, int]:
+        """Get verified download stats for a movie: total, downloaded, missing."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    COUNT(DISTINCT sm.song_id) as total,
+                    COUNT(DISTINCT CASE WHEN s.state = 'OWNED' THEN sm.song_id END) as downloaded,
+                    COUNT(DISTINCT CASE WHEN s.state != 'OWNED' OR s.state IS NULL THEN sm.song_id END) as missing
+                FROM song_movies sm
+                LEFT JOIN songs s ON sm.song_id = s.id
+                WHERE sm.movie_id = ?
+            """, (movie_id,))
+            row = cursor.fetchone()
+            if not row or row['total'] == 0:
+                # Check if movie exists and has a stored track_count
+                cursor.execute("SELECT track_count FROM movies WHERE id = ?", (movie_id,))
+                m_row = cursor.fetchone()
+                stored = m_row[0] if m_row and m_row[0] else 0
+                return {"total": stored, "downloaded": 0, "missing": stored}
+
+            tot = row['total'] or 0
+            dl = row['downloaded'] or 0
+            miss = row['missing'] or 0
+            return {"total": tot, "downloaded": dl, "missing": miss}
+
+    def get_movie_songs_detailed(self, movie_id: int) -> List[Dict[str, Any]]:
+        """Get detailed song list for a movie with track numbers and download states."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    s.id as song_id,
+                    sm.track_number,
+                    s.title,
+                    s.artist,
+                    s.album,
+                    s.year,
+                    s.duration_seconds,
+                    s.state,
+                    s.quality_kbps,
+                    s.file_size_bytes,
+                    s.file_path,
+                    (
+                        SELECT src.source_name
+                        FROM song_sources src
+                        WHERE src.song_id = s.id
+                        ORDER BY src.quality_kbps DESC, src.reliability_score DESC
+                        LIMIT 1
+                    ) as primary_source
+                FROM song_movies sm
+                JOIN songs s ON sm.song_id = s.id
+                WHERE sm.movie_id = ?
+                ORDER BY COALESCE(sm.track_number, 999), s.title ASC
+            """, (movie_id,))
+            results = []
+            for r in cursor.fetchall():
+                is_downloaded = (r['state'] == 'OWNED')
+                results.append({
+                    "song_id": r['song_id'],
+                    "track_number": r['track_number'],
+                    "title": r['title'],
+                    "artist": r['artist'] or "Unknown Artist",
+                    "album": r['album'] or "",
+                    "year": r['year'],
+                    "duration_seconds": r['duration_seconds'],
+                    "state": r['state'],
+                    "is_downloaded": is_downloaded,
+                    "download_status_display": "✓ Downloaded" if is_downloaded else "Not Downloaded",
+                    "quality_kbps": r['quality_kbps'],
+                    "quality_display": f"{r['quality_kbps']} kbps" if r['quality_kbps'] else "320 kbps",
+                    "file_path": r['file_path'],
+                    "source": r['primary_source'] or "Regional",
+                })
+            return results
 
     def delete_movie(self, movie_id: int) -> bool:
         """Delete a movie by ID (does not delete associated songs)."""

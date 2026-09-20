@@ -58,7 +58,7 @@ class DownloadRegistry:
 
     def acquire(self, song_id: int, song_source_id: int) -> Optional[int]:
         """
-        Atomically acquire a download slot for a song.
+        Attempt to acquire a download slot for a song.
 
         Transitions song state to DOWNLOADING and creates a Download record.
         Returns the download ID if acquired, or None if the song is already
@@ -269,3 +269,7 @@ class DownloadRegistry:
         if source is not None:
             new_score = max(0.0, source.reliability_score - decrement)
             self.db.update_source_reliability(source_id, new_score)
+
+    # Alias for backwards compatibility
+    acquire_download = acquire
+
