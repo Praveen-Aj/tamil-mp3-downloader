@@ -230,9 +230,21 @@ class MovieDetailView(ctk.CTkFrame):
         self.movie_subtitle_lbl.configure(text=" • ".join(meta_parts) if meta_parts else "Tamil Movie Soundtrack")
 
         # Update Metrics Chips
-        total_songs = stats["total"]
-        downloaded = stats["downloaded"]
-        missing = stats["missing"]
+        self._update_stats_chips(stats)
+
+        # Render Songs Rows
+        self._render_song_rows(songs)
+
+    def _update_stats_chips(self, stats: Optional[Dict[str, int]] = None) -> None:
+        """Update top summary chips and download button state."""
+        if not self.movie_id:
+            return
+        if stats is None:
+            stats = self.service.db.get_movie_download_stats(self.movie_id)
+
+        total_songs = stats.get("total", 0)
+        downloaded = stats.get("downloaded", 0)
+        missing = stats.get("missing", 0)
 
         self.chip_total.configure(text=f"🎵 Total Songs: {total_songs}")
         self.chip_downloaded.configure(text=f"✓ Downloaded: {downloaded}")
@@ -243,9 +255,6 @@ class MovieDetailView(ctk.CTkFrame):
             self.btn_dl_missing.configure(state="disabled", text="✓ All Downloaded")
         else:
             self.btn_dl_missing.configure(state="normal", text=f"⬇  Download Missing ({missing})")
-
-        # Render Songs Rows
-        self._render_song_rows(songs)
 
     def _render_song_rows(self, songs: List[Dict[str, Any]]) -> None:
         """Render rows for each song in the movie."""
@@ -406,13 +415,21 @@ class MovieDetailView(ctk.CTkFrame):
 
     def _update_song_ui_status(self, song_id: int, text: str, bg_color: str, fg_color: str) -> None:
         """Update the status badge for an individual song row."""
+        cache_key = f"_badge_{song_id}"
+        if self._active_downloads.get(cache_key) == (text, bg_color, fg_color):
+            return
+        self._active_downloads[cache_key] = (text, bg_color, fg_color)
+
         lbl = self.song_status_labels.get(song_id)
         frame = self.song_status_frames.get(song_id)
         if lbl and frame:
-            self.after(0, lambda: [
-                lbl.configure(text=text, text_color=fg_color),
-                frame.configure(fg_color=bg_color),
-            ])
+            try:
+                self.after(0, lambda: [
+                    lbl.configure(text=text, text_color=fg_color),
+                    frame.configure(fg_color=bg_color),
+                ])
+            except Exception:
+                pass
 
     def _on_download_progress(self, event: DownloadProgressEvent) -> None:
         """Handle live download progress updates from the event bus."""
@@ -428,8 +445,8 @@ class MovieDetailView(ctk.CTkFrame):
         elif event.status == "COMPLETED":
             self._active_downloads.pop(sid, None)
             self._update_song_ui_status(sid, "✓ Downloaded", theme.SUCCESS_BG, theme.SUCCESS_LIGHT)
-            # Trigger a refresh of stats after completion
-            self.after(500, self.refresh)
+            # Update metrics chips without rebuilding the entire UI
+            self.after(100, self._update_stats_chips)
         elif event.status == "FAILED":
             self._active_downloads.pop(sid, None)
             self._update_song_ui_status(sid, "Failed", theme.ERROR_BG, theme.ERROR_LIGHT)

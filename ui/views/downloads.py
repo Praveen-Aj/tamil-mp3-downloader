@@ -255,6 +255,8 @@ class DownloadsView(ctk.CTkFrame):
 
     def _on_download_progress(self, event: DownloadProgressEvent) -> None:
         try:
+            if not self.winfo_ismapped():
+                return
             self.after(0, self._apply_progress_event, event)
         except Exception:
             pass
@@ -294,9 +296,9 @@ class DownloadsView(ctk.CTkFrame):
                         prog_bar.configure(progress_color=theme.ERROR)
 
             if event.status in ("COMPLETED", "FAILED"):
-                self.refresh()
+                self._update_aggregate_banner()
         else:
-            if event.status in ("DOWNLOADING", "QUEUED"):
+            if event.status == "QUEUED":
                 self.refresh()
 
     def _update_aggregate_banner(self) -> None:

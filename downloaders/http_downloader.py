@@ -20,7 +20,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse, parse_qs
 
 import requests
 from tqdm import tqdm
@@ -47,7 +47,7 @@ _HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-_CHUNK = 65536          # 64 KiB chunks
+_CHUNK = 131072         # 128 KiB chunks
 _COVER_ART_TIMEOUT = 20
 
 
@@ -406,7 +406,7 @@ class HTTPDownloader(BaseDownloader):
         try:
             head = requests.head(
                 url, headers=_HEADERS, allow_redirects=True,
-                timeout=self.timeout
+                timeout=min(self.timeout, 10)
             )
             final_url = head.url
             head_headers = dict(head.headers or {})
@@ -537,7 +537,7 @@ class HTTPDownloader(BaseDownloader):
                         if pbar is not None:
                             pbar.update(len(chunk))
                         now = time.time()
-                        if progress_cb and (now - last_progress_time >= 0.25 or (total and downloaded >= total)):
+                        if progress_cb and (now - last_progress_time >= 0.5 or (total and downloaded >= total)):
                             last_progress_time = now
                             elapsed = max(0.001, now - start_time)
                             speed = (downloaded - resume_from) / elapsed
@@ -659,12 +659,23 @@ class HTTPDownloader(BaseDownloader):
     @staticmethod
     def _output_path(song: Song, dest_dir: Path, final_url: str) -> Path:
         """Derive a clean output path from the song and final URL."""
-        # Try to get filename from URL first
+        valid_exts = (".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg", ".zip", ".webm")
         url_filename = unquote(final_url.split("?")[0].split("/")[-1])
-        if url_filename and ("." in url_filename):
+        if url_filename and url_filename.lower().endswith(valid_exts):
             safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", url_filename).strip()
         else:
-            safe = song.safe_filename
+            # Check if query parameter has a path/file with audio extension (e.g. download.php?path=.../Song.mp3)
+            parsed = urlparse(final_url)
+            query_dict = parse_qs(parsed.query)
+            extracted_name = None
+            for key in ["path", "file", "name", "filename"]:
+                vals = query_dict.get(key, [])
+                if vals:
+                    candidate = unquote(vals[0].split("/")[-1])
+                    if candidate.lower().endswith(valid_exts):
+                        extracted_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", candidate).strip()
+                        break
+            safe = extracted_name or song.safe_filename
         return dest_dir / (safe or "download.mp3")
 
     def _concurrent_worker(

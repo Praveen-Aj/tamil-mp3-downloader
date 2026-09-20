@@ -17,6 +17,7 @@ import subprocess
 import sys
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Callable, Tuple
@@ -112,6 +113,7 @@ class LibraryService:
         self._init_default_sources()
         # Reconcile filesystem integrity on service startup
         self.reconcile_library_files()
+        self.db.clean_stale_transient_downloads()
 
     def add_progress_listener(self, listener: Callable[[DownloadProgressEvent], None]) -> None:
         with self._lock:
@@ -666,17 +668,30 @@ class LibraryService:
 
         if run_async and enqueued_ids:
             def _worker():
-                for idx, dl_id in enumerate(enqueued_ids, start=1):
-                    self.execute_single_download(dl_id)
-                    if progress_cb:
-                        progress_cb(idx, len(enqueued_ids))
+                max_w = min(int(settings.get("download.max_workers", 3)), len(enqueued_ids))
+                completed_count = 0
+                with ThreadPoolExecutor(max_workers=max_w) as executor:
+                    futures = {executor.submit(self.execute_single_download, dl_id): dl_id for dl_id in enqueued_ids}
+                    for future in as_completed(futures):
+                        dl_id = futures[future]
+                        try:
+                            res = future.result()
+                            logger.info(f"Worker finished download dl_id={dl_id} -> {res}")
+                        except Exception as e:
+                            logger.error(f"Exception in async download worker for dl_id={dl_id}: {e}", exc_info=True)
+                        completed_count += 1
+                        if progress_cb:
+                            progress_cb(completed_count, len(enqueued_ids))
 
             threading.Thread(target=_worker, daemon=True).start()
         elif not run_async:
             for idx, dl_id in enumerate(enqueued_ids, start=1):
-                self.execute_single_download(dl_id)
-                if progress_cb:
-                    progress_cb(idx, len(enqueued_ids))
+                try:
+                    self.execute_single_download(dl_id)
+                    if progress_cb:
+                        progress_cb(idx, len(enqueued_ids))
+                except Exception as e:
+                    logger.error(f"Exception in sync download for dl_id={dl_id}: {e}", exc_info=True)
 
         return enqueued_ids
 

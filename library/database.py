@@ -937,7 +937,7 @@ class SQLiteDatabase:
             'downloads_by_state': downloads_by_state,
         }
 
-    def reconcile_filesystem_integrity(self) -> int:
+    def reconcile_filesystem_integrity(self, clean_stale_jobs: bool = False) -> int:
         """
         Reconcile database records against the physical filesystem.
 
@@ -972,10 +972,16 @@ class SQLiteDatabase:
                             WHERE id = ?
                         """, (SongState.NEW.value, datetime.now().isoformat(), song_id))
                         reconciled_count += 1
-                logger.info(f"Reconciled {reconciled_count} orphaned songs in SQLite database with missing files")
+            if clean_stale_jobs:
+                self.clean_stale_transient_downloads()
+        return reconciled_count
 
-            # Clean up stale transient DOWNLOADING/QUEUED states from crashed/interrupted runs
+    def clean_stale_transient_downloads(self) -> int:
+        """Clean up stale transient DOWNLOADING/QUEUED states from crashed/interrupted previous runs."""
+        cleaned_count = 0
+        with self._lock:
             with self._conn:
+                cursor = self._conn.cursor()
                 cursor.execute("""
                     UPDATE songs SET state = ?
                     WHERE state IN (?, ?) AND file_path IS NULL
@@ -984,7 +990,8 @@ class SQLiteDatabase:
                     UPDATE downloads SET state = ?, error_message = 'Interrupted process'
                     WHERE state IN (?, ?)
                 """, (DownloadState.FAILED.value, DownloadState.DOWNLOADING.value, DownloadState.QUEUED.value))
-        return reconciled_count
+                cleaned_count = cursor.rowcount
+        return cleaned_count
 
     def vacuum(self) -> None:
         """Run VACUUM to optimize database."""
