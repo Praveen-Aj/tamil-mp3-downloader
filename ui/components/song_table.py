@@ -24,13 +24,17 @@ class SongTable(ctk.CTkFrame):
         on_song_double_click: Optional[Callable[[LibrarySong], None]] = None,
         on_page_change: Optional[Callable[[int], None]] = None,
         on_selection_change: Optional[Callable[[List[LibrarySong]], None]] = None,
+        on_sort_change: Optional[Callable[[str, bool], None]] = None,
         **kwargs,
     ):
         super().__init__(master, fg_color="transparent", corner_radius=0, **kwargs)
         self.on_song_double_click = on_song_double_click
         self.on_page_change = on_page_change
         self.on_selection_change = on_selection_change
+        self.on_sort_change = on_sort_change
 
+        self.sort_by = "id"
+        self.sort_ascending = False
         self.current_page = 1
         self.total_pages = 1
         self.total_items = 0
@@ -87,13 +91,13 @@ class SongTable(ctk.CTkFrame):
         )
 
         # Heading Setup & Column Widths
-        self.tree.heading("id", text="#")
-        self.tree.heading("title", text="Title")
-        self.tree.heading("artist", text="Artist")
-        self.tree.heading("album", text="Album / Movie")
-        self.tree.heading("year", text="Year")
-        self.tree.heading("quality", text="Bitrate")
-        self.tree.heading("state", text="Status")
+        self.tree.heading("id", text="#", command=lambda: self._on_heading_click("id"))
+        self.tree.heading("title", text="Title", command=lambda: self._on_heading_click("title"))
+        self.tree.heading("artist", text="Artist", command=lambda: self._on_heading_click("artist"))
+        self.tree.heading("album", text="Album / Movie", command=lambda: self._on_heading_click("album"))
+        self.tree.heading("year", text="Year", command=lambda: self._on_heading_click("year"))
+        self.tree.heading("quality", text="Bitrate", command=lambda: self._on_heading_click("quality"))
+        self.tree.heading("state", text="Status", command=lambda: self._on_heading_click("state"))
         self.tree.heading("source", text="Source")
 
         self.tree.column("id", width=45, minwidth=35, anchor="center")
@@ -289,3 +293,12 @@ class SongTable(ctk.CTkFrame):
         self.btn_prev.configure(state=prev_state)
         self.btn_next.configure(state=next_state)
         self.btn_last.configure(state=next_state)
+
+    def _on_heading_click(self, col: str) -> None:
+        if self.sort_by == col:
+            self.sort_ascending = not self.sort_ascending
+        else:
+            self.sort_by = col
+            self.sort_ascending = True
+        if self.on_sort_change:
+            self.on_sort_change(self.sort_by, self.sort_ascending)

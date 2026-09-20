@@ -23,7 +23,7 @@ class DatabaseMigrator:
     """
 
     # Current schema version
-    CURRENT_VERSION = 4
+    CURRENT_VERSION = 5
 
     # Migration definitions
     MIGRATIONS = {
@@ -367,6 +367,43 @@ class DatabaseMigrator:
         CREATE INDEX IF NOT EXISTS idx_chart_entries_chart ON chart_entries(chart_id);
         CREATE INDEX IF NOT EXISTS idx_chart_entries_song ON chart_entries(song_id);
         CREATE INDEX IF NOT EXISTS idx_chart_entries_rank ON chart_entries(chart_id, rank);
+        """,
+        5: """
+        -- Migration 5: V5.2 Full-Text Search (FTS5) Index & Triggers
+        CREATE VIRTUAL TABLE IF NOT EXISTS songs_fts USING fts5(
+            title,
+            artist,
+            album,
+            content='songs',
+            content_rowid='id',
+            tokenize='unicode61 remove_diacritics 2'
+        );
+
+        -- Triggers to synchronize songs_fts with songs table
+        CREATE TRIGGER IF NOT EXISTS songs_ai AFTER INSERT ON songs BEGIN
+            INSERT INTO songs_fts(rowid, title, artist, album)
+            VALUES (new.id, new.title, coalesce(new.artist, ''), coalesce(new.album, ''));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS songs_ad AFTER DELETE ON songs BEGIN
+            INSERT INTO songs_fts(songs_fts, rowid, title, artist, album)
+            VALUES ('delete', old.id, old.title, coalesce(old.artist, ''), coalesce(old.album, ''));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS songs_au AFTER UPDATE ON songs BEGIN
+            INSERT INTO songs_fts(songs_fts, rowid, title, artist, album)
+            VALUES ('delete', old.id, old.title, coalesce(old.artist, ''), coalesce(old.album, ''));
+            INSERT INTO songs_fts(rowid, title, artist, album)
+            VALUES (new.id, new.title, coalesce(new.artist, ''), coalesce(new.album, ''));
+        END;
+
+        -- Performance indexes for composable filtering & sorting
+        CREATE INDEX IF NOT EXISTS idx_songs_quality ON songs(quality_kbps);
+        CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title_normalized);
+        CREATE INDEX IF NOT EXISTS idx_songs_year ON songs(year);
+
+        -- Rebuild full text index from existing songs
+        INSERT INTO songs_fts(songs_fts) VALUES('rebuild');
         """
     }
 
@@ -449,12 +486,7 @@ class DatabaseMigrator:
         try:
             # Execute migration in a transaction
             with self.db._conn:
-                # Split migration into individual statements
-                statements = [s.strip() for s in migration_sql.split(';') if s.strip()]
-                for statement in statements:
-                    if statement:
-                        self.db._conn.execute(statement)
-
+                self.db._conn.executescript(migration_sql)
                 # Record migration
                 self.db._conn.execute(
                     "INSERT INTO schema_version (version) VALUES (?)",

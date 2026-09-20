@@ -33,6 +33,7 @@ from library.models import (
     ImportJob, ImportJobItem, JobStatus, ItemState
 )
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
+from library.filter_engine import SongFilterCriteria
 from library.registry import DownloadRegistry
 from library.providers.registry import ProviderRegistry
 from library.url_resolver.detector import UniversalUrlDetector
@@ -287,17 +288,39 @@ class LibraryService:
         page: int = 1,
         page_size: int = 50,
         state: Optional[str] = None,
+        quality: Optional[int] = None,
+        source: Optional[str] = None,
+        artist: Optional[str] = None,
+        album: Optional[str] = None,
+        sort_by: str = "id",
+        ascending: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get paginated songs from SQLite with filter criteria.
+        Get paginated songs from SQLite with composable filter, search, sort criteria.
         """
         effective_state = state or state_filter
-        return self.db.get_paginated_songs(
+        criteria = SongFilterCriteria.from_legacy_params(
             query=query,
             state_filter=effective_state,
+            quality=quality,
+            source=source,
+            artist=artist,
+            album=album,
+        )
+        effective_sort = "rank" if (query and query.strip() and sort_by == "id") else sort_by
+        return self.db.search_and_filter_songs(
+            criteria=criteria,
+            sort_by=effective_sort,
+            ascending=ascending,
             page=page,
             page_size=page_size,
         )
+
+    def get_filter_options(self) -> Dict[str, List[Any]]:
+        """
+        Retrieve available filter choices for source, quality, artist, album dropdowns.
+        """
+        return self.db.get_filter_options()
 
     # ── Song Details & Duplicate Breakdown ───────────────────────
     def get_song_details(self, song_id: int) -> Dict[str, Any]:

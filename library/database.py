@@ -19,6 +19,7 @@ from library.models import (
     UserSongMetadata, Playlist, PlaylistItem, Chart, ChartEntry
 )
 from library.migrator import DatabaseMigrator
+from library.filter_engine import SongFilterCriteria, ComposableFilterEngine
 
 logger = logging.getLogger(__name__)
 
@@ -341,50 +342,65 @@ class SQLiteDatabase:
             """, (search_pattern, search_pattern, search_pattern, limit))
             return [LibrarySong.from_row(row) for row in cursor.fetchall()]
 
-    def get_paginated_songs(
+    def search_and_filter_songs(
         self,
-        query: str = "",
-        state_filter: Optional[str] = None,
+        criteria: SongFilterCriteria,
+        sort_by: str = "id",
+        ascending: bool = False,
         page: int = 1,
         page_size: int = 50,
     ) -> Dict[str, Any]:
         """
-        Get paginated songs from SQLite with thread lock protection.
+        Execute composable search, filtering, sorting, and pagination across songs.
+
+        Uses FTS5 virtual table for scalable, tokenized prefix search when query is present,
+        with graceful fallback to LIKE matching if FTS5 query encounters an error.
 
         Args:
-            query: Search string for title, artist, album
-            state_filter: "ALL", "OWNED", "UNOWNED"
+            criteria: Search and filter criteria
+            sort_by: Field to sort by ('id', 'title', 'artist', 'album', 'quality', 'state', 'year', 'date_added', 'rank')
+            ascending: Sort direction
             page: 1-indexed page number
-            page_size: Rows per page
+            page_size: Maximum records per page
 
         Returns:
-            Dict containing list of songs, total items count, total pages count
+            Dict containing songs list, total items, total pages, current page, page size
         """
-        offset = (page - 1) * page_size
+        engine = ComposableFilterEngine()
         with self._lock:
-            cursor = self._conn.cursor()
-            base_sql = "FROM songs WHERE 1=1"
-            params: List[Any] = []
+            try:
+                count_sql, count_params, data_sql, data_params = engine.build_query(
+                    criteria=criteria,
+                    sort_by=sort_by,
+                    ascending=ascending,
+                    page=page,
+                    page_size=page_size,
+                    use_fts=True,
+                )
+                cursor = self._conn.cursor()
+                cursor.execute(count_sql, count_params)
+                total_items = cursor.fetchone()[0]
+                total_pages = max(1, (total_items + page_size - 1) // page_size) if total_items > 0 else 1
 
-            if query and query.strip():
-                search_pat = f"%{query.strip()}%"
-                base_sql += " AND (title LIKE ? OR artist LIKE ? OR album LIKE ?)"
-                params.extend([search_pat, search_pat, search_pat])
+                cursor.execute(data_sql, data_params)
+                songs = [LibrarySong.from_row(row) for row in cursor.fetchall()]
+            except Exception as e:
+                logger.warning(f"FTS query failed, falling back to LIKE: {e}")
+                count_sql, count_params, data_sql, data_params = engine.build_query(
+                    criteria=criteria,
+                    sort_by=sort_by,
+                    ascending=ascending,
+                    page=page,
+                    page_size=page_size,
+                    use_fts=False,
+                )
+                cursor = self._conn.cursor()
+                cursor.execute(count_sql, count_params)
+                total_items = cursor.fetchone()[0]
+                total_pages = max(1, (total_items + page_size - 1) // page_size) if total_items > 0 else 1
 
-            if state_filter == "OWNED":
-                base_sql += " AND state = 'OWNED'"
-            elif state_filter == "UNOWNED":
-                base_sql += " AND state = 'NEW'"
-
-            cursor.execute(f"SELECT COUNT(*) {base_sql}", params)
-            total_items = cursor.fetchone()[0]
-            total_pages = max(1, (total_items + page_size - 1) // page_size)
-
-            query_sql = f"SELECT * {base_sql} ORDER BY id DESC LIMIT ? OFFSET ?"
-            query_params = list(params) + [page_size, offset]
-            cursor.execute(query_sql, query_params)
-
-            songs = [LibrarySong.from_row(row) for row in cursor.fetchall()]
+                cursor.execute(data_sql, data_params)
+                songs = [LibrarySong.from_row(row) for row in cursor.fetchall()]
 
             return {
                 "songs": songs,
@@ -393,6 +409,81 @@ class SQLiteDatabase:
                 "page": page,
                 "page_size": page_size,
             }
+
+    def get_filter_options(self) -> Dict[str, List[Any]]:
+        """
+        Get distinct available values for library filter dropdowns.
+
+        Returns:
+            Dict containing sorted unique sources, qualities, artists, and albums.
+        """
+        with self._lock:
+            cursor = self._conn.cursor()
+            # Sources from song_sources
+            cursor.execute(
+                "SELECT DISTINCT source_name FROM song_sources WHERE source_name IS NOT NULL AND TRIM(source_name) != '' ORDER BY source_name ASC"
+            )
+            sources = [r[0] for r in cursor.fetchall()]
+
+            # Qualities from songs
+            cursor.execute(
+                "SELECT DISTINCT quality_kbps FROM songs WHERE quality_kbps IS NOT NULL AND quality_kbps > 0 ORDER BY quality_kbps DESC"
+            )
+            qualities = [r[0] for r in cursor.fetchall()]
+
+            # Artists
+            cursor.execute(
+                "SELECT DISTINCT artist FROM songs WHERE artist IS NOT NULL AND TRIM(artist) != '' ORDER BY artist ASC LIMIT 200"
+            )
+            artists = [r[0] for r in cursor.fetchall()]
+
+            # Albums
+            cursor.execute(
+                "SELECT DISTINCT album FROM songs WHERE album IS NOT NULL AND TRIM(album) != '' ORDER BY album ASC LIMIT 200"
+            )
+            albums = [r[0] for r in cursor.fetchall()]
+
+            return {
+                "sources": sources,
+                "qualities": qualities,
+                "artists": artists,
+                "albums": albums,
+            }
+
+    def get_paginated_songs(
+        self,
+        query: str = "",
+        state_filter: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str = "id",
+        ascending: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Get paginated songs from SQLite with thread lock protection.
+        Delegates to search_and_filter_songs for FTS5-powered indexing and composable criteria.
+
+        Args:
+            query: Search string for title, artist, album
+            state_filter: "ALL", "OWNED", "UNOWNED", "DOWNLOADED", "NOT DOWNLOADED"
+            page: 1-indexed page number
+            page_size: Rows per page
+            sort_by: Field name to sort by
+            ascending: Sort direction
+
+        Returns:
+            Dict containing list of songs, total items count, total pages count, page, page_size
+        """
+        criteria = SongFilterCriteria.from_legacy_params(query=query, state_filter=state_filter)
+        # If user searched and sort_by is default 'id', rank gives best relevance
+        effective_sort = "rank" if (query and query.strip() and sort_by == "id") else sort_by
+        return self.search_and_filter_songs(
+            criteria=criteria,
+            sort_by=effective_sort,
+            ascending=ascending,
+            page=page,
+            page_size=page_size,
+        )
 
     # ------------------------------------------------------------------
     # Source operations

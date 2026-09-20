@@ -83,10 +83,10 @@ def test_migration_v3_to_v4_preserves_data(tmp_path):
     db = SQLiteDatabase(db_path)
     db.connect()
 
-    # Verify schema version is now 4
+    # Verify schema version is now 5
     cursor = db._conn.cursor()
     cursor.execute("SELECT MAX(version) FROM schema_version")
-    assert cursor.fetchone()[0] == 4
+    assert cursor.fetchone()[0] == 5
 
     # Verify existing records are intact
     song = db.get_song(song_id)
@@ -108,10 +108,10 @@ def test_migration_v3_to_v4_preserves_data(tmp_path):
 
 
 def test_fresh_database_has_version_4_and_all_tables(temp_db):
-    """Verify fresh database connection initializes all 11 V5.1 tables and version 4."""
+    """Verify fresh database connection initializes all V5 tables, FTS5 index, and version 5."""
     cursor = temp_db._conn.cursor()
     cursor.execute("SELECT MAX(version) FROM schema_version")
-    assert cursor.fetchone()[0] == 4
+    assert cursor.fetchone()[0] == 5
 
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = {row[0] for row in cursor.fetchall()}
@@ -121,7 +121,7 @@ def test_fresh_database_has_version_4_and_all_tables(temp_db):
         "discovery_context", "schema_version", "import_jobs", "import_job_items",
         "movies", "artists", "movie_actors", "movie_composers",
         "song_artists", "song_movies", "user_song_metadata",
-        "playlists", "playlist_items", "charts", "chart_entries"
+        "playlists", "playlist_items", "charts", "chart_entries", "songs_fts"
     }
     assert expected_tables.issubset(tables)
 
@@ -423,7 +423,7 @@ def test_charts_and_chart_entries(temp_db):
 def test_migration_idempotency(temp_db):
     """Verify that calling migrator.migrate() repeatedly on an up-to-date DB is a safe no-op."""
     migrator = temp_db._migrator
-    assert migrator._get_current_version() == 4
+    assert migrator._get_current_version() == 5
     # Run again: should log up to date and return safely
     migrator.migrate()
-    assert migrator._get_current_version() == 4
+    assert migrator._get_current_version() == 5
