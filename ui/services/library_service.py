@@ -31,7 +31,8 @@ from library.importer import LibraryImporter
 from library.providers.base import AudioCandidate
 from library.models import (
     LibrarySong, SongSource, SongState, DownloadState, Download,
-    ImportJob, ImportJobItem, JobStatus, ItemState, Movie
+    ImportJob, ImportJobItem, JobStatus, ItemState, Movie,
+    Artist, MovieActor, MovieComposer, SongArtist, SongMovie
 )
 from library.canonical import normalize_string
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
@@ -114,6 +115,7 @@ class LibraryService:
         # Reconcile filesystem integrity on service startup
         self.reconcile_library_files()
         self.db.clean_stale_transient_downloads()
+        self.enrich_people_from_library()
 
     def add_progress_listener(self, listener: Callable[[DownloadProgressEvent], None]) -> None:
         with self._lock:
@@ -1104,6 +1106,8 @@ class LibraryService:
             "songs": songs,
             "composers": [c.name for c in composers],
             "actors": [(a.name, char) for a, char in actors],
+            "composer_objects": [{"id": c.id, "name": c.name} for c in composers],
+            "actor_objects": [{"id": a.id, "name": a.name, "character": char} for a, char in actors],
         }
 
     def plan_movie_download_all(self, movie_id: int) -> DownloadPlan:
@@ -1178,6 +1182,16 @@ class LibraryService:
 
                     total_movies += 1
 
+                    # Register composer if available on album
+                    composer_val = getattr(album, "composer", None) or getattr(album, "music_director", None)
+                    if composer_val and movie_id:
+                        for c_name in split_artist_names(composer_val):
+                            norm_c = normalize_string(c_name)
+                            if norm_c:
+                                c_id = self.db.add_artist(Artist(name=c_name, name_normalized=norm_c, role="music_director"))
+                                if c_id:
+                                    self.db.add_movie_composer(movie_id=movie_id, composer_id=c_id)
+
                     # 2. Discover songs from album
                     try:
                         songs = scraper.get_songs(album)
@@ -1198,6 +1212,15 @@ class LibraryService:
                             # Link to movie via song_movies
                             self.db.add_song_movie(song_id=song_id, movie_id=movie_id, track_number=track_no)
 
+                            # Link singers to song_artists
+                            if s.artist:
+                                for singer_name in split_artist_names(s.artist):
+                                    norm_s = normalize_string(singer_name)
+                                    if norm_s:
+                                        s_aid = self.db.add_artist(Artist(name=singer_name, name_normalized=norm_s, role="singer"))
+                                        if s_aid:
+                                            self.db.add_song_artist(song_id=song_id, artist_id=s_aid, role="singer")
+
                     # Update movie track_count if songs found
                     if songs and movie_id:
                         m = self.db.get_movie(movie_id)
@@ -1215,6 +1238,179 @@ class LibraryService:
             "movies_discovered": total_movies,
             "songs_registered": total_songs,
         }
+
+    # ------------------------------------------------------------------
+    # V5.4 People / Music Credits Operations
+    # ------------------------------------------------------------------
+
+    def get_artists_page(
+        self,
+        query: str = "",
+        role: Optional[str] = None,
+        sort_by: str = "name",
+        ascending: bool = True,
+        page: int = 1,
+        page_size: int = 24,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Get a paginated slice of artists with aggregated soundtrack and download metrics.
+        Ensures filesystem integrity before querying.
+        """
+        self.reconcile_library_files()
+        offset = max(0, (page - 1) * page_size)
+        return self.db.search_and_filter_artists(
+            query=query,
+            role=role,
+            sort_by=sort_by,
+            ascending=ascending,
+            limit=page_size,
+            offset=offset,
+        )
+
+    def get_artist_details(self, artist_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get full details for an artist: metadata, roles, download stats, song list, and movie list.
+        """
+        self.reconcile_library_files()
+        artist = self.db.get_artist(artist_id)
+        if not artist:
+            return None
+
+        stats = self.db.get_artist_statistics(artist_id)
+        songs = self.db.get_artist_songs_detailed(artist_id)
+        movies = self.db.get_artist_movies_detailed(artist_id)
+        roles = stats.get("roles", ["singer"])
+
+        return {
+            "artist": artist,
+            "stats": stats,
+            "songs": songs,
+            "movies": movies,
+            "roles": roles,
+            "roles_display": " • ".join(r.replace("_", " ").title() for r in roles) if roles else "Artist",
+        }
+
+    def plan_artist_download_all(self, artist_id: int) -> DownloadPlan:
+        """
+        Plan downloads for ALL songs associated with an artist (singer or composer).
+        Already owned songs are skipped by DownloadPlanner unless higher quality is available.
+        """
+        self.reconcile_library_files()
+        detailed_songs = self.db.get_artist_songs_detailed(artist_id)
+        song_ids = [s["song_id"] for s in detailed_songs]
+        songs = [s for sid in song_ids if (s := self.db.get_song(sid))]
+        return self.planner.plan_downloads_for_songs(songs)
+
+    def plan_artist_download_missing(self, artist_id: int) -> DownloadPlan:
+        """
+        Plan downloads ONLY for missing songs associated with an artist.
+        Uses physical file verification & reconciliation.
+        """
+        self.reconcile_library_files()
+        detailed_songs = self.db.get_artist_songs_detailed(artist_id)
+        missing_ids = [s["song_id"] for s in detailed_songs if not s.get("is_downloaded")]
+        songs = []
+        for sid in missing_ids:
+            s = self.db.get_song(sid)
+            if s and (s.state != SongState.OWNED or not s.file_path or not os.path.isfile(s.file_path)):
+                songs.append(s)
+        return self.planner.plan_downloads_for_songs(songs)
+
+    def enrich_people_from_library(self) -> Dict[str, int]:
+        """
+        Scan existing canonical library songs and movies to populate artists,
+        song_artists, movie_composers, and movie_actors idempotently.
+        """
+        artists_added = 0
+        song_artists_linked = 0
+        composers_linked = 0
+        actors_linked = 0
+
+        # 1. Process all canonical songs
+        all_songs = self.db.list_songs(limit=10000)
+        for s in all_songs:
+            if not s.id or not s.artist:
+                continue
+            names = split_artist_names(s.artist)
+            for name in names:
+                norm_name = normalize_string(name)
+                if not norm_name:
+                    continue
+                artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="singer"))
+                if artist_id:
+                    artists_added += 1
+                    if self.db.add_song_artist(song_id=s.id, artist_id=artist_id, role="singer"):
+                        song_artists_linked += 1
+
+        # 2. Process all movies
+        all_movies = self.db.list_movies(limit=10000)
+        for m in all_movies:
+            if not m.id:
+                continue
+            # Music Director / Composer
+            if getattr(m, "music_director", None):
+                for name in split_artist_names(m.music_director):
+                    norm_name = normalize_string(name)
+                    if not norm_name:
+                        continue
+                    artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="music_director"))
+                    if artist_id:
+                        artists_added += 1
+                        if self.db.add_movie_composer(movie_id=m.id, composer_id=artist_id):
+                            composers_linked += 1
+            # Actors / Cast
+            if getattr(m, "actors", None):
+                for name in split_artist_names(m.actors):
+                    norm_name = normalize_string(name)
+                    if not norm_name:
+                        continue
+                    artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="actor"))
+                    if artist_id:
+                        artists_added += 1
+                        if self.db.add_movie_actor(movie_id=m.id, actor_id=artist_id, character_name="Cast"):
+                            actors_linked += 1
+            # Director
+            if m.director:
+                names = split_artist_names(m.director)
+                for name in names:
+                    norm_name = normalize_string(name)
+                    if not norm_name:
+                        continue
+                    artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="director"))
+                    if artist_id:
+                        artists_added += 1
+                        if self.db.add_movie_actor(movie_id=m.id, actor_id=artist_id, character_name="Director / Cast"):
+                            actors_linked += 1
+
+        return {
+            "artists_added": artists_added,
+            "song_artists_linked": song_artists_linked,
+            "composers_linked": composers_linked,
+            "actors_linked": actors_linked,
+        }
+
+    def split_artist_names(self, raw_artist: Optional[str]) -> List[str]:
+        """Split composite artist strings into distinct individual names."""
+        return split_artist_names(raw_artist)
+
+
+def split_artist_names(raw_artist: Optional[str]) -> List[str]:
+    """Split composite artist strings into distinct individual names."""
+    if not raw_artist:
+        return []
+    # Strip bracketed remarks like (Vocals), [Chorus]
+    text = re.sub(r"\(.*?\)", "", raw_artist)
+    text = re.sub(r"\[.*?\]", "", text)
+    # Delimiters: ',', '&', ';', '/', ' feat. ', ' feat ', ' ft. ', ' ft ', ' and ', ' with ', ' vs. '
+    pattern = r"\s*(?:,|&|;|/|\bfeat\.?|\bft\.?|\band\b|\bwith\b|\bvs\.?)\s*"
+    parts = re.split(pattern, text, flags=re.IGNORECASE)
+    cleaned = []
+    for p in parts:
+        name = p.strip(" .,;/-")
+        if len(name) >= 2 and not name.lower().startswith(("unknown", "various", "ost")):
+            cleaned.append(name)
+    return cleaned
+
 
 
 

@@ -20,6 +20,7 @@ from library.models import (
 )
 from library.migrator import DatabaseMigrator
 from library.filter_engine import SongFilterCriteria, ComposableFilterEngine
+from library.canonical import normalize_string
 
 logger = logging.getLogger(__name__)
 
@@ -340,6 +341,16 @@ class SQLiteDatabase:
                 ORDER BY last_seen_at DESC
                 LIMIT ?
             """, (search_pattern, search_pattern, search_pattern, limit))
+            return [LibrarySong.from_row(row) for row in cursor.fetchall()]
+
+    def list_songs(self, limit: Optional[int] = None, offset: int = 0) -> List[LibrarySong]:
+        """List all songs in library with optional pagination."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            query = "SELECT * FROM songs ORDER BY id ASC"
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+            cursor.execute(query)
             return [LibrarySong.from_row(row) for row in cursor.fetchall()]
 
     def search_and_filter_songs(
@@ -1441,10 +1452,21 @@ class SQLiteDatabase:
     # ------------------------------------------------------------------
 
     def add_artist(self, artist: Artist) -> int:
-        """Add an artist to directory or return existing ID."""
+        """Add an artist to directory or return existing ID using canonical normalization."""
+        if not artist.name_normalized:
+            artist.name_normalized = normalize_string(artist.name)
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
+                # Check canonical normalized existence first
+                cursor.execute(
+                    "SELECT id FROM artists WHERE name_normalized = ? OR name = ?",
+                    (artist.name_normalized, artist.name)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
+
                 cursor.execute("""
                     INSERT OR IGNORE INTO artists (
                         name, name_normalized, role, photo_url, local_photo_path,
@@ -1462,7 +1484,10 @@ class SQLiteDatabase:
                 ))
                 if cursor.rowcount > 0:
                     return cursor.lastrowid
-                cursor.execute("SELECT id FROM artists WHERE name = ?", (artist.name,))
+                cursor.execute(
+                    "SELECT id FROM artists WHERE name_normalized = ? OR name = ?",
+                    (artist.name_normalized, artist.name)
+                )
                 row = cursor.fetchone()
                 return row[0] if row else 0
 
@@ -1475,12 +1500,75 @@ class SQLiteDatabase:
             return Artist.from_row(row) if row else None
 
     def get_artist_by_name(self, name: str) -> Optional[Artist]:
-        """Get artist by exact name."""
+        """Get artist by exact name or normalized name."""
+        norm_name = normalize_string(name)
         with self._lock:
             cursor = self._conn.cursor()
-            cursor.execute("SELECT * FROM artists WHERE name = ?", (name,))
+            cursor.execute("SELECT * FROM artists WHERE name = ? OR name_normalized = ?", (name, norm_name))
             row = cursor.fetchone()
             return Artist.from_row(row) if row else None
+
+    def get_artist_by_normalized_name(self, name_normalized: str) -> Optional[Artist]:
+        """Get artist by normalized name."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT * FROM artists WHERE name_normalized = ?", (name_normalized,))
+            row = cursor.fetchone()
+            return Artist.from_row(row) if row else None
+
+    def update_artist(self, artist_or_id: Any, **kwargs) -> bool:
+        """
+        Update artist details. Accepts either an Artist instance or an artist_id with keyword arguments.
+        """
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                if isinstance(artist_or_id, Artist):
+                    artist = artist_or_id
+                    if not artist.id:
+                        return False
+                    norm = artist.name_normalized or normalize_string(artist.name)
+                    cursor.execute("""
+                        UPDATE artists SET
+                            name = ?,
+                            name_normalized = ?,
+                            role = ?,
+                            photo_url = ?,
+                            local_photo_path = ?,
+                            bio = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    """, (
+                        artist.name,
+                        norm,
+                        artist.role,
+                        artist.photo_url,
+                        artist.local_photo_path,
+                        artist.bio,
+                        datetime.now().isoformat(),
+                        artist.id,
+                    ))
+                    return cursor.rowcount > 0
+                else:
+                    artist_id = int(artist_or_id)
+                    allowed = ["name", "name_normalized", "role", "photo_url", "local_photo_path", "bio"]
+                    sets = []
+                    vals = []
+                    for k, v in kwargs.items():
+                        if k in allowed:
+                            sets.append(f"{k} = ?")
+                            vals.append(v)
+                    if "name" in kwargs and "name_normalized" not in kwargs:
+                        sets.append("name_normalized = ?")
+                        vals.append(normalize_string(kwargs["name"]))
+                    if not sets:
+                        return False
+                    sets.append("updated_at = ?")
+                    vals.append(datetime.now().isoformat())
+                    vals.append(artist_id)
+                    sql = f"UPDATE artists SET {', '.join(sets)} WHERE id = ?"
+                    cursor.execute(sql, tuple(vals))
+                    return cursor.rowcount > 0
 
     def list_artists(self, role: Optional[str] = None, limit: int = 50, offset: int = 0) -> List[Artist]:
         """List artists optionally filtered by role."""
@@ -1502,7 +1590,7 @@ class SQLiteDatabase:
             return [Artist.from_row(r) for r in cursor.fetchall()]
 
     def delete_artist(self, artist_id: int) -> bool:
-        """Delete an artist by ID (does not delete associated songs)."""
+        """Delete an artist by ID (does not delete associated songs or movies)."""
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
@@ -1512,19 +1600,398 @@ class SQLiteDatabase:
                 cursor.execute("DELETE FROM artists WHERE id = ?", (artist_id,))
                 return cursor.rowcount > 0
 
+    def get_artist_roles(self, artist_id: int) -> List[str]:
+        """Determine all distinct roles for an artist across relationships."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            roles_set = set()
+
+            # Check direct role in artists table
+            cursor.execute("SELECT role FROM artists WHERE id = ?", (artist_id,))
+            row = cursor.fetchone()
+            if row and row['role']:
+                base_r = row['role'].strip().lower()
+                if base_r in ("music_director", "composer"):
+                    roles_set.add("music_director")
+                elif base_r in ("singer", "vocalist"):
+                    roles_set.add("singer")
+                elif base_r == "actor":
+                    roles_set.add("actor")
+                elif base_r != "artist":
+                    roles_set.add(base_r)
+
+            # Check song_artists
+            cursor.execute("SELECT DISTINCT role FROM song_artists WHERE artist_id = ?", (artist_id,))
+            for r in cursor.fetchall():
+                sa_role = (r['role'] or "").strip().lower()
+                if sa_role in ("singer", "artist", "vocalist", ""):
+                    roles_set.add("singer")
+                elif sa_role in ("composer", "music_director"):
+                    roles_set.add("music_director")
+                else:
+                    roles_set.add(sa_role)
+
+            # Check movie_composers
+            cursor.execute("SELECT 1 FROM movie_composers WHERE composer_id = ? LIMIT 1", (artist_id,))
+            if cursor.fetchone():
+                roles_set.add("music_director")
+
+            # Check movie_actors
+            cursor.execute("SELECT 1 FROM movie_actors WHERE actor_id = ? LIMIT 1", (artist_id,))
+            if cursor.fetchone():
+                roles_set.add("actor")
+
+            if not roles_set:
+                roles_set.add("artist")
+
+            order_pref = {"music_director": 1, "singer": 2, "actor": 3, "artist": 4}
+            return sorted(list(roles_set), key=lambda x: (order_pref.get(x, 10), x))
+
+    def search_and_filter_artists(
+        self,
+        query: str = "",
+        role: Optional[str] = None,
+        sort_by: str = "name",
+        ascending: bool = True,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Search, filter, and paginate artists with aggregated soundtrack and download statistics.
+        Avoids N+1 queries by aggregating counts in SQL.
+        Supports both limit/offset and page/page_size pagination.
+        """
+        if page is not None and page_size is not None:
+            actual_limit = page_size
+            actual_offset = max(0, (page - 1) * page_size)
+        else:
+            actual_limit = limit if limit is not None else 24
+            actual_offset = offset
+
+        with self._lock:
+            cursor = self._conn.cursor()
+
+            conditions = []
+            params = []
+
+            # 1. Text Search Filter (name or normalized name)
+            if query and query.strip():
+                clean_q = query.strip()
+                norm_q = normalize_string(clean_q)
+                conditions.append("(a.name LIKE ? OR a.name_normalized LIKE ?)")
+                params.extend([f"%{clean_q}%", f"%{norm_q}%"])
+
+            # 2. Role Filter
+            if role and role.lower() not in ("all", ""):
+                r_filter = role.lower().strip()
+                if r_filter == "singer":
+                    conditions.append("""(
+                        a.id IN (SELECT artist_id FROM song_artists WHERE LOWER(role) IN ('singer', 'vocalist', ''))
+                        OR LOWER(a.role) IN ('singer', 'vocalist')
+                    )""")
+                elif r_filter in ("music_director", "composer"):
+                    conditions.append("""(
+                        a.id IN (SELECT composer_id FROM movie_composers)
+                        OR a.id IN (SELECT artist_id FROM song_artists WHERE LOWER(role) IN ('composer', 'music_director'))
+                        OR LOWER(a.role) IN ('music_director', 'composer')
+                    )""")
+                elif r_filter == "actor":
+                    conditions.append("""(
+                        a.id IN (SELECT actor_id FROM movie_actors)
+                        OR LOWER(a.role) = 'actor'
+                    )""")
+
+            where_str = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # 3. Total Matching Artists Count
+            count_sql = f"SELECT COUNT(DISTINCT a.id) FROM artists a {where_str}"
+            cursor.execute(count_sql, tuple(params))
+            total_count = cursor.fetchone()[0]
+
+            # 4. Sorting
+            direction = "ASC" if ascending else "DESC"
+            sort_map = {
+                "name": f"a.name COLLATE NOCASE {direction}",
+                "songs": f"total_songs {direction}, a.name ASC",
+                "movies": f"total_movies {direction}, a.name ASC",
+                "downloaded": f"downloaded_songs {direction}, a.name ASC",
+                "recent": f"a.created_at {direction}",
+            }
+            order_by = sort_map.get(sort_by, f"a.name COLLATE NOCASE {direction}")
+
+            # 5. Query Artists with SQL Subquery Aggregation
+            query_sql = f"""
+                SELECT
+                    a.id,
+                    a.name,
+                    a.name_normalized,
+                    a.role as base_role,
+                    a.photo_url,
+                    a.local_photo_path,
+                    a.bio,
+                    (
+                        SELECT COUNT(DISTINCT s_sub.id)
+                        FROM songs s_sub
+                        WHERE s_sub.id IN (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = a.id
+                        )
+                    ) as total_songs,
+                    (
+                        SELECT COUNT(DISTINCT s_sub.id)
+                        FROM songs s_sub
+                        WHERE s_sub.state = 'OWNED' AND s_sub.id IN (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = a.id
+                        )
+                    ) as downloaded_songs,
+                    (
+                        SELECT COUNT(DISTINCT m_sub_id)
+                        FROM (
+                            SELECT movie_id as m_sub_id FROM movie_actors WHERE actor_id = a.id
+                            UNION
+                            SELECT movie_id as m_sub_id FROM movie_composers WHERE composer_id = a.id
+                        )
+                    ) as total_movies
+                FROM artists a
+                {where_str}
+                ORDER BY {order_by}
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(query_sql, tuple(params + [actual_limit, actual_offset]))
+
+            results = []
+            for row in cursor.fetchall():
+                a_id = row['id']
+                tot_s = row['total_songs'] or 0
+                dl_s = row['downloaded_songs'] or 0
+                miss_s = max(0, tot_s - dl_s)
+                tot_m = row['total_movies'] or 0
+                roles = self.get_artist_roles(a_id)
+
+                results.append({
+                    "id": a_id,
+                    "name": row['name'],
+                    "name_normalized": row['name_normalized'],
+                    "role": row['base_role'],
+                    "roles": roles,
+                    "roles_display": " • ".join(
+                        r.replace("_", " ").title() for r in roles
+                    ) if roles else "Artist",
+                    "photo_url": row['photo_url'],
+                    "local_photo_path": row['local_photo_path'],
+                    "bio": row['bio'],
+                    "total_songs": tot_s,
+                    "downloaded_songs": dl_s,
+                    "missing_songs": miss_s,
+                    "total_movies": tot_m,
+                    "is_complete": (tot_s > 0 and dl_s >= tot_s),
+                })
+
+            return results, total_count
+
+    def get_artist_statistics(self, artist_id: int) -> Dict[str, Any]:
+        """Get verified statistics for an artist."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    (
+                        SELECT COUNT(DISTINCT s_sub.id)
+                        FROM songs s_sub
+                        WHERE s_sub.id IN (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = ?
+                        )
+                    ) as total_songs,
+                    (
+                        SELECT COUNT(DISTINCT s_sub.id)
+                        FROM songs s_sub
+                        WHERE s_sub.state = 'OWNED' AND s_sub.id IN (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = ?
+                        )
+                    ) as downloaded_songs,
+                    (
+                        SELECT COUNT(DISTINCT m_sub_id)
+                        FROM (
+                            SELECT movie_id as m_sub_id FROM movie_actors WHERE actor_id = ?
+                            UNION
+                            SELECT movie_id as m_sub_id FROM movie_composers WHERE composer_id = ?
+                        )
+                    ) as total_movies
+            """, (artist_id, artist_id, artist_id, artist_id, artist_id, artist_id))
+            row = cursor.fetchone()
+            tot_s = row['total_songs'] or 0
+            dl_s = row['downloaded_songs'] or 0
+            miss_s = max(0, tot_s - dl_s)
+            tot_m = row['total_movies'] or 0
+            roles = self.get_artist_roles(artist_id)
+            return {
+                "total": tot_s,
+                "downloaded": dl_s,
+                "missing": miss_s,
+                "movies_count": tot_m,
+                "roles": roles,
+            }
+
+    def get_artist_songs_detailed(self, artist_id: int, role: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get detailed song list for an artist with download status."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    s.id as song_id,
+                    s.title,
+                    s.artist,
+                    s.album,
+                    s.year,
+                    s.duration_seconds,
+                    s.state,
+                    s.quality_kbps,
+                    s.file_size_bytes,
+                    s.file_path,
+                    (
+                        SELECT m.title
+                        FROM song_movies sm
+                        JOIN movies m ON sm.movie_id = m.id
+                        WHERE sm.song_id = s.id
+                        LIMIT 1
+                    ) as movie_title,
+                    (
+                        SELECT m.id
+                        FROM song_movies sm
+                        JOIN movies m ON sm.movie_id = m.id
+                        WHERE sm.song_id = s.id
+                        LIMIT 1
+                    ) as movie_id,
+                    (
+                        SELECT src.source_name
+                        FROM song_sources src
+                        WHERE src.song_id = s.id
+                        ORDER BY src.quality_kbps DESC, src.reliability_score DESC
+                        LIMIT 1
+                    ) as primary_source
+                FROM songs s
+                WHERE s.id IN (
+                    SELECT song_id FROM song_artists WHERE artist_id = ?
+                    UNION
+                    SELECT sm.song_id FROM movie_composers mc
+                    JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                    WHERE mc.composer_id = ?
+                )
+                ORDER BY s.title ASC
+            """, (artist_id, artist_id))
+            results = []
+            for r in cursor.fetchall():
+                is_dl = (r['state'] == 'OWNED')
+                movie_name = r['movie_title'] or r['album'] or "Soundtrack"
+                results.append({
+                    "song_id": r['song_id'],
+                    "title": r['title'],
+                    "artist": r['artist'] or "Unknown Artist",
+                    "album": movie_name,
+                    "movie_title": movie_name,
+                    "movie_id": r['movie_id'],
+                    "year": r['year'],
+                    "duration_seconds": r['duration_seconds'],
+                    "state": r['state'],
+                    "is_downloaded": is_dl,
+                    "download_status_display": "✓ Downloaded" if is_dl else "Not Downloaded",
+                    "quality_kbps": r['quality_kbps'],
+                    "quality_display": f"{r['quality_kbps']} kbps" if r['quality_kbps'] else "320 kbps",
+                    "file_path": r['file_path'],
+                    "source": r['primary_source'] or "Regional",
+                })
+            return results
+
+    def get_artist_movies_detailed(self, artist_id: int) -> List[Dict[str, Any]]:
+        """Get detailed list of movies associated with an artist (actor or composer)."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    m.id as movie_id,
+                    m.title,
+                    m.year,
+                    m.director,
+                    m.poster_url,
+                    m.banner_url,
+                    m.track_count as stored_track_count,
+                    COUNT(DISTINCT sm.song_id) as total_songs,
+                    COUNT(DISTINCT CASE WHEN s.state = 'OWNED' THEN sm.song_id END) as downloaded_songs,
+                    ma.character_name,
+                    CASE
+                        WHEN mc.movie_id IS NOT NULL AND ma.movie_id IS NOT NULL THEN 'Composer & Actor'
+                        WHEN mc.movie_id IS NOT NULL THEN 'Music Director'
+                        ELSE 'Actor'
+                    END as credit_role
+                FROM movies m
+                LEFT JOIN movie_actors ma ON m.id = ma.movie_id AND ma.actor_id = ?
+                LEFT JOIN movie_composers mc ON m.id = mc.movie_id AND mc.composer_id = ?
+                LEFT JOIN song_movies sm ON m.id = sm.movie_id
+                LEFT JOIN songs s ON sm.song_id = s.id
+                WHERE ma.actor_id = ? OR mc.composer_id = ?
+                GROUP BY m.id
+                ORDER BY COALESCE(m.year, 0) DESC, m.title ASC
+            """, (artist_id, artist_id, artist_id, artist_id))
+            results = []
+            for r in cursor.fetchall():
+                tot = max(r['total_songs'] or 0, r['stored_track_count'] or 0)
+                dl = r['downloaded_songs'] or 0
+                miss = max(0, tot - dl)
+                results.append({
+                    "movie_id": r['movie_id'],
+                    "title": r['title'],
+                    "year": r['year'],
+                    "director": r['director'],
+                    "poster_url": r['poster_url'],
+                    "banner_url": r['banner_url'],
+                    "character_name": r['character_name'],
+                    "credit_role": r['credit_role'],
+                    "total_songs": tot,
+                    "downloaded_songs": dl,
+                    "missing_songs": miss,
+                    "is_complete": (tot > 0 and dl >= tot),
+                })
+            return results
+
     # ------------------------------------------------------------------
     # V5.1 Relational Join Tables: Movie Actors & Composers
     # ------------------------------------------------------------------
 
-    def add_movie_actor(self, movie_id: int, actor_id: int, character_name: Optional[str] = None) -> bool:
-        """Link an actor to a movie."""
+    def add_movie_actor(self, movie_id: Any = None, actor_id: Optional[int] = None, character_name: Optional[str] = None, **kwargs) -> bool:
+        """Link an actor to a movie. Accepts MovieActor object, positional, or keyword parameters."""
+        if hasattr(movie_id, 'movie_id') and hasattr(movie_id, 'actor_id'):
+            m_id = movie_id.movie_id
+            a_id = movie_id.actor_id
+            c_name = getattr(movie_id, 'character_name', None)
+        else:
+            m_id = int(movie_id if movie_id is not None else kwargs.get('movie_id', 0))
+            a_id = int(actor_id if actor_id is not None else kwargs.get('actor_id', 0))
+            c_name = character_name if character_name is not None else kwargs.get('character_name')
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR REPLACE INTO movie_actors (movie_id, actor_id, character_name)
                     VALUES (?, ?, ?)
-                """, (movie_id, actor_id, character_name))
+                """, (m_id, a_id, c_name))
                 return cursor.rowcount > 0
 
     def get_movie_actors(self, movie_id: int) -> List[Tuple[Artist, Optional[str]]]:
@@ -1540,15 +2007,22 @@ class SQLiteDatabase:
             """, (movie_id,))
             return [(Artist.from_row(r), r['character_name']) for r in cursor.fetchall()]
 
-    def add_movie_composer(self, movie_id: int, composer_id: int) -> bool:
-        """Link a music director/composer to a movie."""
+    def add_movie_composer(self, movie_id: Any = None, composer_id: Optional[int] = None, **kwargs) -> bool:
+        """Link a music director/composer to a movie. Accepts MovieComposer object, positional, or keyword parameters."""
+        if hasattr(movie_id, 'movie_id') and hasattr(movie_id, 'composer_id'):
+            m_id = movie_id.movie_id
+            c_id = movie_id.composer_id
+        else:
+            m_id = int(movie_id if movie_id is not None else kwargs.get('movie_id', 0))
+            c_id = int(composer_id if composer_id is not None else kwargs.get('composer_id', 0))
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR IGNORE INTO movie_composers (movie_id, composer_id)
                     VALUES (?, ?)
-                """, (movie_id, composer_id))
+                """, (m_id, c_id))
                 return cursor.rowcount > 0
 
     def get_movie_composers(self, movie_id: int) -> List[Artist]:
@@ -1568,15 +2042,24 @@ class SQLiteDatabase:
     # V5.1 Relational Join Tables: Song Artists & Song Movies
     # ------------------------------------------------------------------
 
-    def add_song_artist(self, song_id: int, artist_id: int, role: str = "singer") -> bool:
-        """Link a canonical song to an artist with a role."""
+    def add_song_artist(self, song_id: Any = None, artist_id: Optional[int] = None, role: str = "singer", **kwargs) -> bool:
+        """Link a canonical song to an artist with a role. Accepts SongArtist object, positional, or keyword parameters."""
+        if hasattr(song_id, 'song_id') and hasattr(song_id, 'artist_id'):
+            s_id = song_id.song_id
+            a_id = song_id.artist_id
+            r = getattr(song_id, 'role', role) or role
+        else:
+            s_id = int(song_id if song_id is not None else kwargs.get('song_id', 0))
+            a_id = int(artist_id if artist_id is not None else kwargs.get('artist_id', 0))
+            r = role if role != "singer" else kwargs.get('role', "singer")
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR IGNORE INTO song_artists (song_id, artist_id, role)
                     VALUES (?, ?, ?)
-                """, (song_id, artist_id, role))
+                """, (s_id, a_id, r))
                 return cursor.rowcount > 0
 
     def get_song_artists(self, song_id: int) -> List[Tuple[Artist, str]]:
@@ -1614,15 +2097,24 @@ class SQLiteDatabase:
                 """, (artist_id,))
             return [LibrarySong.from_row(r) for r in cursor.fetchall()]
 
-    def add_song_movie(self, song_id: int, movie_id: int, track_number: Optional[int] = None) -> bool:
-        """Link a canonical song to a movie."""
+    def add_song_movie(self, song_id: Any = None, movie_id: Optional[int] = None, track_number: Optional[int] = None, **kwargs) -> bool:
+        """Link a canonical song to a movie. Accepts SongMovie object, positional, or keyword parameters."""
+        if hasattr(song_id, 'song_id') and hasattr(song_id, 'movie_id'):
+            s_id = song_id.song_id
+            m_id = song_id.movie_id
+            t_num = getattr(song_id, 'track_number', None) or getattr(song_id, 'track_no', None)
+        else:
+            s_id = int(song_id if song_id is not None else kwargs.get('song_id', 0))
+            m_id = int(movie_id if movie_id is not None else kwargs.get('movie_id', 0))
+            t_num = track_number if track_number is not None else kwargs.get('track_number', kwargs.get('track_no'))
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR REPLACE INTO song_movies (song_id, movie_id, track_number)
                     VALUES (?, ?, ?)
-                """, (song_id, movie_id, track_number))
+                """, (s_id, m_id, t_num))
                 return cursor.rowcount > 0
 
     def get_song_movies(self, song_id: int) -> List[Movie]:

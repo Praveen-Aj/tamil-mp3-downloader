@@ -35,6 +35,8 @@ from ui.views.import_view import ImportView
 from ui.views.library import LibraryView
 from ui.views.movies_view import MoviesView
 from ui.views.movie_detail_view import MovieDetailView
+from ui.views.artists_view import ArtistsView
+from ui.views.artist_detail_view import ArtistDetailView
 from ui.views.sources import SourcesView
 from ui.views.settings_view import SettingsView
 
@@ -142,6 +144,22 @@ class TamilMP3App(ctk.CTk):
             service=self.service,
             on_back=lambda: self.show_view("movies"),
             on_start_downloads=self._on_downloads_started,
+            on_open_artist=self._open_artist_detail,
+        )
+
+        self.views["artists"] = ArtistsView(
+            self.view_container,
+            service=self.service,
+            on_open_artist=self._open_artist_detail,
+            on_navigate=self.show_view,
+        )
+
+        self.views["artist_detail"] = ArtistDetailView(
+            self.view_container,
+            service=self.service,
+            on_back=lambda: self.show_view("artists"),
+            on_open_movie=self._open_movie_detail,
+            on_start_downloads=self._on_downloads_started,
         )
 
         self.views["discover"] = DiscoverView(
@@ -196,6 +214,14 @@ class TamilMP3App(ctk.CTk):
                 detail_view.set_movie(movie_id)
             self.show_view("movie_detail")
 
+    def _open_artist_detail(self, artist_id: int) -> None:
+        """Open detailed artist/person inspection view."""
+        if "artist_detail" in self.views:
+            detail_view = self.views["artist_detail"]
+            if hasattr(detail_view, "set_artist"):
+                detail_view.set_artist(artist_id)
+            self.show_view("artist_detail")
+
     def show_view(self, view_name: str) -> None:
         """Switch active view frame."""
         if view_name not in self.views:
@@ -210,7 +236,12 @@ class TamilMP3App(ctk.CTk):
                 v.grid_remove()
 
         self.current_view_name = view_name
-        sidebar_key = "movies" if view_name == "movie_detail" else view_name
+        if view_name == "movie_detail":
+            sidebar_key = "movies"
+        elif view_name == "artist_detail":
+            sidebar_key = "artists"
+        else:
+            sidebar_key = view_name
         self.sidebar.set_active(sidebar_key)
         target_view = self.views[view_name]
 

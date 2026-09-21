@@ -31,12 +31,14 @@ class MovieDetailView(ctk.CTkFrame):
         service: LibraryService,
         on_back: Callable[[], None],
         on_start_downloads: Optional[Callable[[List[int]], None]] = None,
+        on_open_artist: Optional[Callable[[int], None]] = None,
         **kwargs,
     ):
         super().__init__(master, fg_color=theme.BG_APP, corner_radius=0, **kwargs)
         self.service = service
         self.on_back = on_back
         self.on_start_downloads = on_start_downloads
+        self.on_open_artist = on_open_artist
 
         self.movie_id: Optional[int] = None
         self._movie_data: Optional[Dict[str, Any]] = None
@@ -121,6 +123,9 @@ class MovieDetailView(ctk.CTkFrame):
             anchor="w",
         )
         self.movie_subtitle_lbl.pack(anchor="w", pady=(3, 0))
+
+        self.credits_box = ctk.CTkFrame(meta_box, fg_color="transparent")
+        self.credits_box.pack(anchor="w", pady=(4, 0))
 
         # Metrics chips below title
         self.metrics_box = ctk.CTkFrame(self.hero_card, fg_color="transparent")
@@ -226,8 +231,49 @@ class MovieDetailView(ctk.CTkFrame):
         if movie.director:
             meta_parts.append(f"Directed by {movie.director}")
         if composers:
-            meta_parts.append(f"Music by {', '.join(composers)}")
+            comp_names = [c if isinstance(c, str) else c.get("name", "") for c in composers]
+            meta_parts.append(f"Music by {', '.join(comp_names)}")
         self.movie_subtitle_lbl.configure(text=" • ".join(meta_parts) if meta_parts else "Tamil Movie Soundtrack")
+
+        # Render clickable composer & actor credits
+        for w in self.credits_box.winfo_children():
+            w.destroy()
+
+        composer_objs = data.get("composer_objects", [])
+        for c in composer_objs:
+            c_name = c.get("name")
+            c_id = c.get("id")
+            if c_name and c_id and self.on_open_artist:
+                btn_c = ctk.CTkButton(
+                    self.credits_box,
+                    text=f"🎼 {c_name}",
+                    height=24,
+                    font=theme.font_caption_bold(),
+                    fg_color=theme.SURFACE_ELEVATED,
+                    hover_color=theme.SURFACE_HOVER,
+                    text_color=theme.PRIMARY_LIGHT,
+                    corner_radius=theme.RADIUS_SM,
+                    command=lambda aid=c_id: self.on_open_artist(aid),
+                )
+                btn_c.pack(side="left", padx=(0, 6))
+
+        actor_objs = data.get("actor_objects", [])
+        for a in actor_objs[:4]:
+            a_name = a.get("name")
+            a_id = a.get("id")
+            if a_name and a_id and self.on_open_artist:
+                btn_a = ctk.CTkButton(
+                    self.credits_box,
+                    text=f"🎬 {a_name}",
+                    height=24,
+                    font=theme.font_caption(),
+                    fg_color=theme.SURFACE_ELEVATED,
+                    hover_color=theme.SURFACE_HOVER,
+                    text_color=theme.TEXT_SECONDARY,
+                    corner_radius=theme.RADIUS_SM,
+                    command=lambda aid=a_id: self.on_open_artist(aid),
+                )
+                btn_a.pack(side="left", padx=(0, 6))
 
         # Update Metrics Chips
         self._update_stats_chips(stats)
