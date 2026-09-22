@@ -6,6 +6,7 @@ song management, source tracking, download history, and discovery context.
 """
 
 import logging
+import os
 import sqlite3
 import threading
 from datetime import datetime
@@ -20,7 +21,7 @@ from library.models import (
 )
 from library.migrator import DatabaseMigrator
 from library.filter_engine import SongFilterCriteria, ComposableFilterEngine
-from library.canonical import normalize_string
+from library.canonical import normalize_string, compute_canonical_hash
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,20 @@ class SQLiteDatabase:
         """
         with self._lock:
             with self._conn:
+                if not song.canonical_hash:
+                    song.canonical_hash = compute_canonical_hash(
+                        song.title or "",
+                        song.artist or "",
+                        song.album or "",
+                        song.year,
+                        song.duration_seconds
+                    )
+                if not song.title_normalized:
+                    song.title_normalized = normalize_string(song.title or "")
+                if not song.artist_normalized and song.artist:
+                    song.artist_normalized = normalize_string(song.artist or "")
+                if not song.album_normalized and song.album:
+                    song.album_normalized = normalize_string(song.album or "")
                 cursor = self._conn.cursor()
                 cursor.execute("""
                     INSERT OR IGNORE INTO songs (
@@ -2318,6 +2333,359 @@ class SQLiteDatabase:
                 ORDER BY pi.position ASC
             """, (playlist_id,))
             return [LibrarySong.from_row(r) for r in cursor.fetchall()]
+
+    def update_playlist(self, playlist_id: int, name: Optional[str] = None, description: Optional[str] = None) -> bool:
+        """Update playlist name and/or description."""
+        updates = []
+        params = []
+        if name is not None and name.strip():
+            updates.append("name = ?")
+            params.append(name.strip())
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description.strip())
+        if not updates:
+            return False
+        updates.append("updated_at = ?")
+        params.append(datetime.now().isoformat())
+        params.append(playlist_id)
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(f"UPDATE playlists SET {', '.join(updates)} WHERE id = ?", params)
+                return cursor.rowcount > 0
+
+    def reorder_playlist_items(self, playlist_id: int, ordered_song_ids: List[int]) -> bool:
+        """Update positions of songs in a playlist based on list order."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                for pos, s_id in enumerate(ordered_song_ids, start=1):
+                    cursor.execute(
+                        "UPDATE playlist_items SET position = ? WHERE playlist_id = ? AND song_id = ?",
+                        (pos, playlist_id, s_id),
+                    )
+                return True
+
+    def move_playlist_item(self, playlist_id: int, song_id: int, direction: str) -> bool:
+        """Swap position of a song with adjacent item ('up' or 'down')."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT position FROM playlist_items WHERE playlist_id = ? AND song_id = ?", (playlist_id, song_id))
+                row = cursor.fetchone()
+                if not row:
+                    return False
+                current_pos = row[0]
+                if direction == "up":
+                    cursor.execute(
+                        "SELECT song_id, position FROM playlist_items WHERE playlist_id = ? AND position < ? ORDER BY position DESC LIMIT 1",
+                        (playlist_id, current_pos),
+                    )
+                elif direction == "down":
+                    cursor.execute(
+                        "SELECT song_id, position FROM playlist_items WHERE playlist_id = ? AND position > ? ORDER BY position ASC LIMIT 1",
+                        (playlist_id, current_pos),
+                    )
+                else:
+                    return False
+                adj = cursor.fetchone()
+                if not adj:
+                    return False
+                adj_song_id, adj_pos = adj[0], adj[1]
+                # Swap positions
+                cursor.execute("UPDATE playlist_items SET position = ? WHERE playlist_id = ? AND song_id = ?", (adj_pos, playlist_id, song_id))
+                cursor.execute("UPDATE playlist_items SET position = ? WHERE playlist_id = ? AND song_id = ?", (current_pos, playlist_id, adj_song_id))
+                return True
+
+    def search_and_filter_playlists(
+        self,
+        query: str = "",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Search playlists with calculated track and download metrics."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = []
+            params = []
+            if query and query.strip():
+                q = f"%{query.strip().lower()}%"
+                where_clauses.append("(LOWER(p.name) LIKE ? OR LOWER(COALESCE(p.description, '')) LIKE ?)")
+                params.extend([q, q])
+
+            where_str = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+            count_sql = f"SELECT COUNT(*) FROM playlists p {where_str}"
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            sql = f"""
+                SELECT
+                    p.id,
+                    p.name,
+                    p.description,
+                    p.cover_url,
+                    p.is_smart,
+                    p.created_at,
+                    p.updated_at,
+                    (SELECT COUNT(*) FROM playlist_items pi WHERE pi.playlist_id = p.id) AS total_songs,
+                    (SELECT COUNT(*) FROM playlist_items pi
+                     JOIN songs s ON pi.song_id = s.id
+                     WHERE pi.playlist_id = p.id AND s.state = 'OWNED') AS downloaded_songs
+                FROM playlists p
+                {where_str}
+                ORDER BY p.updated_at DESC, p.name ASC
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(sql, params + [limit, offset])
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                tot = r[7]
+                dl = r[8]
+                results.append({
+                    "id": r[0],
+                    "name": r[1],
+                    "description": r[2],
+                    "cover_url": r[3],
+                    "is_smart": bool(r[4]),
+                    "created_at": r[5],
+                    "updated_at": r[6],
+                    "total_songs": tot,
+                    "downloaded_songs": dl,
+                    "missing_songs": max(0, tot - dl),
+                })
+            return results, total
+
+    def get_playlist_statistics(self, playlist_id: int) -> Dict[str, int]:
+        """Return authoritative playlist track and download metrics with disk verification."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT s.state, s.file_path
+                FROM playlist_items pi
+                JOIN songs s ON pi.song_id = s.id
+                WHERE pi.playlist_id = ?
+            """, (playlist_id,))
+            rows = cursor.fetchall()
+            total = len(rows)
+            downloaded = 0
+            for state, f_path in rows:
+                if state == SongState.OWNED.value and f_path and os.path.isfile(f_path):
+                    downloaded += 1
+            return {
+                "total_songs": total,
+                "downloaded_songs": downloaded,
+                "missing_songs": max(0, total - downloaded),
+            }
+
+    def get_playlist_items_detailed(
+        self,
+        playlist_id: int,
+        query: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Fetch playlist items ordered by position with metadata, artist/movie links, and user rating/favorite status."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = ["pi.playlist_id = ?"]
+            params = [playlist_id]
+
+            if query and query.strip():
+                q = f"%{query.strip().lower()}%"
+                where_clauses.append("(LOWER(s.title) LIKE ? OR LOWER(COALESCE(s.artist, '')) LIKE ? OR LOWER(COALESCE(s.album, '')) LIKE ?)")
+                params.extend([q, q, q])
+
+            where_str = "WHERE " + " AND ".join(where_clauses)
+
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM playlist_items pi
+                JOIN songs s ON pi.song_id = s.id
+                {where_str}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            sql = f"""
+                SELECT
+                    pi.position,
+                    pi.added_at,
+                    s.id AS song_id,
+                    s.title,
+                    s.artist,
+                    s.album,
+                    s.year,
+                    s.duration_seconds,
+                    s.state,
+                    s.file_path,
+                    s.quality_kbps,
+                    (SELECT a.id FROM artists a
+                     JOIN song_artists sa ON a.id = sa.artist_id
+                     WHERE sa.song_id = s.id LIMIT 1) AS artist_id,
+                    (SELECT m.id FROM movies m
+                     JOIN song_movies sm ON m.id = sm.movie_id
+                     WHERE sm.song_id = s.id LIMIT 1) AS movie_id,
+                    m.rating,
+                    m.is_favorite
+                FROM playlist_items pi
+                JOIN songs s ON pi.song_id = s.id
+                LEFT JOIN user_song_metadata m ON s.id = m.song_id
+                {where_str}
+                ORDER BY pi.position ASC
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(sql, params + [limit, offset])
+            rows = cursor.fetchall()
+            items = []
+            for r in rows:
+                pos, added_at, s_id, title, artist, album, year, dur, state, f_path, q_kbps, a_id, m_id, rating, is_fav = r
+                is_dl = (state == SongState.OWNED.value and f_path and os.path.isfile(f_path))
+                items.append({
+                    "position": pos,
+                    "added_at": added_at,
+                    "song_id": s_id,
+                    "title": title,
+                    "artist": artist or "Unknown Artist",
+                    "album": album or "Unknown Album",
+                    "year": year,
+                    "duration_seconds": dur,
+                    "is_downloaded": bool(is_dl),
+                    "file_path": f_path if is_dl else None,
+                    "quality_kbps": q_kbps,
+                    "artist_id": a_id,
+                    "movie_id": m_id,
+                    "rating": rating,
+                    "is_favorite": bool(is_fav),
+                })
+            return items, total
+
+    def search_and_filter_favorites(
+        self,
+        query: str = "",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Search and filter favorite songs with user ratings and download states."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = ["m.is_favorite = 1"]
+            params = []
+            if query and query.strip():
+                q = f"%{query.strip().lower()}%"
+                where_clauses.append("(LOWER(s.title) LIKE ? OR LOWER(COALESCE(s.artist, '')) LIKE ? OR LOWER(COALESCE(s.album, '')) LIKE ?)")
+                params.extend([q, q, q])
+
+            where_str = "WHERE " + " AND ".join(where_clauses)
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM songs s
+                JOIN user_song_metadata m ON s.id = m.song_id
+                {where_str}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            sql = f"""
+                SELECT
+                    s.id, s.title, s.artist, s.album, s.year, s.duration_seconds,
+                    s.state, s.file_path, s.quality_kbps,
+                    m.rating, m.is_favorite, m.favorited_at,
+                    (SELECT a.id FROM artists a JOIN song_artists sa ON a.id = sa.artist_id WHERE sa.song_id = s.id LIMIT 1) AS artist_id,
+                    (SELECT mv.id FROM movies mv JOIN song_movies sm ON mv.id = sm.movie_id WHERE sm.song_id = s.id LIMIT 1) AS movie_id
+                FROM songs s
+                JOIN user_song_metadata m ON s.id = m.song_id
+                {where_str}
+                ORDER BY m.favorited_at DESC, s.title ASC
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(sql, params + [limit, offset])
+            items = []
+            for r in cursor.fetchall():
+                s_id, title, artist, album, year, dur, state, f_path, q_kbps, rating, is_fav, fav_at, a_id, m_id = r
+                is_dl = (state == SongState.OWNED.value and f_path and os.path.isfile(f_path))
+                items.append({
+                    "song_id": s_id,
+                    "title": title,
+                    "artist": artist or "Unknown Artist",
+                    "album": album or "Unknown Album",
+                    "year": year,
+                    "duration_seconds": dur,
+                    "is_downloaded": bool(is_dl),
+                    "file_path": f_path if is_dl else None,
+                    "quality_kbps": q_kbps,
+                    "rating": rating,
+                    "is_favorite": bool(is_fav),
+                    "favorited_at": fav_at,
+                    "artist_id": a_id,
+                    "movie_id": m_id,
+                })
+            return items, total
+
+    def search_and_filter_rated_songs(
+        self,
+        min_rating: int = 1,
+        query: str = "",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Search and filter rated songs ordered by rating descending."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = ["m.rating IS NOT NULL", "m.rating >= ?"]
+            params = [min_rating]
+            if query and query.strip():
+                q = f"%{query.strip().lower()}%"
+                where_clauses.append("(LOWER(s.title) LIKE ? OR LOWER(COALESCE(s.artist, '')) LIKE ? OR LOWER(COALESCE(s.album, '')) LIKE ?)")
+                params.extend([q, q, q])
+
+            where_str = "WHERE " + " AND ".join(where_clauses)
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM songs s
+                JOIN user_song_metadata m ON s.id = m.song_id
+                {where_str}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            sql = f"""
+                SELECT
+                    s.id, s.title, s.artist, s.album, s.year, s.duration_seconds,
+                    s.state, s.file_path, s.quality_kbps,
+                    m.rating, m.is_favorite, m.last_rated_at,
+                    (SELECT a.id FROM artists a JOIN song_artists sa ON a.id = sa.artist_id WHERE sa.song_id = s.id LIMIT 1) AS artist_id,
+                    (SELECT mv.id FROM movies mv JOIN song_movies sm ON mv.id = sm.movie_id WHERE sm.song_id = s.id LIMIT 1) AS movie_id
+                FROM songs s
+                JOIN user_song_metadata m ON s.id = m.song_id
+                {where_str}
+                ORDER BY m.rating DESC, m.last_rated_at DESC, s.title ASC
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(sql, params + [limit, offset])
+            items = []
+            for r in cursor.fetchall():
+                s_id, title, artist, album, year, dur, state, f_path, q_kbps, rating, is_fav, rated_at, a_id, m_id = r
+                is_dl = (state == SongState.OWNED.value and f_path and os.path.isfile(f_path))
+                items.append({
+                    "song_id": s_id,
+                    "title": title,
+                    "artist": artist or "Unknown Artist",
+                    "album": album or "Unknown Album",
+                    "year": year,
+                    "duration_seconds": dur,
+                    "is_downloaded": bool(is_dl),
+                    "file_path": f_path if is_dl else None,
+                    "quality_kbps": q_kbps,
+                    "rating": rating,
+                    "is_favorite": bool(is_fav),
+                    "last_rated_at": rated_at,
+                    "artist_id": a_id,
+                    "movie_id": m_id,
+                })
+            return items, total
 
     # ------------------------------------------------------------------
     # V5.1 Curated Charts & Snapshots

@@ -35,7 +35,7 @@ from library.models import (
     Artist, MovieActor, MovieComposer, SongArtist, SongMovie,
     Chart, ChartEntry
 )
-from library.canonical import normalize_string
+from library.canonical import normalize_string, compute_canonical_hash
 from library.charts import ChartDiscoveryService
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
 from library.filter_engine import SongFilterCriteria
@@ -1547,6 +1547,245 @@ class LibraryService:
     def split_artist_names(self, raw_artist: Optional[str]) -> List[str]:
         """Split composite artist strings into distinct individual names."""
         return split_artist_names(raw_artist)
+
+    # ------------------------------------------------------------------
+    # V5.6 Playlists, Ratings, Favorites & External Import
+    # ------------------------------------------------------------------
+
+    def create_playlist(self, name: str, description: str = "") -> int:
+        """Create a user playlist."""
+        from library.models import Playlist
+        p = Playlist(name=name.strip(), description=description.strip())
+        return self.db.create_playlist(p)
+
+    def update_playlist(self, playlist_id: int, name: Optional[str] = None, description: Optional[str] = None) -> bool:
+        """Update playlist name and/or description."""
+        return self.db.update_playlist(playlist_id, name=name, description=description)
+
+    def delete_playlist(self, playlist_id: int) -> bool:
+        """Delete playlist safely without deleting canonical songs."""
+        return self.db.delete_playlist(playlist_id)
+
+    def get_playlists_page(
+        self,
+        query: str = "",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Fetch paginated playlists with aggregate metrics."""
+        offset = max(0, (page - 1) * page_size)
+        return self.db.search_and_filter_playlists(query=query, limit=page_size, offset=offset)
+
+    def get_playlist_details(
+        self,
+        playlist_id: int,
+        query: str = "",
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch playlist header, stats, and paginated items."""
+        playlist = self.db.get_playlist(playlist_id)
+        if not playlist:
+            return None
+        stats = self.db.get_playlist_statistics(playlist_id)
+        offset = max(0, (page - 1) * page_size)
+        items, total_matching = self.db.get_playlist_items_detailed(
+            playlist_id=playlist_id,
+            query=query,
+            limit=page_size,
+            offset=offset,
+        )
+        return {
+            "playlist": playlist,
+            "stats": stats,
+            "items": items,
+            "total_matching": total_matching,
+        }
+
+    def add_songs_to_playlist(self, playlist_id: int, song_ids: List[int]) -> int:
+        """Add multiple canonical songs to a playlist."""
+        added = 0
+        for s_id in song_ids:
+            if self.db.add_playlist_item(playlist_id, s_id):
+                added += 1
+        return added
+
+    def remove_song_from_playlist(self, playlist_id: int, song_id: int) -> bool:
+        """Remove a song from a playlist."""
+        return self.db.remove_playlist_item(playlist_id, song_id)
+
+    def reorder_playlist_songs(self, playlist_id: int, ordered_song_ids: List[int]) -> bool:
+        """Reorder songs in a playlist."""
+        return self.db.reorder_playlist_items(playlist_id, ordered_song_ids)
+
+    def move_playlist_song(self, playlist_id: int, song_id: int, direction: str) -> bool:
+        """Move song up or down in playlist ordering."""
+        return self.db.move_playlist_item(playlist_id, song_id, direction)
+
+    def plan_playlist_download_all(self, playlist_id: int) -> DownloadPlan:
+        """Plan download for all tracks in a playlist."""
+        items = self.db.get_playlist_songs(playlist_id)
+        for s in items:
+            self._ensure_playlist_song_source(s.id)
+        if not items:
+            return DownloadPlan()
+        return self.planner.plan_downloads_for_songs(items)
+
+    def plan_playlist_download_missing(self, playlist_id: int) -> DownloadPlan:
+        """Plan download only for missing/undownloaded tracks in a playlist."""
+        items = self.db.get_playlist_songs(playlist_id)
+        missing_songs = []
+        for s in items:
+            is_downloaded = (s.state == SongState.OWNED and s.file_path and os.path.isfile(s.file_path))
+            if not is_downloaded:
+                self._ensure_playlist_song_source(s.id)
+                missing_songs.append(s)
+        if not missing_songs:
+            return DownloadPlan()
+        return self.planner.plan_downloads_for_songs(missing_songs)
+
+    def plan_playlist_entry_download(self, playlist_id: int, song_id: int) -> DownloadPlan:
+        """Plan single track download within a playlist."""
+        self._ensure_playlist_song_source(song_id)
+        song = self.db.get_song(song_id)
+        if not song:
+            return DownloadPlan()
+        return self.planner.plan_downloads_for_songs([song])
+
+    def _ensure_playlist_song_source(self, song_id: int) -> None:
+        """Ensure song has a usable audio source registered."""
+        sources = self.db.get_sources_for_song(song_id)
+        if sources:
+            return
+        song = self.db.get_song(song_id)
+        if not song:
+            return
+        # Find candidate from source registry or provider fallback
+        candidates = self.provider_registry.search_and_rank_candidates(
+            title=song.title,
+            artist=song.artist,
+            duration_seconds=song.duration_seconds,
+        )
+        if candidates:
+            best = candidates[0][0] if isinstance(candidates[0], tuple) else candidates[0]
+            self.db.add_source(SongSource(
+                song_id=song_id,
+                source_name=best.provider_name or "provider_fallback",
+                source_url=best.url,
+                download_reference=best.url,
+                quality_kbps=best.quality_kbps or 320,
+                is_available=True,
+            ))
+
+    def import_external_playlist(self, url: str, target_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Analyze and import an external playlist URL (Spotify, YouTube, etc.) into the canonical library.
+        Flow: URL -> Analyze -> Resolve -> Canonicalize -> Deduplicate -> Add to Playlist.
+        """
+        from library.jobs.job_manager import ImportJobManager
+        from library.models import Playlist
+
+        job_mgr = ImportJobManager(self.db)
+        job, items = job_mgr.analyze_url(url)
+        if not items:
+            return {"success": False, "error": job.error_message or "No tracks found at URL"}
+
+        p_name = (target_name or job.title or "Imported Playlist").strip()
+        playlist = Playlist(
+            name=p_name,
+            description=f"Imported from {job.platform} ({url})",
+        )
+        playlist_id = self.db.create_playlist(playlist)
+        songs_added = 0
+        already_in_lib = 0
+
+        for item in items:
+            c_hash = compute_canonical_hash(item.title, item.artist or "", item.album or "")
+            c_song = self.db.get_song_by_hash(c_hash)
+            if not c_song:
+                matches = self.db.search_songs(item.title, limit=5)
+                for m in matches:
+                    if m.title_normalized == normalize_string(item.title):
+                        c_song = m
+                        break
+
+            if c_song:
+                s_id = c_song.id
+                already_in_lib += 1
+            else:
+                s_id = self.db.add_song(LibrarySong(
+                    title=item.title,
+                    artist=item.artist,
+                    album=item.album or p_name,
+                    duration_seconds=item.duration_seconds,
+                    state=SongState.NEW,
+                ))
+
+            if s_id:
+                sources = self.db.get_sources_for_song(s_id)
+                if not sources and item.selected_source_url:
+                    self.db.add_source(SongSource(
+                        song_id=s_id,
+                        source_name=item.selected_provider or job.platform or "imported",
+                        source_url=item.selected_source_url,
+                        download_reference=item.selected_source_url,
+                        quality_kbps=320,
+                        is_available=True,
+                    ))
+                if self.db.add_playlist_item(playlist_id=playlist_id, song_id=s_id):
+                    songs_added += 1
+
+        return {
+            "success": True,
+            "playlist_id": playlist_id,
+            "playlist_name": p_name,
+            "total_items": len(items),
+            "songs_added": songs_added,
+            "already_in_lib": already_in_lib,
+        }
+
+    # ------------------------------------------------------------------
+    # User Personalization: Ratings & Favorites
+    # ------------------------------------------------------------------
+
+    def rate_song(self, song_id: int, rating: Optional[int]) -> bool:
+        """Set user rating (1-5 or None to clear)."""
+        return self.db.set_song_rating(song_id, rating)
+
+    def get_song_rating(self, song_id: int) -> Optional[int]:
+        """Get user rating for a song."""
+        meta = self.db.get_user_metadata(song_id)
+        return meta.rating if meta else None
+
+    def toggle_favorite(self, song_id: int) -> bool:
+        """Toggle favorite status for a song."""
+        return self.db.toggle_song_favorite(song_id)
+
+    def is_favorite(self, song_id: int) -> bool:
+        """Check if song is favorite."""
+        meta = self.db.get_user_metadata(song_id)
+        return bool(meta.is_favorite) if meta else False
+
+    def get_favorites_page(
+        self,
+        query: str = "",
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Fetch paginated favorite songs with ratings and states."""
+        offset = max(0, (page - 1) * page_size)
+        return self.db.search_and_filter_favorites(query=query, limit=page_size, offset=offset)
+
+    def get_rated_songs_page(
+        self,
+        min_rating: int = 1,
+        query: str = "",
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Fetch paginated rated songs ordered by rating descending."""
+        offset = max(0, (page - 1) * page_size)
+        return self.db.search_and_filter_rated_songs(min_rating=min_rating, query=query, limit=page_size, offset=offset)
 
 
 def split_artist_names(raw_artist: Optional[str]) -> List[str]:

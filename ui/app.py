@@ -39,6 +39,8 @@ from ui.views.artists_view import ArtistsView
 from ui.views.artist_detail_view import ArtistDetailView
 from ui.views.charts_view import ChartsView
 from ui.views.chart_detail_view import ChartDetailView
+from ui.views.playlists_view import PlaylistsView
+from ui.views.playlist_detail_view import PlaylistDetailView
 from ui.views.sources import SourcesView
 from ui.views.settings_view import SettingsView
 
@@ -180,6 +182,24 @@ class TamilMP3App(ctk.CTk):
             on_start_downloads=self._on_downloads_started,
         )
 
+        self.views["playlists"] = PlaylistsView(
+            self.view_container,
+            service=self.service,
+            on_open_playlist=self._open_playlist_detail,
+            on_navigate=self.show_view,
+            on_open_artist=self._open_artist_detail,
+            on_open_movie=self._open_movie_detail,
+        )
+
+        self.views["playlist_detail"] = PlaylistDetailView(
+            self.view_container,
+            service=self.service,
+            on_back=lambda: self.show_view("playlists"),
+            on_open_artist=self._open_artist_detail,
+            on_open_movie=self._open_movie_detail,
+            on_start_downloads=self._on_downloads_started,
+        )
+
         self.views["discover"] = DiscoverView(
             self.view_container,
             service=self.service,
@@ -248,6 +268,14 @@ class TamilMP3App(ctk.CTk):
                 detail_view.load_chart(chart_id)
             self.show_view("chart_detail")
 
+    def _open_playlist_detail(self, playlist_id: int) -> None:
+        """Open detailed user playlist view."""
+        if "playlist_detail" in self.views:
+            detail_view = self.views["playlist_detail"]
+            if hasattr(detail_view, "load_playlist"):
+                detail_view.load_playlist(playlist_id)
+            self.show_view("playlist_detail")
+
     def show_view(self, view_name: str) -> None:
         """Switch active view frame."""
         if view_name not in self.views:
@@ -268,6 +296,8 @@ class TamilMP3App(ctk.CTk):
             sidebar_key = "artists"
         elif view_name == "chart_detail":
             sidebar_key = "charts"
+        elif view_name == "playlist_detail":
+            sidebar_key = "playlists"
         else:
             sidebar_key = view_name
         self.sidebar.set_active(sidebar_key)
