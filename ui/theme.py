@@ -19,6 +19,8 @@ SURFACE_ELEVATED = "#1e2133" # Elevated cards, hover containers, popups
 SURFACE_HOVER = "#23273a"    # Card hover / button hover
 SURFACE_ACTIVE = "#262b42"   # Active / focused item background
 SURFACE_MUTED = "#131420"    # Inset areas, code blocks, dark inputs
+SURFACE_CARD = SURFACE       # Alias for default card surface
+BG_INPUT = SURFACE_MUTED     # Input field background
 
 # Borders & Separators
 BORDER = "#24283b"           # Subtle container border
@@ -28,6 +30,7 @@ BORDER_ACCENT = "#6366f1"    # Active accent border
 # Primary & Secondary Brand Accents
 PRIMARY = "#6366f1"          # Modern Indigo primary brand color
 PRIMARY_HOVER = "#4f46e5"    # Primary hover
+PRIMARY_DARK = PRIMARY_HOVER # Alias for primary dark hover
 PRIMARY_MUTED = "#312e81"    # Primary subtle background container
 PRIMARY_LIGHT = "#a5b4fc"    # Primary text highlight
 
@@ -67,6 +70,7 @@ RADIUS_SM = 6
 RADIUS_MD = 10
 RADIUS_LG = 14
 RADIUS_XL = 18
+RADIUS_FULL = 20
 
 # ── Typography Tokens (Factory Callers) ────────────────────────────────────────
 def font_hero() -> ctk.CTkFont:
@@ -92,3 +96,6 @@ def font_caption_bold() -> ctk.CTkFont:
 
 def font_badge() -> ctk.CTkFont:
     return ctk.CTkFont(size=10, weight="bold")
+
+def font_button() -> ctk.CTkFont:
+    return ctk.CTkFont(size=12, weight="bold")

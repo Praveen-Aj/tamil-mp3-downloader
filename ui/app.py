@@ -37,6 +37,8 @@ from ui.views.movies_view import MoviesView
 from ui.views.movie_detail_view import MovieDetailView
 from ui.views.artists_view import ArtistsView
 from ui.views.artist_detail_view import ArtistDetailView
+from ui.views.charts_view import ChartsView
+from ui.views.chart_detail_view import ChartDetailView
 from ui.views.sources import SourcesView
 from ui.views.settings_view import SettingsView
 
@@ -162,6 +164,22 @@ class TamilMP3App(ctk.CTk):
             on_start_downloads=self._on_downloads_started,
         )
 
+        self.views["charts"] = ChartsView(
+            self.view_container,
+            service=self.service,
+            on_open_chart=self._open_chart_detail,
+            on_navigate=self.show_view,
+        )
+
+        self.views["chart_detail"] = ChartDetailView(
+            self.view_container,
+            service=self.service,
+            on_back=lambda: self.show_view("charts"),
+            on_open_artist=self._open_artist_detail,
+            on_open_movie=self._open_movie_detail,
+            on_start_downloads=self._on_downloads_started,
+        )
+
         self.views["discover"] = DiscoverView(
             self.view_container,
             service=self.service,
@@ -222,6 +240,14 @@ class TamilMP3App(ctk.CTk):
                 detail_view.set_artist(artist_id)
             self.show_view("artist_detail")
 
+    def _open_chart_detail(self, chart_id: str) -> None:
+        """Open detailed curated chart inspection view."""
+        if "chart_detail" in self.views:
+            detail_view = self.views["chart_detail"]
+            if hasattr(detail_view, "load_chart"):
+                detail_view.load_chart(chart_id)
+            self.show_view("chart_detail")
+
     def show_view(self, view_name: str) -> None:
         """Switch active view frame."""
         if view_name not in self.views:
@@ -240,6 +266,8 @@ class TamilMP3App(ctk.CTk):
             sidebar_key = "movies"
         elif view_name == "artist_detail":
             sidebar_key = "artists"
+        elif view_name == "chart_detail":
+            sidebar_key = "charts"
         else:
             sidebar_key = view_name
         self.sidebar.set_active(sidebar_key)

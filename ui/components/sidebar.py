@@ -86,6 +86,7 @@ class SidebarNav(ctk.CTkFrame):
         self._create_nav_button("library", "📚  Music Library", view_key="library")
         self._create_nav_button("movies", "🎬  Movies", view_key="movies")
         self._create_nav_button("artists", "👥  Artists & People", view_key="artists")
+        self._create_nav_button("charts", "🔥  Charts & Top 100", view_key="charts")
         self._create_nav_button("discover", "🔍  Discover Regional", view_key="discover")
 
         # Group: SYSTEM

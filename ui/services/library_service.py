@@ -32,9 +32,11 @@ from library.providers.base import AudioCandidate
 from library.models import (
     LibrarySong, SongSource, SongState, DownloadState, Download,
     ImportJob, ImportJobItem, JobStatus, ItemState, Movie,
-    Artist, MovieActor, MovieComposer, SongArtist, SongMovie
+    Artist, MovieActor, MovieComposer, SongArtist, SongMovie,
+    Chart, ChartEntry
 )
 from library.canonical import normalize_string
+from library.charts import ChartDiscoveryService
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
 from library.filter_engine import SongFilterCriteria
 from library.registry import DownloadRegistry
@@ -107,6 +109,7 @@ class LibraryService:
             provider_registry=self.provider_registry,
         )
 
+        self.charts_service = ChartDiscoveryService(self.db)
         self._lock = threading.RLock()
         self._last_discovery_session: Optional[Dict[str, Any]] = None
         self._progress_listeners: List[Callable[[DownloadProgressEvent], None]] = []
@@ -1315,6 +1318,158 @@ class LibraryService:
             if s and (s.state != SongState.OWNED or not s.file_path or not os.path.isfile(s.file_path)):
                 songs.append(s)
         return self.planner.plan_downloads_for_songs(songs)
+
+    # ------------------------------------------------------------------
+    # V5.5 Charts & Top 100 Operations
+    # ------------------------------------------------------------------
+
+    def sync_charts(self) -> List[str]:
+        """Fetch fresh chart snapshots from external providers."""
+        return self.charts_service.sync_all_default_charts()
+
+    def get_charts_page(
+        self,
+        query: str = "",
+        chart_type: Optional[str] = None,
+        sort_by: str = "snapshot_date",
+        ascending: bool = False,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Get paginated charts list with download state.
+        """
+        self.reconcile_library_files()
+        return self.db.search_and_filter_charts(
+            query=query,
+            chart_type=chart_type,
+            sort_by=sort_by,
+            ascending=ascending,
+            limit=page_size,
+            offset=max(0, (page - 1) * page_size),
+        )
+
+    def get_chart_details(
+        self,
+        chart_id: str,
+        query: str = "",
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get full details for a chart: metadata, stats, and detailed ranked entries.
+        """
+        self.reconcile_library_files()
+        chart = self.db.get_chart(chart_id)
+        if not chart:
+            return None
+
+        stats = self.db.get_chart_statistics(chart_id)
+        offset = max(0, (page - 1) * page_size)
+        entries, total_matching = self.db.get_chart_entries_detailed(
+            chart_id=chart_id,
+            query=query,
+            limit=page_size,
+            offset=offset,
+        )
+
+        return {
+            "chart": chart,
+            "stats": stats,
+            "entries": entries,
+            "total_matching": total_matching,
+            "page": page,
+            "page_size": page_size,
+        }
+
+    def plan_chart_download_all(self, chart_id: str) -> DownloadPlan:
+        """
+        Plan downloads for ALL songs in a chart snapshot.
+        Ensures songs have sources registered, then passes to DownloadPlanner.
+        """
+        self.reconcile_library_files()
+        entries = self.db.get_chart_entries(chart_id)
+        songs = []
+        for e in entries:
+            s = self._ensure_chart_entry_song_and_source(e)
+            if s:
+                songs.append(s)
+        return self.planner.plan_downloads_for_songs(songs)
+
+    def plan_chart_download_missing(self, chart_id: str) -> DownloadPlan:
+        """
+        Plan downloads ONLY for missing songs in a chart snapshot.
+        Physical file presence on disk is verified.
+        """
+        self.reconcile_library_files()
+        entries = self.db.get_chart_entries(chart_id)
+        missing_songs = []
+        for e in entries:
+            s = self._ensure_chart_entry_song_and_source(e)
+            if s and (s.state != SongState.OWNED or not s.file_path or not os.path.isfile(s.file_path)):
+                missing_songs.append(s)
+        return self.planner.plan_downloads_for_songs(missing_songs)
+
+    def plan_chart_entry_download(self, chart_id: str, rank: int) -> DownloadPlan:
+        """
+        Plan download for a single chart entry.
+        """
+        self.reconcile_library_files()
+        entries = self.db.get_chart_entries(chart_id)
+        target_entry = next((e for e in entries if e.rank == rank), None)
+        if not target_entry:
+            return DownloadPlan()
+        s = self._ensure_chart_entry_song_and_source(target_entry)
+        if not s:
+            return DownloadPlan()
+        return self.planner.plan_downloads_for_songs([s])
+
+    def _ensure_chart_entry_song_and_source(self, entry: ChartEntry) -> Optional[LibrarySong]:
+        """
+        Helper ensuring chart entry is linked to a canonical LibrarySong with at least one registered source.
+        """
+        song = self.db.get_song(entry.song_id) if entry.song_id else None
+        if not song:
+            song_id = self.charts_service._resolve_or_create_canonical_song(
+                title=entry.raw_title,
+                artist=entry.raw_artist or "Tamil Artist",
+                movie=entry.raw_movie or "Single",
+            )
+            if song_id:
+                self.db.update_chart_entry_song(entry.chart_id, entry.rank, song_id)
+                song = self.db.get_song(song_id)
+
+        if not song:
+            return None
+
+        # Check if sources exist for this song
+        sources = self.db.get_sources_for_song(song.id)
+        if not sources:
+            # Try to discover/register source via regional provider search
+            try:
+                from library.providers.regional_provider import TamilRegionalProvider
+                reg = TamilRegionalProvider(self.source_registry)
+                candidates = reg.search(title=song.title, artist=song.artist, limit=2)
+                if candidates:
+                    cand = candidates[0]
+                    raw_meta = cand.raw_metadata or {}
+                    song_obj = raw_meta.get("song_obj")
+                    src_name = raw_meta.get("source_name", "tamilmp3")
+                    if song_obj:
+                        src = SongSource(
+                            song_id=song.id,
+                            source_name=src_name,
+                            source_url=cand.source_url,
+                            download_reference=getattr(song_obj, "download_reference", None),
+                            quality_kbps=cand.quality_kbps,
+                            file_type="mp3",
+                            is_available=True,
+                        )
+                        self.db.add_source(src)
+            except Exception as ex:
+                logger.debug(f"Source resolution error for chart song '{song.title}': {ex}")
+
+        return song
 
     def enrich_people_from_library(self) -> Dict[str, int]:
         """

@@ -2323,8 +2323,26 @@ class SQLiteDatabase:
     # V5.1 Curated Charts & Snapshots
     # ------------------------------------------------------------------
 
-    def create_chart(self, chart: Chart) -> str:
+    def create_chart(self, chart: Any) -> str:
         """Create a chart snapshot."""
+        if isinstance(chart, dict):
+            c_id = chart["id"]
+            title = chart["title"]
+            c_type = chart.get("chart_type", "top_100")
+            p_name = chart.get("provider_name", "curated")
+            snap = chart.get("snapshot_date")
+            created = chart.get("created_at")
+        else:
+            c_id = chart.id
+            title = chart.title
+            c_type = chart.chart_type
+            p_name = chart.provider_name
+            snap = chart.snapshot_date
+            created = chart.created_at
+
+        snap_str = snap.isoformat() if isinstance(snap, datetime) else (str(snap) if snap else datetime.now().isoformat())
+        created_str = created.isoformat() if isinstance(created, datetime) else (str(created) if created else datetime.now().isoformat())
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
@@ -2333,14 +2351,14 @@ class SQLiteDatabase:
                         id, title, chart_type, provider_name, snapshot_date, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?)
                 """, (
-                    chart.id,
-                    chart.title,
-                    chart.chart_type,
-                    chart.provider_name,
-                    chart.snapshot_date.isoformat() if chart.snapshot_date else datetime.now().isoformat(),
-                    (chart.created_at or datetime.now()).isoformat(),
+                    c_id,
+                    title,
+                    c_type,
+                    p_name,
+                    snap_str,
+                    created_str,
                 ))
-                return chart.id
+                return c_id
 
     def get_chart(self, chart_id: str) -> Optional[Chart]:
         """Get chart snapshot by ID."""
@@ -2360,6 +2378,41 @@ class SQLiteDatabase:
                 cursor.execute("SELECT * FROM charts ORDER BY snapshot_date DESC")
             return [Chart.from_row(r) for r in cursor.fetchall()]
 
+    def update_chart(
+        self,
+        chart_id: str,
+        title: Optional[str] = None,
+        chart_type: Optional[str] = None,
+        provider_name: Optional[str] = None,
+        snapshot_date: Optional[Any] = None,
+    ) -> bool:
+        """Update an existing chart record."""
+        updates = []
+        params = []
+        if title is not None:
+            updates.append("title = ?")
+            params.append(title)
+        if chart_type is not None:
+            updates.append("chart_type = ?")
+            params.append(chart_type)
+        if provider_name is not None:
+            updates.append("provider_name = ?")
+            params.append(provider_name)
+        if snapshot_date is not None:
+            snap_str = snapshot_date.isoformat() if isinstance(snapshot_date, datetime) else str(snapshot_date)
+            updates.append("snapshot_date = ?")
+            params.append(snap_str)
+
+        if not updates:
+            return False
+
+        params.append(chart_id)
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute(f"UPDATE charts SET {', '.join(updates)} WHERE id = ?", params)
+                return cursor.rowcount > 0
+
     def delete_chart(self, chart_id: str) -> bool:
         """Delete chart (cascades to chart_entries, preserves songs)."""
         with self._lock:
@@ -2369,8 +2422,42 @@ class SQLiteDatabase:
                 cursor.execute("DELETE FROM charts WHERE id = ?", (chart_id,))
                 return cursor.rowcount > 0
 
-    def add_chart_entry(self, entry: ChartEntry) -> int:
+    def add_chart_entry(self, entry: Any = None, **kwargs) -> int:
         """Add a ranked track entry to a chart."""
+        if entry is not None and not kwargs:
+            if isinstance(entry, ChartEntry):
+                c_id = entry.chart_id
+                rank = entry.rank
+                prev_rank = entry.previous_rank
+                s_id = entry.song_id
+                r_title = entry.raw_title
+                r_artist = entry.raw_artist
+                r_movie = entry.raw_movie
+            elif isinstance(entry, dict):
+                c_id = entry["chart_id"]
+                rank = entry["rank"]
+                prev_rank = entry.get("previous_rank")
+                s_id = entry.get("song_id")
+                r_title = entry["raw_title"]
+                r_artist = entry.get("raw_artist")
+                r_movie = entry.get("raw_movie")
+            else:
+                c_id = getattr(entry, "chart_id", "")
+                rank = getattr(entry, "rank", 0)
+                prev_rank = getattr(entry, "previous_rank", None)
+                s_id = getattr(entry, "song_id", None)
+                r_title = getattr(entry, "raw_title", "")
+                r_artist = getattr(entry, "raw_artist", None)
+                r_movie = getattr(entry, "raw_movie", None)
+        else:
+            c_id = kwargs.get("chart_id", "")
+            rank = kwargs.get("rank", 0)
+            prev_rank = kwargs.get("previous_rank")
+            s_id = kwargs.get("song_id")
+            r_title = kwargs.get("raw_title", "")
+            r_artist = kwargs.get("raw_artist")
+            r_movie = kwargs.get("raw_movie")
+
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
@@ -2379,13 +2466,13 @@ class SQLiteDatabase:
                         chart_id, rank, previous_rank, song_id, raw_title, raw_artist, raw_movie
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    entry.chart_id,
-                    entry.rank,
-                    entry.previous_rank,
-                    entry.song_id,
-                    entry.raw_title,
-                    entry.raw_artist,
-                    entry.raw_movie,
+                    c_id,
+                    rank,
+                    prev_rank,
+                    s_id,
+                    r_title,
+                    r_artist,
+                    r_movie,
                 ))
                 return cursor.lastrowid
 
@@ -2399,3 +2486,297 @@ class SQLiteDatabase:
                 ORDER BY rank ASC
             """, (chart_id,))
             return [ChartEntry.from_row(r) for r in cursor.fetchall()]
+
+    def update_chart_entry_song(self, chart_id: str, rank: int, song_id: int) -> bool:
+        """Link a chart entry to a canonical song ID."""
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    UPDATE chart_entries
+                    SET song_id = ?
+                    WHERE chart_id = ? AND rank = ?
+                """, (song_id, chart_id, rank))
+                return cursor.rowcount > 0
+
+    def search_and_filter_charts(
+        self,
+        query: str = "",
+        chart_type: Optional[str] = None,
+        sort_by: str = "snapshot_date",
+        ascending: bool = False,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Search and filter charts with total and downloaded song counts.
+        Returns (charts_list, total_count).
+        """
+        with self._lock:
+            cursor = self._conn.cursor()
+            where_clauses = []
+            params: List[Any] = []
+
+            if query:
+                q = f"%{query.strip()}%"
+                where_clauses.append("(c.title LIKE ? OR c.provider_name LIKE ?)")
+                params.extend([q, q])
+
+            if chart_type and chart_type.lower() != "all":
+                where_clauses.append("c.chart_type = ?")
+                params.append(chart_type)
+
+            where_str = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+            # Count total matching
+            count_sql = f"SELECT COUNT(*) FROM charts c {where_str}"
+            cursor.execute(count_sql, params)
+            total_count = cursor.fetchone()[0]
+
+            # Allowed sorts
+            sort_dir = "ASC" if ascending else "DESC"
+            sort_column = "c.snapshot_date"
+            if sort_by == "title":
+                sort_column = "c.title"
+            elif sort_by == "created_at":
+                sort_column = "c.created_at"
+            elif sort_by == "type":
+                sort_column = "c.chart_type"
+
+            sql = f"""
+                SELECT
+                    c.id,
+                    c.title,
+                    c.chart_type,
+                    c.provider_name,
+                    c.snapshot_date,
+                    c.created_at,
+                    (SELECT COUNT(*) FROM chart_entries ce WHERE ce.chart_id = c.id) AS total_entries,
+                    (
+                        SELECT COUNT(*)
+                        FROM chart_entries ce
+                        JOIN songs s ON ce.song_id = s.id
+                        WHERE ce.chart_id = c.id
+                          AND s.state = 'OWNED'
+                          AND s.file_path IS NOT NULL
+                    ) AS owned_entries
+                FROM charts c
+                {where_str}
+                ORDER BY {sort_column} {sort_dir}
+                LIMIT ? OFFSET ?
+            """
+            query_params = list(params) + [limit, offset]
+            cursor.execute(sql, query_params)
+            rows = cursor.fetchall()
+
+            charts = []
+            for r in rows:
+                c_dict = {
+                    "id": r["id"],
+                    "title": r["title"],
+                    "chart_type": r["chart_type"],
+                    "provider_name": r["provider_name"],
+                    "snapshot_date": r["snapshot_date"],
+                    "created_at": r["created_at"],
+                    "total_entries": r["total_entries"],
+                    "downloaded_entries": r["owned_entries"],
+                    "missing_entries": max(0, r["total_entries"] - r["owned_entries"]),
+                }
+                charts.append(c_dict)
+
+            return charts, total_count
+
+    def get_chart_statistics(self, chart_id: str) -> Dict[str, int]:
+        """
+        Get authoritative statistics for a chart.
+        Cross-verifies physical file presence on disk.
+        """
+        import os
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT
+                    ce.id,
+                    ce.rank,
+                    ce.song_id,
+                    s.state,
+                    s.file_path
+                FROM chart_entries ce
+                LEFT JOIN songs s ON ce.song_id = s.id
+                WHERE ce.chart_id = ?
+            """, (chart_id,))
+            rows = cursor.fetchall()
+
+            total_songs = len(rows)
+            downloaded = 0
+            for r in rows:
+                if (
+                    r["song_id"] is not None
+                    and r["state"] == "OWNED"
+                    and r["file_path"]
+                    and os.path.isfile(r["file_path"])
+                ):
+                    downloaded += 1
+
+            return {
+                "total_songs": total_songs,
+                "downloaded_songs": downloaded,
+                "missing_songs": max(0, total_songs - downloaded),
+            }
+
+    def get_chart_entries_detailed(
+        self,
+        chart_id: str,
+        query: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Get detailed ranked entries for a chart, joined with songs, artists, and movies.
+        Computes trend direction (up, down, same, new) and verifies physical download state.
+        Returns (entries_list, total_matching).
+        """
+        import os
+        with self._lock:
+            cursor = self._conn.cursor()
+
+            where_clauses = ["ce.chart_id = ?"]
+            params: List[Any] = [chart_id]
+
+            if query:
+                q = f"%{query.strip()}%"
+                where_clauses.append("""(
+                    ce.raw_title LIKE ?
+                    OR ce.raw_artist LIKE ?
+                    OR ce.raw_movie LIKE ?
+                    OR s.title LIKE ?
+                    OR s.artist LIKE ?
+                )""")
+                params.extend([q, q, q, q, q])
+
+            where_str = f"WHERE {' AND '.join(where_clauses)}"
+
+            # Count total
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM chart_entries ce
+                LEFT JOIN songs s ON ce.song_id = s.id
+                {where_str}
+            """
+            cursor.execute(count_sql, params)
+            total_matching = cursor.fetchone()[0]
+
+            sql = f"""
+                SELECT
+                    ce.id AS entry_id,
+                    ce.chart_id,
+                    ce.rank,
+                    ce.previous_rank,
+                    ce.song_id,
+                    ce.raw_title,
+                    ce.raw_artist,
+                    ce.raw_movie,
+                    s.title AS song_title,
+                    s.artist AS song_artist,
+                    s.album AS song_album,
+                    s.duration_seconds,
+                    s.quality_kbps,
+                    s.file_path,
+                    s.state AS song_state
+                FROM chart_entries ce
+                LEFT JOIN songs s ON ce.song_id = s.id
+                {where_str}
+                ORDER BY ce.rank ASC
+                LIMIT ? OFFSET ?
+            """
+            query_params = list(params) + [limit, offset]
+            cursor.execute(sql, query_params)
+            rows = cursor.fetchall()
+
+            entries = []
+            for r in rows:
+                rank = r["rank"]
+                prev_rank = r["previous_rank"]
+
+                # Determine trend
+                if prev_rank is None or prev_rank == 0:
+                    trend = "new"
+                    trend_label = "NEW"
+                    trend_diff = 0
+                elif prev_rank > rank:
+                    diff = prev_rank - rank
+                    trend = "up"
+                    trend_label = f"▲ {diff}"
+                    trend_diff = diff
+                elif prev_rank < rank:
+                    diff = rank - prev_rank
+                    trend = "down"
+                    trend_label = f"▼ {diff}"
+                    trend_diff = -diff
+                else:
+                    trend = "same"
+                    trend_label = "＝"
+                    trend_diff = 0
+
+                # Authoritative download check
+                file_path = r["file_path"]
+                song_state = r["song_state"] or "NEW"
+                is_downloaded = bool(
+                    r["song_id"] is not None
+                    and song_state == "OWNED"
+                    and file_path
+                    and os.path.isfile(file_path)
+                )
+
+                # Try resolving artist ID for clickable navigation
+                artist_name = r["song_artist"] or r["raw_artist"]
+                artist_id = None
+                if artist_name:
+                    norm_artist = normalize_string(artist_name.split(",")[0])
+                    if norm_artist:
+                        cur_art = self._conn.cursor()
+                        cur_art.execute(
+                            "SELECT id FROM artists WHERE name_normalized = ? LIMIT 1",
+                            (norm_artist,)
+                        )
+                        art_row = cur_art.fetchone()
+                        if art_row:
+                            artist_id = art_row[0]
+
+                # Try resolving movie ID for clickable navigation
+                movie_name = r["song_album"] or r["raw_movie"]
+                movie_id = None
+                if movie_name:
+                    norm_movie = normalize_string(movie_name)
+                    if norm_movie:
+                        cur_mov = self._conn.cursor()
+                        cur_mov.execute(
+                            "SELECT id FROM movies WHERE title_normalized = ? LIMIT 1",
+                            (norm_movie,)
+                        )
+                        mov_row = cur_mov.fetchone()
+                        if mov_row:
+                            movie_id = mov_row[0]
+
+                entries.append({
+                    "entry_id": r["entry_id"],
+                    "chart_id": r["chart_id"],
+                    "rank": rank,
+                    "previous_rank": prev_rank,
+                    "trend": trend,
+                    "trend_label": trend_label,
+                    "trend_diff": trend_diff,
+                    "song_id": r["song_id"],
+                    "title": r["song_title"] or r["raw_title"],
+                    "artist": r["song_artist"] or r["raw_artist"] or "Unknown Artist",
+                    "movie": r["song_album"] or r["raw_movie"] or "Single",
+                    "duration_seconds": r["duration_seconds"],
+                    "quality_kbps": r["quality_kbps"],
+                    "file_path": file_path,
+                    "song_state": song_state,
+                    "is_downloaded": is_downloaded,
+                    "artist_id": artist_id,
+                    "movie_id": movie_id,
+                })
+
+            return entries, total_matching
