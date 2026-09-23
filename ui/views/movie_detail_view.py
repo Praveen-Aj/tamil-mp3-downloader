@@ -100,7 +100,8 @@ class MovieDetailView(ctk.CTkFrame):
         hero_left = ctk.CTkFrame(self.hero_card, width=72, height=72, corner_radius=theme.RADIUS_MD, fg_color=theme.SURFACE_ELEVATED)
         hero_left.grid(row=0, column=0, rowspan=2, padx=18, pady=18)
         hero_left.pack_propagate(False)
-        ctk.CTkLabel(hero_left, text="🎬", font=ctk.CTkFont(size=34)).pack(expand=True)
+        self.hero_poster_lbl = ctk.CTkLabel(hero_left, text="")
+        self.hero_poster_lbl.pack(expand=True, fill="both")
 
         # Middle: Title and metadata
         meta_box = ctk.CTkFrame(self.hero_card, fg_color="transparent")
@@ -224,6 +225,15 @@ class MovieDetailView(ctk.CTkFrame):
         # Update Headers
         self.nav_title_lbl.configure(text=f"Movie: {movie.title}")
         self.movie_title_lbl.configure(text=movie.title)
+
+        poster_src = getattr(movie, "local_poster_path", None) or getattr(movie, "poster_url", None) or getattr(movie, "banner_url", None)
+        self.service.artwork.bind_artwork(
+            widget=self.hero_poster_lbl,
+            source=poster_src,
+            size=(72, 72),
+            entity_type="movie",
+            fallback_text=movie.title,
+        )
 
         meta_parts = []
         if movie.year:

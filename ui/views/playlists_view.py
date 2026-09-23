@@ -312,12 +312,33 @@ class PlaylistsView(ctk.CTkFrame):
             border_width=1,
             border_color=theme.BORDER,
         )
+        card.bind("<Enter>", lambda e: card.configure(border_color=theme.BORDER_LIGHT))
+        card.bind("<Leave>", lambda e: card.configure(border_color=theme.BORDER))
 
         top_row = ctk.CTkFrame(card, fg_color="transparent")
         top_row.pack(fill="x", padx=14, pady=(14, 6))
 
-        icon_lbl = ctk.CTkLabel(top_row, text="📑", font=ctk.CTkFont(size=22))
-        icon_lbl.pack(side="left", padx=(0, 10))
+        icon_frame = ctk.CTkFrame(
+            top_row,
+            width=42,
+            height=42,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE_ELEVATED,
+        )
+        icon_frame.pack(side="left", padx=(0, 10))
+        icon_frame.pack_propagate(False)
+
+        icon_lbl = ctk.CTkLabel(icon_frame, text="")
+        icon_lbl.pack(expand=True, fill="both")
+
+        pl_cover = pl.get("cover_image_url") or pl.get("image_url")
+        self.service.artwork.bind_artwork(
+            widget=icon_lbl,
+            source=pl_cover,
+            size=(42, 42),
+            entity_type="playlist",
+            fallback_text=pl.get("name"),
+        )
 
         title_box = ctk.CTkFrame(top_row, fg_color="transparent")
         title_box.pack(side="left", fill="both", expand=True)

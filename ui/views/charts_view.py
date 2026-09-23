@@ -244,17 +244,35 @@ class ChartsView(ctk.CTkFrame):
             icon = "📻"
             badge_text = "Classics"
 
+        # Hover feedback
+        card.bind("<Enter>", lambda e: card.configure(border_color=theme.BORDER_LIGHT))
+        card.bind("<Leave>", lambda e: card.configure(border_color=theme.BORDER))
+
         # Card Header
         top_box = ctk.CTkFrame(card, fg_color="transparent")
         top_box.pack(fill="x", padx=14, pady=(14, 6))
 
-        icon_lbl = ctk.CTkLabel(
+        icon_frame = ctk.CTkFrame(
             top_box,
-            text=icon,
-            font=ctk.CTkFont(size=28),
-            width=36,
+            width=42,
+            height=42,
+            corner_radius=theme.RADIUS_MD,
+            fg_color=theme.SURFACE_ELEVATED,
         )
-        icon_lbl.pack(side="left", padx=(0, 10))
+        icon_frame.pack(side="left", padx=(0, 10))
+        icon_frame.pack_propagate(False)
+
+        icon_lbl = ctk.CTkLabel(icon_frame, text="")
+        icon_lbl.pack(expand=True, fill="both")
+
+        chart_cover = chart.get("cover_url") or chart.get("image_url")
+        self.service.artwork.bind_artwork(
+            widget=icon_lbl,
+            source=chart_cover,
+            size=(42, 42),
+            entity_type="chart",
+            fallback_text=chart.get("title"),
+        )
 
         title_box = ctk.CTkFrame(top_box, fg_color="transparent")
         title_box.pack(side="left", fill="both", expand=True)

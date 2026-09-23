@@ -274,13 +274,15 @@ class ArtistDetailView(ctk.CTkFrame):
         self.nav_title_lbl.configure(text=f"Person: {artist.name}")
         self.artist_name_lbl.configure(text=artist.name)
 
-        # Avatar icon
-        if "music_director" in roles:
-            self.avatar_label.configure(text="🎼")
-        elif "actor" in roles:
-            self.avatar_label.configure(text="🎬")
-        else:
-            self.avatar_label.configure(text="🎤")
+        # Avatar artwork
+        img_src = getattr(artist, "image_url", None)
+        self.service.artwork.bind_artwork(
+            widget=self.avatar_label,
+            source=img_src,
+            size=(72, 72),
+            entity_type="artist",
+            fallback_text=artist.name,
+        )
 
         # Roles Badges
         for w in self.roles_box.winfo_children():

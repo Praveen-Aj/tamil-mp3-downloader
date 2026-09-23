@@ -108,6 +108,8 @@ class LibraryService:
             detector=self.url_detector,
             provider_registry=self.provider_registry,
         )
+        from ui.services.artwork_service import ArtworkService
+        self.artwork = ArtworkService.get_instance()
 
         self.charts_service = ChartDiscoveryService(self.db)
         self._lock = threading.RLock()

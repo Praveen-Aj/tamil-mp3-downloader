@@ -302,7 +302,9 @@ class MoviesView(ctk.CTkFrame):
             border_width=1,
             corner_radius=theme.RADIUS_LG,
         )
-        card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+        # Hover feedback
+        card.bind("<Enter>", lambda e: card.configure(border_color=theme.BORDER_LIGHT))
+        card.bind("<Leave>", lambda e: card.configure(border_color=theme.BORDER))
 
         # Top Header of Card: Poster Icon Box + Year Pill
         top_box = ctk.CTkFrame(card, fg_color="transparent")
@@ -318,11 +320,16 @@ class MoviesView(ctk.CTkFrame):
         icon_frame.pack(side="left")
         icon_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            icon_frame,
-            text="🎬",
-            font=ctk.CTkFont(size=22),
-        ).pack(expand=True)
+        poster_url = movie.get("poster_url") or movie.get("image_url")
+        icon_lbl = ctk.CTkLabel(icon_frame, text="")
+        icon_lbl.pack(expand=True, fill="both")
+        self.service.artwork.bind_artwork(
+            widget=icon_lbl,
+            source=poster_url,
+            size=(46, 46),
+            entity_type="movie",
+            fallback_text=title,
+        )
 
         if year:
             year_badge = ctk.CTkFrame(

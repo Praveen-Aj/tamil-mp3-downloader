@@ -577,6 +577,8 @@ class LibraryView(ctk.CTkFrame):
                 border_width=1,
                 border_color=theme.BORDER,
             )
+            card.bind("<Enter>", lambda e, c=card: c.configure(border_color=theme.BORDER_LIGHT))
+            card.bind("<Leave>", lambda e, c=card: c.configure(border_color=theme.BORDER))
             card.grid(row=row, column=col, padx=6, pady=6, sticky="nsew")
 
             inner = ctk.CTkFrame(card, fg_color="transparent")
@@ -595,7 +597,16 @@ class LibraryView(ctk.CTkFrame):
             )
             art.pack(side="left")
             art.pack_propagate(False)
-            ctk.CTkLabel(art, text="🎵", font=ctk.CTkFont(size=18)).pack(expand=True)
+
+            art_lbl = ctk.CTkLabel(art, text="")
+            art_lbl.pack(expand=True, fill="both")
+            self.service.artwork.bind_artwork(
+                widget=art_lbl,
+                source=getattr(song, "file_path", None),
+                size=(38, 38),
+                entity_type="song",
+                fallback_text=song.title,
+            )
 
             status_badge = "✓ Downloaded" if song.state == SongState.OWNED else "Not Downloaded"
             badge_col = theme.SUCCESS if song.state == SongState.OWNED else theme.TEXT_DIM

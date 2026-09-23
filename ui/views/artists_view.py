@@ -428,17 +428,14 @@ class ArtistsView(ctk.CTkFrame):
             border_width=1,
         )
 
+        # Hover feedback
+        card.bind("<Enter>", lambda e: card.configure(border_color=theme.BORDER_LIGHT))
+        card.bind("<Leave>", lambda e: card.configure(border_color=theme.BORDER))
+
         artist_id = data["id"]
+        artist_name = data.get("name", "Unknown Artist")
         roles = data.get("roles", [])
         roles_display = data.get("roles_display", "Artist")
-
-        # Icon determined by role
-        if "music_director" in roles:
-            avatar_icon = "🎼"
-        elif "actor" in roles:
-            avatar_icon = "🎬"
-        else:
-            avatar_icon = "🎤"
 
         # Top Bar: Avatar icon and Name
         top_bar = ctk.CTkFrame(card, fg_color="transparent")
@@ -454,11 +451,16 @@ class ArtistsView(ctk.CTkFrame):
         icon_frame.pack(side="left", padx=(0, 10))
         icon_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            icon_frame,
-            text=avatar_icon,
-            font=ctk.CTkFont(size=18),
-        ).pack(expand=True)
+        img_src = data.get("image_url")
+        icon_lbl = ctk.CTkLabel(icon_frame, text="")
+        icon_lbl.pack(expand=True, fill="both")
+        self.service.artwork.bind_artwork(
+            widget=icon_lbl,
+            source=img_src,
+            size=(42, 42),
+            entity_type="artist",
+            fallback_text=artist_name,
+        )
 
         name_box = ctk.CTkFrame(top_bar, fg_color="transparent")
         name_box.pack(side="left", fill="both", expand=True)

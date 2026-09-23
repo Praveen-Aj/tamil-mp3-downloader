@@ -100,8 +100,8 @@ class PlaylistDetailView(ctk.CTkFrame):
         icon_box.pack(side="left", padx=(0, 16))
         icon_box.pack_propagate(False)
 
-        icon_lbl = ctk.CTkLabel(icon_box, text="📑", font=ctk.CTkFont(size=30))
-        icon_lbl.place(relx=0.5, rely=0.5, anchor="center")
+        self.hero_cover_lbl = ctk.CTkLabel(icon_box, text="")
+        self.hero_cover_lbl.pack(expand=True, fill="both")
 
         # Titles
         info_col = ctk.CTkFrame(hero_row, fg_color="transparent")
@@ -313,6 +313,15 @@ class PlaylistDetailView(ctk.CTkFrame):
 
         self.title_label.configure(text=pl.name)
         self.desc_label.configure(text=pl.description or "Custom User Playlist")
+
+        pl_cover = getattr(pl, "cover_image_url", None) or getattr(pl, "image_url", None)
+        self.service.artwork.bind_artwork(
+            widget=self.hero_cover_lbl,
+            source=pl_cover,
+            size=(64, 64),
+            entity_type="playlist",
+            fallback_text=pl.name,
+        )
 
         tot = stats["total_songs"]
         dl = stats["downloaded_songs"]

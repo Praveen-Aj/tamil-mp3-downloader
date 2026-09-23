@@ -507,12 +507,13 @@ class DashboardView(ctk.CTkFrame):
                 border_width=1,
                 border_color=theme.BORDER,
             )
-            item.grid(row=0, column=idx, padx=3, sticky="nsew")
+            item.bind("<Enter>", lambda e, it=item: it.configure(border_color=theme.BORDER_LIGHT))
+            item.bind("<Leave>", lambda e, it=item: it.configure(border_color=theme.BORDER))
 
             content = ctk.CTkFrame(item, fg_color="transparent")
             content.pack(fill="both", padx=10, pady=10)
 
-            # Album Art Placeholder Badge
+            # Album Art / Cover Thumbnail
             art = ctk.CTkFrame(
                 content,
                 width=36,
@@ -522,7 +523,16 @@ class DashboardView(ctk.CTkFrame):
             )
             art.pack(anchor="w")
             art.pack_propagate(False)
-            ctk.CTkLabel(art, text="🎵", font=ctk.CTkFont(size=16)).pack(expand=True)
+
+            art_lbl = ctk.CTkLabel(art, text="")
+            art_lbl.pack(expand=True, fill="both")
+            self.service.artwork.bind_artwork(
+                widget=art_lbl,
+                source=getattr(song, "file_path", None),
+                size=(36, 36),
+                entity_type="song",
+                fallback_text=song.title,
+            )
 
             ctk.CTkLabel(
                 content,

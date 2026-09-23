@@ -277,15 +277,14 @@ class ChartDetailView(ctk.CTkFrame):
 
         # 1. Update Hero Banner
         self.title_label.configure(text=chart.title)
-        c_type = chart.chart_type
-        icon = "🏆"
-        if c_type == "trending":
-            icon = "🔥"
-        elif c_type == "stream_top":
-            icon = "🍎"
-        elif c_type == "all_time":
-            icon = "📻"
-        self.avatar_label.configure(text=icon)
+        chart_cover = getattr(chart, "cover_url", None) or getattr(chart, "image_url", None)
+        self.service.artwork.bind_artwork(
+            widget=self.avatar_label,
+            source=chart_cover,
+            size=(64, 64),
+            entity_type="chart",
+            fallback_text=chart.title,
+        )
 
         snap_str = str(chart.snapshot_date).split("T")[0] if chart.snapshot_date else "Recent"
         provider = chart.provider_name.replace("_", " ").title()

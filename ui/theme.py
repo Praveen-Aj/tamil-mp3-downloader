@@ -99,3 +99,8 @@ def font_badge() -> ctk.CTkFont:
 
 def font_button() -> ctk.CTkFont:
     return ctk.CTkFont(size=12, weight="bold")
+
+# Typography Aliases for compatibility
+font_h1 = font_hero
+font_h2 = font_title
+font_subheading = font_subtitle

@@ -384,7 +384,20 @@ class DownloadedSongsView(ctk.CTkFrame):
         )
         cover_box.pack(side="left", padx=(0, 14))
         cover_box.pack_propagate(False)
-        ctk.CTkLabel(cover_box, text="🎵", font=ctk.CTkFont(size=20)).pack(expand=True)
+
+        cover_lbl = ctk.CTkLabel(cover_box, text="")
+        cover_lbl.pack(expand=True, fill="both")
+        self.service.artwork.bind_artwork(
+            widget=cover_lbl,
+            source=getattr(song, "file_path", None),
+            size=(44, 44),
+            entity_type="song",
+            fallback_text=song.title,
+        )
+
+        if not is_selected:
+            card.bind("<Enter>", lambda e, c=card: c.configure(border_color=theme.BORDER_LIGHT))
+            card.bind("<Leave>", lambda e, c=card: c.configure(border_color=theme.BORDER))
 
         # Right Actions (Pack first to guarantee layout space)
         act_box = ctk.CTkFrame(inner, fg_color="transparent")
