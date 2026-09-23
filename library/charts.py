@@ -48,6 +48,13 @@ class ChartDiscoveryService:
         """
         synced_ids = []
         try:
+            c0 = self.sync_tamil_top_100_chart(limit=100)
+            if c0:
+                synced_ids.append(c0)
+        except Exception as e:
+            logger.warning(f"Tamil Top 100 chart sync error: {e}")
+
+        try:
             c1 = self.sync_apple_music_top_chart(limit=50)
             if c1:
                 synced_ids.append(c1)
@@ -69,6 +76,64 @@ class ChartDiscoveryService:
             logger.warning(f"Classics chart sync error: {e}")
 
         return synced_ids
+
+    def sync_tamil_top_100_chart(self, limit: int = 100) -> Optional[str]:
+        """
+        Sync live Tamil Top 100 Hits from iTunes Search API / Apple Music.
+        Populates chart_type='top_100' for the Curated Charts & Top 100 view.
+        """
+        chart_id = "chart-tamil-top-100"
+        title = "Apple Music / iTunes — Tamil Top 100 Hits"
+        chart_type = "top_100"
+        provider_name = "apple_music"
+
+        raw_items = []
+        try:
+            url = f"https://itunes.apple.com/search?term=Tamil+Top+Hits&country=IN&entity=song&limit={limit}"
+            r = requests.get(url, headers=_DEFAULT_HEADERS, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                results = data.get("results", [])
+                for idx, item in enumerate(results):
+                    track_name = item.get("trackName")
+                    artist_name = item.get("artistName")
+                    collection = item.get("collectionName")
+                    if track_name:
+                        raw_items.append({
+                            "rank": idx + 1,
+                            "title": track_name,
+                            "artist": artist_name or "Tamil Artist",
+                            "movie": collection or "Tamil Top 100 Hits",
+                        })
+        except Exception as e:
+            logger.debug(f"iTunes top 100 API error: {e}")
+
+        if not raw_items:
+            try:
+                rss_url = f"https://rss.applemarketingtools.com/api/v2/in/music/most-played/{limit}/songs.json"
+                r = requests.get(rss_url, headers=_DEFAULT_HEADERS, timeout=10)
+                if r.status_code == 200:
+                    results = r.json().get("feed", {}).get("results", [])
+                    for idx, item in enumerate(results):
+                        raw_items.append({
+                            "rank": idx + 1,
+                            "title": item.get("name", "Unknown Track"),
+                            "artist": item.get("artistName", "Unknown Artist"),
+                            "movie": "Apple Music Hits",
+                        })
+            except Exception as e:
+                logger.debug(f"Apple RSS error: {e}")
+
+        if not raw_items:
+            raw_items = self._get_fallback_top_100_hits()
+
+        return self._ingest_chart(
+            chart_id=chart_id,
+            title=title,
+            chart_type=chart_type,
+            provider_name=provider_name,
+            entries=raw_items,
+        )
 
     def sync_apple_music_top_chart(self, limit: int = 50) -> Optional[str]:
         """
@@ -386,3 +451,118 @@ class ChartDiscoveryService:
             {"rank": 19, "title": "New York Nagaram", "artist": "A. R. Rahman", "movie": "Sillunu Oru Kaadhal"},
             {"rank": 20, "title": "Anbil Avan", "artist": "Govind Vasantha, Pradeep Kumar", "movie": "96"},
         ]
+
+    @classmethod
+    def _get_fallback_top_100_hits(cls) -> List[Dict[str, Any]]:
+        """Return 100 curated fallback Tamil hits for Top 100 chart."""
+        base_tracks = [
+            ("Venmegam", "Yuvan Shankar Raja, Hariharan", "Yaaradi Nee Mohini"),
+            ("Naakka Mukka", "Vijay Antony", "Kadhalil Vizhundhen"),
+            ("Enkeyoo Partha", "Yuvan Shankar Raja, Udit Narayan", "Yaaradi Nee Mohini"),
+            ("Kanavilae Kanavilae", "Yuvan Shankar Raja", "Nepali"),
+            ("Aasa Kooda", "Sai Abhyankkar, Sai Smriti", "Think Indie"),
+            ("Hukum - Thalaivar Alappara", "Anirudh Ravichander", "Jailer"),
+            ("Kaavaalaa", "Shilpa Rao, Anirudh Ravichander", "Jailer"),
+            ("Badass", "Anirudh Ravichander", "Leo"),
+            ("Naa Ready", "Thalapathy Vijay, Anirudh Ravichander", "Leo"),
+            ("Chuttamalle", "Shilpa Rao, Anirudh Ravichander", "Devara"),
+            ("Manasilaayo", "Malaysia Vasudevan, Anirudh Ravichander", "Vettaiyan"),
+            ("Hunter Vantaar", "Siddharth Vipin", "Vettaiyan"),
+            ("Arabic Kuthu", "Anirudh Ravichander, Jonita Gandhi", "Beast"),
+            ("Whistle Podu", "Thalapathy Vijay, Yuvan Shankar Raja", "GOAT"),
+            ("Spark", "Yuvan Shankar Raja, Vrusha Balu", "GOAT"),
+            ("Matta", "Yuvan Shankar Raja, Shenbagaraj", "GOAT"),
+            ("Illuminati", "Sushin Shyam, Dabzee", "Aavesham"),
+            ("Katchi Sera", "Sai Abhyankkar", "Think Indie"),
+            ("Radhimaa", "Sai Abhyankkar, Nargis Teji", "Think Indie"),
+            ("Rowdy Baby", "Dhanush, Dhee", "Maari 2"),
+            ("Nenjame Nenjame", "Anirudh Ravichander, Shakthisree Gopalan", "Maamannan"),
+            ("Hayyoda", "Anirudh Ravichander, Priya Mali", "Jawan"),
+            ("Chaleya (Tamil)", "Anirudh Ravichander, Shilpa Rao", "Jawan"),
+            ("Kanne Kalaimane", "K. J. Yesudas, Ilaiyaraaja", "Moondram Pirai"),
+            ("Chinna Chinna Vanna Kuyil", "S. Janaki, Ilaiyaraaja", "Mouna Ragam"),
+            ("Nilaave Vaa", "S. P. Balasubrahmanyam, Ilaiyaraaja", "Mouna Ragam"),
+            ("Mandram Vandha", "S. P. Balasubrahmanyam, Ilaiyaraaja", "Mouna Ragam"),
+            ("Rakkamma Kaiya Thattu", "S. P. Balasubrahmanyam, Swarnalatha", "Thalapathi"),
+            ("Sundari Kannal Oru Sethi", "S. P. Balasubrahmanyam, S. Janaki", "Thalapathi"),
+            ("Chinna Chinna Aasai", "Minmini, A. R. Rahman", "Roja"),
+            ("Pudhu Vellai Mazhai", "Unni Menon, Sujatha Mohan", "Roja"),
+            ("Kadhal Rojave", "S. P. Balasubrahmanyam, A. R. Rahman", "Roja"),
+            ("Ennavale Adi Ennavale", "Unni Krishnan, A. R. Rahman", "Kadhalan"),
+            ("Urvasi Urvasi", "A. R. Rahman, Suresh Peters", "Kadhalan"),
+            ("Kannalane", "K. S. Chithra, A. R. Rahman", "Bombay"),
+            ("Uyire Uyire", "Hariharan, K. S. Chithra", "Bombay"),
+            ("Malargale Malargale", "Hariharan, K. S. Chithra", "Love Birds"),
+            ("Vennilave Vennilave", "Hariharan, Sadhana Sargam", "Minsara Kanavu"),
+            ("Pachai Nirame", "Hariharan, Clinton Cerejo", "Alaipayuthey"),
+            ("Snehidhane Snehidhane", "Sadhana Sargam, Srinivas", "Alaipayuthey"),
+            ("Munbe Vaa", "Naresh Iyer, Shreya Ghoshal", "Sillunu Oru Kaadhal"),
+            ("New York Nagaram", "A. R. Rahman", "Sillunu Oru Kaadhal"),
+            ("Vaseegara", "Bombay Jayashri, Harris Jayaraj", "Minnale"),
+            ("Venmathi Venmathiye", "Roop Kumar Rathod, Tipu", "Minnale"),
+            ("Ennamo Yeadho", "Aalaap Raju, Prashanthini", "Ko"),
+            ("Amali Thumali", "Hariharan, Shweta Mohan", "Ko"),
+            ("Adiye", "Sid Sriram, A. R. Rahman", "Kadal"),
+            ("Moongil Thottam", "Abhay Jodhpurkar, Harini", "Kadal"),
+            ("Nenjukkul Peidhidum", "Hariharan, Devan Ekambaram", "Vaaranam Aayiram"),
+            ("Mundhinam Parthene", "Naresh Iyer, Prashanthini", "Vaaranam Aayiram"),
+            ("Annal Mel Pani Thuli", "Sudha Ragunathan", "Vaaranam Aayiram"),
+            ("Yethi Yethi", "Benny Dayal, Naresh Iyer", "Vaaranam Aayiram"),
+            ("Oru Maalai", "Karthik, Harris Jayaraj", "Ghajini"),
+            ("Suttum Vizhi", "Hariharan, Bombay Jayashri", "Ghajini"),
+            ("Pookkalae Sattru Oyivedungal", "K. J. Yesudas, Haricharan", "I"),
+            ("Ennodu Nee Irundhaal", "Sid Sriram, Sunitha Sarathy", "I"),
+            ("Aalaporaan Thamizhan", "Kailash Kher, Sathya Prakash", "Mersal"),
+            ("Mersal Arasan", "G. V. Prakash Kumar, Naresh Iyer", "Mersal"),
+            ("Neethanae", "A. R. Rahman, Shreya Ghoshal", "Mersal"),
+            ("Verithanam", "Thalapathy Vijay", "Bigil"),
+            ("Singappenney", "A. R. Rahman, Shashaa Tirupati", "Bigil"),
+            ("Vaathi Coming", "Anirudh Ravichander, Gana Balachandar", "Master"),
+            ("Kutti Story", "Thalapathy Vijay, Anirudh Ravichander", "Master"),
+            ("Andha Kanna Paathaakaa", "Yuvan Shankar Raja", "Master"),
+            ("Quit Pannuda", "Anirudh Ravichander", "Master"),
+            ("Polakattum Para Para", "Santhosh Narayanan", "Master"),
+            ("Master Coming", "Anirudh Ravichander", "Master"),
+            ("Dippam Dappam", "Anthony Daasan, Anirudh Ravichander", "Kaathuvaakula Rendu Kaadhal"),
+            ("Two Two Two", "Anirudh Ravichander, Sunidhi Chauhan", "Kaathuvaakula Rendu Kaadhal"),
+            ("Naan Pizhai", "Ravi G, Shashaa Tirupati", "Kaathuvaakula Rendu Kaadhal"),
+            ("Bae", "Adityark, Anirudh Ravichander", "Don"),
+            ("Jalabulajangu", "Anirudh Ravichander", "Don"),
+            ("Private Party", "Anirudh Ravichander, Jonita Gandhi", "Don"),
+            ("Mehabooba", "Ananya Bhat", "KGF Chapter 2"),
+            ("Sulthana", "Bamba Bakya, Anthony Daasan", "KGF Chapter 2"),
+            ("Oo Solriya Oo Oo Solriya", "Andrea Jeremiah", "Pushpa The Rise"),
+            ("Saami Saami", "Rajalakshmi Senthiganesh", "Pushpa The Rise"),
+            ("Chellamma", "Anirudh Ravichander, Jonita Gandhi", "Doctor"),
+            ("So Baby", "Anirudh Ravichander, Ananthakrrishnan", "Doctor"),
+            ("Nenjame", "Anirudh Ravichander", "Doctor"),
+            ("Why This Kolaveri Di", "Dhanush, Anirudh Ravichander", "3"),
+            ("Idhazhin Oram", "Anirudh Ravichander, Ajesh Ashok", "3"),
+            ("Kannazhaga", "Dhanush, Shruti Haasan", "3"),
+            ("Nee Paartha Vizhigal", "Vijay Yesudas, Shweta Mohan", "3"),
+            ("Aathi", "Vishal Dadlani, Anirudh Ravichander", "Kaththi"),
+            ("Selfie Pulla", "Thalapathy Vijay, Sunidhi Chauhan", "Kaththi"),
+            ("Pakkam Vanthu", "Anirudh Ravichander, Hiphop Tamizha", "Kaththi"),
+            ("Kathi Theme", "Anirudh Ravichander", "Kaththi"),
+            ("Aaluma Doluma", "Anirudh Ravichander, Badshah", "Vedalam"),
+            ("Veera Vinayaka", "Anirudh Ravichander, Vishal Dadlani", "Vedalam"),
+            ("Don'u Don'u Don'u", "Anirudh Ravichander, Alisha Thomas", "Maari"),
+            ("Thappa Dhaan Theriyum", "Dhanush, Anirudh Ravichander", "Maari"),
+            ("Senjitaley", "Anirudh Ravichander", "Remo"),
+            ("Sirikkadhey", "Anirudh Ravichander, Arjun Kanungo", "Remo"),
+            ("Remo Nee Kadhalan", "Anirudh Ravichander", "Remo"),
+            ("Marana Mass", "S. P. Balasubrahmanyam, Anirudh Ravichander", "Petta"),
+            ("Petta Paraak", "Anirudh Ravichander", "Petta"),
+            ("Ullaallaa", "Nakash Aziz, Inno Genga", "Petta"),
+            ("Kaali Theme", "Anirudh Ravichander", "Petta"),
+            ("Chinnanjiru Nilave", "Haricharan", "Ponniyin Selvan Part 2"),
+        ]
+        results = []
+        for idx, (title, artist, movie) in enumerate(base_tracks[:100], start=1):
+            results.append({
+                "rank": idx,
+                "title": title,
+                "artist": artist,
+                "movie": movie,
+            })
+        return results

@@ -328,11 +328,12 @@ class TamilMP3App(ctk.CTk):
 
         # Update sidebar notification badge pills
         self.sidebar.update_badge("downloads", active_dl)
-        self.sidebar.update_badge("results", min(unowned_cnt, 99))
 
     def _on_discovery_complete(self, results: Dict[str, Any]) -> None:
-        """Callback when discovery finishes — switch to Results View."""
-        self.show_view("results")
+        """Callback when discovery finishes — switch to Music Library View with toast notification."""
+        registered = results.get("unique_registered", 0)
+        self.show_view("library")
+        self.status_bar.set_message(f"🎉 Discovery Complete: {registered} songs added to library")
 
     def _on_downloads_started(self, dl_ids: list) -> None:
         """Callback when downloads start — switch to Downloads Queue View."""

@@ -21,7 +21,7 @@ from library.models import (
 )
 from library.migrator import DatabaseMigrator
 from library.filter_engine import SongFilterCriteria, ComposableFilterEngine
-from library.canonical import normalize_string, compute_canonical_hash
+from library.canonical import normalize_string, normalize_artist_name, compute_canonical_hash
 
 logger = logging.getLogger(__name__)
 
@@ -970,21 +970,44 @@ class SQLiteDatabase:
         Scans all songs marked as OWNED (Downloaded):
         If file_path is NULL, empty, or does not exist on disk,
         resets the song state to NEW and clears file path/size attributes.
+        If file exists, verifies and synchronizes file_size_bytes against physical disk truth.
 
         Returns:
             Number of orphaned records reconciled
         """
         import os
+        from pathlib import Path
         reconciled_count = 0
         with self._lock:
             cursor = self._conn.cursor()
-            cursor.execute("SELECT id, file_path FROM songs WHERE state = ?", (SongState.OWNED.value,))
+            cursor.execute("SELECT id, file_path, file_size_bytes FROM songs WHERE state = ?", (SongState.OWNED.value,))
             rows = cursor.fetchall()
             orphans = []
+            updates = []
             for row in rows:
-                song_id, fpath = row[0], row[1]
-                if not fpath or not os.path.isfile(fpath) or os.path.getsize(fpath) == 0:
+                song_id, fpath, db_size = row[0], row[1], row[2]
+                target = Path(fpath) if fpath else None
+                if target and not target.is_absolute():
+                    if target.exists():
+                        target = target.resolve()
+                    else:
+                        from config.settings import settings
+                        out_dir = Path(settings.output_dir).resolve()
+                        cand = (out_dir / target).resolve()
+                        if cand.exists():
+                            target = cand
+                        else:
+                            cand2 = (out_dir / target.name).resolve()
+                            if cand2.exists():
+                                target = cand2
+
+                if not target or not target.is_file() or target.stat().st_size == 0:
                     orphans.append(song_id)
+                else:
+                    actual_size = target.stat().st_size
+                    norm_path = str(target)
+                    if db_size is None or db_size != actual_size or fpath != norm_path:
+                        updates.append((norm_path, actual_size, song_id))
 
             if orphans:
                 with self._conn:
@@ -998,9 +1021,99 @@ class SQLiteDatabase:
                             WHERE id = ?
                         """, (SongState.NEW.value, datetime.now().isoformat(), song_id))
                         reconciled_count += 1
+            if updates:
+                with self._conn:
+                    for norm_path, actual_size, song_id in updates:
+                        cursor.execute("""
+                            UPDATE songs SET
+                                file_path = ?,
+                                file_size_bytes = ?,
+                                last_seen_at = ?
+                            WHERE id = ?
+                        """, (norm_path, actual_size, datetime.now().isoformat(), song_id))
             if clean_stale_jobs:
                 self.clean_stale_transient_downloads()
         return reconciled_count
+
+    def reconcile_artist_duplicates(self) -> int:
+        """
+        Detect and merge duplicate canonical artist rows resulting from punctuation/whitespace variants
+        (e.g., 'A. R. Rahman', 'A.R. Rahman', 'A R Rahman' -> 'a r rahman').
+        Re-points song_artists, movie_composers, and movie_actors to the canonical survivor artist
+        and removes the duplicate rows.
+
+        Returns:
+            Number of duplicate artist records merged
+        """
+        merged_count = 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                # 1. Update all existing artists' name_normalized using normalize_artist_name
+                cursor.execute("SELECT id, name, name_normalized FROM artists")
+                rows = cursor.fetchall()
+                for aid, aname, old_norm in rows:
+                    new_norm = normalize_artist_name(aname)
+                    if new_norm and new_norm != old_norm:
+                        cursor.execute("UPDATE artists SET name_normalized = ? WHERE id = ?", (new_norm, aid))
+
+                # 2. Find all normalized names that have duplicates
+                cursor.execute("""
+                    SELECT name_normalized, COUNT(*) as cnt
+                    FROM artists
+                    GROUP BY name_normalized
+                    HAVING cnt > 1
+                """)
+                dup_groups = cursor.fetchall()
+
+                for norm_name, _ in dup_groups:
+                    cursor.execute("""
+                        SELECT a.id, a.name,
+                            (SELECT COUNT(*) FROM song_artists sa WHERE sa.artist_id = a.id) as s_cnt,
+                            (SELECT COUNT(*) FROM movie_composers mc WHERE mc.composer_id = a.id) as mc_cnt,
+                            (SELECT COUNT(*) FROM movie_actors ma WHERE ma.actor_id = a.id) as ma_cnt
+                        FROM artists a
+                        WHERE a.name_normalized = ?
+                        ORDER BY (s_cnt + mc_cnt + ma_cnt) DESC, a.id ASC
+                    """, (norm_name,))
+                    candidates = cursor.fetchall()
+                    if len(candidates) < 2:
+                        continue
+
+                    survivor_id = candidates[0][0]
+                    dup_ids = [c[0] for c in candidates[1:]]
+
+                    for dup_id in dup_ids:
+                        # Re-point song_artists
+                        cursor.execute("""
+                            UPDATE OR IGNORE song_artists
+                            SET artist_id = ?
+                            WHERE artist_id = ?
+                        """, (survivor_id, dup_id))
+                        cursor.execute("DELETE FROM song_artists WHERE artist_id = ?", (dup_id,))
+
+                        # Re-point movie_composers
+                        cursor.execute("""
+                            UPDATE OR IGNORE movie_composers
+                            SET composer_id = ?
+                            WHERE composer_id = ?
+                        """, (survivor_id, dup_id))
+                        cursor.execute("DELETE FROM movie_composers WHERE composer_id = ?", (dup_id,))
+
+                        # Re-point movie_actors
+                        cursor.execute("""
+                            UPDATE OR IGNORE movie_actors
+                            SET actor_id = ?
+                            WHERE actor_id = ?
+                        """, (survivor_id, dup_id))
+                        cursor.execute("DELETE FROM movie_actors WHERE actor_id = ?", (dup_id,))
+
+                        # Delete duplicate artist
+                        cursor.execute("DELETE FROM artists WHERE id = ?", (dup_id,))
+                        merged_count += 1
+                        logger.info(f"Merged duplicate artist ID {dup_id} into canonical survivor ID {survivor_id} ({norm_name})")
+
+        return merged_count
 
     def clean_stale_transient_downloads(self) -> int:
         """Clean up stale transient DOWNLOADING/QUEUED states from crashed/interrupted previous runs."""
@@ -1469,7 +1582,7 @@ class SQLiteDatabase:
     def add_artist(self, artist: Artist) -> int:
         """Add an artist to directory or return existing ID using canonical normalization."""
         if not artist.name_normalized:
-            artist.name_normalized = normalize_string(artist.name)
+            artist.name_normalized = normalize_artist_name(artist.name)
         with self._lock:
             with self._conn:
                 cursor = self._conn.cursor()
@@ -1516,7 +1629,7 @@ class SQLiteDatabase:
 
     def get_artist_by_name(self, name: str) -> Optional[Artist]:
         """Get artist by exact name or normalized name."""
-        norm_name = normalize_string(name)
+        norm_name = normalize_artist_name(name)
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute("SELECT * FROM artists WHERE name = ? OR name_normalized = ?", (name, norm_name))
@@ -1694,7 +1807,7 @@ class SQLiteDatabase:
             # 1. Text Search Filter (name or normalized name)
             if query and query.strip():
                 clean_q = query.strip()
-                norm_q = normalize_string(clean_q)
+                norm_q = normalize_artist_name(clean_q)
                 conditions.append("(a.name LIKE ? OR a.name_normalized LIKE ?)")
                 params.extend([f"%{clean_q}%", f"%{norm_q}%"])
 

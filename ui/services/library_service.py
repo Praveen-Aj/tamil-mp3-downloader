@@ -35,7 +35,7 @@ from library.models import (
     Artist, MovieActor, MovieComposer, SongArtist, SongMovie,
     Chart, ChartEntry
 )
-from library.canonical import normalize_string, compute_canonical_hash
+from library.canonical import normalize_string, normalize_artist_name, compute_canonical_hash
 from library.charts import ChartDiscoveryService
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection
 from library.filter_engine import SongFilterCriteria
@@ -149,9 +149,14 @@ class LibraryService:
 
     def reconcile_library_files(self) -> int:
         """
-        Actively reconcile SQLite database records with physical files on disk.
+        Actively reconcile SQLite database records with physical files on disk
+        and unify canonical artist duplicates.
         Resets any orphaned OWNED records (missing or empty files) to NEW.
         """
+        try:
+            self.db.reconcile_artist_duplicates()
+        except Exception as e:
+            logger.warning(f"Artist duplicate reconciliation warning: {e}")
         return self.db.reconcile_filesystem_integrity()
 
     def _init_default_sources(self) -> None:
@@ -853,7 +858,7 @@ class LibraryService:
         Selects the file if it exists, otherwise opens the containing directory.
         """
         try:
-            out_dir = Path(settings.output_dir).resolve()
+            out_dir = Path(self.download_dir or settings.output_dir).resolve()
             out_dir.mkdir(parents=True, exist_ok=True)
 
             if file_or_dir_path:
@@ -869,20 +874,23 @@ class LibraryService:
 
                 if target.is_file() and target.exists():
                     if sys.platform == "win32":
-                        subprocess.run(["explorer", f'/select,"{str(target)}"'], check=False)
+                        try:
+                            subprocess.run(f'explorer /select,"{str(target)}"', shell=True, check=False)
+                        except Exception:
+                            os.startfile(str(target.parent))
                     else:
                         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target.parent)], check=False)
                     return True, f"Opened {target.name} in Explorer"
                 elif target.is_dir() and target.exists():
                     if sys.platform == "win32":
-                        subprocess.run(["explorer", f'"{str(target)}"'], check=False)
+                        os.startfile(str(target))
                     else:
                         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target)], check=False)
                     return True, f"Opened directory {target}"
 
             # Fallback to configured output directory
             if sys.platform == "win32":
-                subprocess.run(["explorer", f'"{str(out_dir)}"'], check=False)
+                os.startfile(str(out_dir))
             else:
                 subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(out_dir)], check=False)
             return True, f"Opened downloads folder: {out_dir}"
@@ -1191,7 +1199,7 @@ class LibraryService:
                     composer_val = getattr(album, "composer", None) or getattr(album, "music_director", None)
                     if composer_val and movie_id:
                         for c_name in split_artist_names(composer_val):
-                            norm_c = normalize_string(c_name)
+                            norm_c = normalize_artist_name(c_name)
                             if norm_c:
                                 c_id = self.db.add_artist(Artist(name=c_name, name_normalized=norm_c, role="music_director"))
                                 if c_id:
@@ -1220,7 +1228,7 @@ class LibraryService:
                             # Link singers to song_artists
                             if s.artist:
                                 for singer_name in split_artist_names(s.artist):
-                                    norm_s = normalize_string(singer_name)
+                                    norm_s = normalize_artist_name(singer_name)
                                     if norm_s:
                                         s_aid = self.db.add_artist(Artist(name=singer_name, name_normalized=norm_s, role="singer"))
                                         if s_aid:
@@ -1259,9 +1267,8 @@ class LibraryService:
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get a paginated slice of artists with aggregated soundtrack and download metrics.
-        Ensures filesystem integrity before querying.
+        Fast SQL pagination without blocking filesystem scan.
         """
-        self.reconcile_library_files()
         offset = max(0, (page - 1) * page_size)
         return self.db.search_and_filter_artists(
             query=query,
@@ -1276,7 +1283,6 @@ class LibraryService:
         """
         Get full details for an artist: metadata, roles, download stats, song list, and movie list.
         """
-        self.reconcile_library_files()
         artist = self.db.get_artist(artist_id)
         if not artist:
             return None
@@ -1490,7 +1496,7 @@ class LibraryService:
                 continue
             names = split_artist_names(s.artist)
             for name in names:
-                norm_name = normalize_string(name)
+                norm_name = normalize_artist_name(name)
                 if not norm_name:
                     continue
                 artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="singer"))
@@ -1507,7 +1513,7 @@ class LibraryService:
             # Music Director / Composer
             if getattr(m, "music_director", None):
                 for name in split_artist_names(m.music_director):
-                    norm_name = normalize_string(name)
+                    norm_name = normalize_artist_name(name)
                     if not norm_name:
                         continue
                     artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="music_director"))
@@ -1518,7 +1524,7 @@ class LibraryService:
             # Actors / Cast
             if getattr(m, "actors", None):
                 for name in split_artist_names(m.actors):
-                    norm_name = normalize_string(name)
+                    norm_name = normalize_artist_name(name)
                     if not norm_name:
                         continue
                     artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="actor"))
@@ -1530,7 +1536,7 @@ class LibraryService:
             if m.director:
                 names = split_artist_names(m.director)
                 for name in names:
-                    norm_name = normalize_string(name)
+                    norm_name = normalize_artist_name(name)
                     if not norm_name:
                         continue
                     artist_id = self.db.add_artist(Artist(name=name, name_normalized=norm_name, role="director"))

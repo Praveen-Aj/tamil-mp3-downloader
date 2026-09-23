@@ -14,7 +14,8 @@ from tkinter import messagebox
 from pathlib import Path
 import customtkinter as ctk
 
-from library.models import LibrarySong
+from library.models import LibrarySong, SongState
+from library.filter_engine import SongFilterCriteria
 from ui.services.library_service import LibraryService
 from ui import theme
 
@@ -41,7 +42,10 @@ class DownloadedSongsView(ctk.CTkFrame):
         self._sort_by: str = "recent"
         self._search_query: str = ""
         self._selected_ids: Set[int] = set()
-        self._display_limit: int = 35
+        self.current_page: int = 1
+        self.page_size: int = 20
+        self.total_count: int = 0
+        self.total_pages: int = 1
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -98,7 +102,7 @@ class DownloadedSongsView(ctk.CTkFrame):
             hover_color=theme.SURFACE_HOVER,
             text_color=theme.TEXT_PRIMARY,
             corner_radius=theme.RADIUS_MD,
-            command=lambda: self.service.open_path_in_explorer(None),
+            command=lambda: self.service.open_path_in_explorer(str(self.service.download_dir)),
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
@@ -189,26 +193,127 @@ class DownloadedSongsView(ctk.CTkFrame):
 
         # ── 3. Songs List Container (Scrollable) ────────────────────
         self.list_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.list_container.grid(row=2, column=0, sticky="nsew", padx=24, pady=(0, 16))
+        self.list_container.grid(row=2, column=0, sticky="nsew", padx=24, pady=(0, 6))
         self.list_container.grid_columnconfigure(0, weight=1)
         self.list_container.grid_rowconfigure(0, weight=1)
 
+        # ── 4. Bottom Pagination Bar ─────────────────────────────────
+        self.pagination_bar = ctk.CTkFrame(self, height=44, corner_radius=0, fg_color=theme.BG_HEADER)
+        self.pagination_bar.grid(row=3, column=0, sticky="ew")
+        self.pagination_bar.grid_propagate(False)
+
+        self.count_label = ctk.CTkLabel(
+            self.pagination_bar,
+            text="",
+            font=theme.font_caption(),
+            text_color=theme.TEXT_MUTED,
+        )
+        self.count_label.pack(side="left", padx=20, pady=10)
+
+        nav_btns = ctk.CTkFrame(self.pagination_bar, fg_color="transparent")
+        nav_btns.pack(side="right", padx=20, pady=6)
+
+        self.btn_first = ctk.CTkButton(
+            nav_btns, text="« First", width=65, height=28,
+            font=theme.font_caption(), fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER, corner_radius=theme.RADIUS_SM,
+            command=lambda: self._go_page(1)
+        )
+        self.btn_first.pack(side="left", padx=3)
+
+        self.btn_prev = ctk.CTkButton(
+            nav_btns, text="‹ Prev", width=65, height=28,
+            font=theme.font_caption(), fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER, corner_radius=theme.RADIUS_SM,
+            command=lambda: self._go_page(self.current_page - 1)
+        )
+        self.btn_prev.pack(side="left", padx=3)
+
+        self.page_indicator = ctk.CTkLabel(
+            nav_btns, text="Page 1 of 1",
+            font=theme.font_body_bold(), text_color=theme.TEXT_PRIMARY
+        )
+        self.page_indicator.pack(side="left", padx=10)
+
+        self.btn_next = ctk.CTkButton(
+            nav_btns, text="Next ›", width=65, height=28,
+            font=theme.font_caption(), fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER, corner_radius=theme.RADIUS_SM,
+            command=lambda: self._go_page(self.current_page + 1)
+        )
+        self.btn_next.pack(side="left", padx=3)
+
+        self.btn_last = ctk.CTkButton(
+            nav_btns, text="Last »", width=65, height=28,
+            font=theme.font_caption(), fg_color=theme.SURFACE_ELEVATED,
+            hover_color=theme.SURFACE_HOVER, corner_radius=theme.RADIUS_SM,
+            command=self._go_last_page
+        )
+        self.btn_last.pack(side="left", padx=3)
+
         self.refresh()
 
+    def _go_page(self, page_num: int) -> None:
+        """Navigate to specific page."""
+        target = max(1, min(page_num, self.total_pages))
+        if target != self.current_page:
+            self.current_page = target
+            self.refresh()
+
+    def _go_last_page(self) -> None:
+        """Navigate to last page."""
+        self._go_page(self.total_pages)
+
     def refresh(self) -> None:
-        """Fetch updated downloaded songs and re-render."""
+        """Fetch updated downloaded songs using SQL pagination and re-render."""
         sort_key_map = {
-            "Recently Downloaded": "recent",
-            "Title (A-Z)": "title",
-            "Artist (A-Z)": "artist",
-            "Album (A-Z)": "album",
-            "Highest Quality": "quality",
+            "Recently Downloaded": ("id", False),
+            "Title (A-Z)": ("title", True),
+            "Artist (A-Z)": ("artist", True),
+            "Album (A-Z)": ("album", True),
+            "Highest Quality": ("quality", False),
         }
-        sort_key = sort_key_map.get(self.sort_var.get(), "recent")
-        self._songs = self.service.get_downloaded_songs(
-            query=self._search_query,
-            sort_by=sort_key,
+        sort_col, ascending = sort_key_map.get(self.sort_var.get(), ("id", False))
+
+        # Overall summary stats
+        with self.service.db._lock:
+            cursor = self.service.db._conn.cursor()
+            cursor.execute("SELECT COUNT(*), SUM(file_size_bytes) FROM songs WHERE state = 'OWNED'")
+            stat_row = cursor.fetchone()
+            overall_cnt = stat_row[0] or 0
+            overall_bytes = stat_row[1] or 0
+
+        if overall_bytes >= 1024 * 1024:
+            storage_str = f"{overall_bytes / (1024 * 1024):.1f} MB"
+        elif overall_bytes > 0:
+            storage_str = f"{overall_bytes / 1024:.1f} KB"
+        else:
+            storage_str = "0 MB"
+        self.summary_pill.configure(text=f"{overall_cnt} Downloaded · {storage_str}")
+
+        # Centralized SQL search and pagination
+        result = self.service.db.search_and_filter_songs(
+            criteria=SongFilterCriteria(
+                download_state=SongState.OWNED,
+                search_query=self._search_query if self._search_query else None,
+            ),
+            sort_by=sort_col,
+            ascending=ascending,
+            page=self.current_page,
+            page_size=self.page_size,
         )
+        self._songs = result.get("songs", [])
+        self.total_count = result.get("total_items", 0)
+        self.total_pages = max(1, result.get("total_pages", 1))
+
+        # Update pagination controls
+        self.page_indicator.configure(text=f"Page {self.current_page} of {self.total_pages}")
+        self.count_label.configure(text=f"Found {self.total_count} {'song' if self.total_count == 1 else 'songs'}")
+        self.btn_first.configure(state="normal" if self.current_page > 1 else "disabled")
+        self.btn_prev.configure(state="normal" if self.current_page > 1 else "disabled")
+        self.btn_next.configure(state="normal" if self.current_page < self.total_pages else "disabled")
+        self.btn_last.configure(state="normal" if self.current_page < self.total_pages else "disabled")
+
         # Clean selected ids of removed songs
         valid_ids = {s.id for s in self._songs if s.id is not None}
         self._selected_ids = self._selected_ids.intersection(valid_ids)
@@ -217,9 +322,11 @@ class DownloadedSongsView(ctk.CTkFrame):
 
     def _on_search_changed(self) -> None:
         self._search_query = self.search_entry.get().strip()
+        self.current_page = 1
         self.refresh()
 
     def _on_sort_changed(self, choice: str) -> None:
+        self.current_page = 1
         self.refresh()
 
     def _toggle_select_all(self) -> None:
@@ -251,17 +358,6 @@ class DownloadedSongsView(ctk.CTkFrame):
         for w in self.list_container.winfo_children():
             w.destroy()
 
-        total_bytes = sum(s.file_size_bytes or 0 for s in self._songs)
-        if total_bytes == 0:
-            for s in self._songs:
-                if s.file_path and os.path.isfile(s.file_path):
-                    try:
-                        total_bytes += os.path.getsize(s.file_path)
-                    except OSError:
-                        pass
-
-        storage_mb = total_bytes / (1024 * 1024) if total_bytes > 0 else 0
-        self.summary_pill.configure(text=f"{len(self._songs)} Downloaded · {storage_mb:.1f} MB")
         self._update_bulk_buttons()
 
         if not self._songs:
@@ -276,29 +372,8 @@ class DownloadedSongsView(ctk.CTkFrame):
         scroll.pack(fill="both", expand=True)
         scroll.grid_columnconfigure(0, weight=1)
 
-        visible_songs = self._songs[:self._display_limit]
-        for song in visible_songs:
+        for song in self._songs:
             self._render_song_row(scroll, song)
-
-        if len(self._songs) > len(visible_songs):
-            remaining = len(self._songs) - len(visible_songs)
-            more_card = ctk.CTkFrame(scroll, fg_color="transparent")
-            more_card.pack(fill="x", pady=12)
-            ctk.CTkButton(
-                more_card,
-                text=f"⬇️ Load More Songs ({remaining} remaining)",
-                font=theme.font_caption_bold(),
-                height=34,
-                fg_color=theme.SURFACE_ELEVATED,
-                hover_color=theme.SURFACE_HOVER,
-                text_color=theme.PRIMARY_LIGHT,
-                corner_radius=theme.RADIUS_MD,
-                command=self._load_more,
-            ).pack(expand=True)
-
-    def _load_more(self) -> None:
-        self._display_limit += 35
-        self._render_content()
 
     def _render_empty_state(self) -> None:
         """Render empty state when no songs are downloaded yet."""
@@ -495,10 +570,15 @@ class DownloadedSongsView(ctk.CTkFrame):
                 size_bytes = os.path.getsize(song.file_path)
             except OSError:
                 pass
-        size_mb = f" · {size_bytes / (1024 * 1024):.1f} MB" if size_bytes > 0 else ""
+        if size_bytes >= 1024 * 1024:
+            size_str = f" · {size_bytes / (1024 * 1024):.1f} MB"
+        elif size_bytes > 0:
+            size_str = f" · {size_bytes / 1024:.1f} KB"
+        else:
+            size_str = ""
         dur_str = f" · {song.duration_seconds // 60}:{song.duration_seconds % 60:02d}" if song.duration_seconds else ""
 
-        meta_line = f"{artist_text}{album_text}{quality_text}{dur_str}{size_mb}"
+        meta_line = f"{artist_text}{album_text}{quality_text}{dur_str}{size_str}"
         ctk.CTkLabel(
             info_box,
             text=meta_line,

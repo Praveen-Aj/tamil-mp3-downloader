@@ -70,7 +70,7 @@ def test_downloaded_songs_view_interactions(tmp_path: Path):
     assert len(view._songs) == 1
 
     try:
-        app.withdraw()
+        app.destroy()
     except Exception:
         pass
 

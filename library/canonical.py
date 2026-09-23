@@ -108,6 +108,28 @@ def normalize_string(s: str) -> str:
     return s.strip()
 
 
+def normalize_artist_name(name: Optional[str]) -> str:
+    """
+    Deterministically normalize person / artist names for canonical comparison and deduplication.
+
+    Handles:
+    - Formatting variations around initials:
+      'A. R. Rahman', 'A.R. Rahman', 'A R Rahman', 'A.R.Rahman', 'a. r. rahman' -> 'a r rahman'
+    - Dots, dashes, slashes, and underscores are treated as token separators.
+    - Preserves distinct individual identities.
+    """
+    if not name:
+        return ""
+    s = name.lower()
+    # Replace dots, dashes, underscores, slashes with spaces so initials don't concatenate ('a.r.' -> 'a r ')
+    s = re.sub(r'[\.\-_/]', ' ', s)
+    # Remove remaining non-word and non-space characters
+    s = re.sub(r'[^\w\s]', '', s)
+    # Collapse multiple whitespaces
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip()
+
+
 @dataclass
 class CanonicalIdentity:
     """

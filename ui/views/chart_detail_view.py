@@ -50,7 +50,7 @@ class ChartDetailView(ctk.CTkFrame):
         self._current_entries: List[Dict[str, Any]] = []
         self.search_query: str = ""
         self.current_page: int = 1
-        self.page_size: int = 50
+        self.page_size: int = 20
         self._total_matching: int = 0
         self._search_debounce_id: Optional[str] = None
 
@@ -215,22 +215,34 @@ class ChartDetailView(ctk.CTkFrame):
         nav_box = ctk.CTkFrame(self.pagination_bar, fg_color="transparent")
         nav_box.pack(side="right", padx=20, pady=6)
 
+        self.first_btn = ctk.CTkButton(
+            nav_box, text="« First", width=55, height=26, font=theme.font_caption(),
+            fg_color=theme.SURFACE_CARD, command=lambda: self._go_page(1)
+        )
+        self.first_btn.pack(side="left", padx=2)
+
         self.prev_btn = ctk.CTkButton(
-            nav_box, text="‹ Prev", width=60, height=26, font=theme.font_caption(),
+            nav_box, text="‹ Prev", width=55, height=26, font=theme.font_caption(),
             fg_color=theme.SURFACE_CARD, command=lambda: self._go_page(self.current_page - 1)
         )
         self.prev_btn.pack(side="left", padx=2)
 
         self.page_indicator = ctk.CTkLabel(
-            nav_box, text="1", font=theme.font_caption_bold(), width=40, text_color=theme.TEXT_PRIMARY
+            nav_box, text="1 / 1", font=theme.font_caption_bold(), width=50, text_color=theme.TEXT_PRIMARY
         )
         self.page_indicator.pack(side="left", padx=4)
 
         self.next_btn = ctk.CTkButton(
-            nav_box, text="Next ›", width=60, height=26, font=theme.font_caption(),
+            nav_box, text="Next ›", width=55, height=26, font=theme.font_caption(),
             fg_color=theme.SURFACE_CARD, command=lambda: self._go_page(self.current_page + 1)
         )
         self.next_btn.pack(side="left", padx=2)
+
+        self.last_btn = ctk.CTkButton(
+            nav_box, text="Last »", width=55, height=26, font=theme.font_caption(),
+            fg_color=theme.SURFACE_CARD, command=self._go_last_page
+        )
+        self.last_btn.pack(side="left", padx=2)
 
         # Register progress listener
         self.service.add_progress_listener(self._on_download_progress)
@@ -629,11 +641,17 @@ class ChartDetailView(ctk.CTkFrame):
         self.page_lbl.configure(text=f"Showing {start}–{end} of {total} tracks")
         self.page_indicator.configure(text=f"{self.current_page} / {total_pages}")
 
+        self.first_btn.configure(state="normal" if self.current_page > 1 else "disabled")
         self.prev_btn.configure(state="normal" if self.current_page > 1 else "disabled")
         self.next_btn.configure(state="normal" if self.current_page < total_pages else "disabled")
+        self.last_btn.configure(state="normal" if self.current_page < total_pages else "disabled")
 
     def _go_page(self, p: int) -> None:
         total_pages = max(1, (self._total_matching + self.page_size - 1) // self.page_size)
         if 1 <= p <= total_pages:
             self.current_page = p
             self.refresh()
+
+    def _go_last_page(self) -> None:
+        total_pages = max(1, (self._total_matching + self.page_size - 1) // self.page_size)
+        self._go_page(total_pages)

@@ -170,6 +170,11 @@ class Settings:
         return p
 
     @property
+    def download_dir(self) -> Path:
+        """Alias for output_dir (authoritative downloads location)."""
+        return self.output_dir
+
+    @property
     def isaimini_url(self) -> str:
         """Get IsaiminiHQ base URL."""
         return self.get("sources.isaimini.base_url")

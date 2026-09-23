@@ -119,6 +119,6 @@ def test_full_gui_e2e_workflow(tmp_path: Path, local_server: str):
     assert len(dl_view._songs) == 0
 
     try:
-        app.withdraw()
+        app.destroy()
     except Exception:
         pass

@@ -45,6 +45,6 @@ def test_app_startup_and_navigation(tmp_path: Path):
     assert app.current_view_name == "help"
 
     try:
-        app.withdraw()
+        app.destroy()
     except Exception:
         pass
