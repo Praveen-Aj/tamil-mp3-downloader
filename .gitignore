@@ -17,7 +17,8 @@ build/
 *.pkl
 *.pt
 *.pth
-archive/
+archive/*
+!archive/v5-final/
 backup/
 *.mp3
 cache/

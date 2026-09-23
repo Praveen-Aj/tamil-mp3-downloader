@@ -1,0 +1,89 @@
+{
+  "release": "v5.0.0",
+  "name": "Tamil MP3 Downloader — V5 Unified Discovery & Library System",
+  "branch": "feature/library-source-foundation",
+  "created_at": "2026-09-23T20:20:00+05:30",
+  "schema_version": 5,
+  "phases": [
+    {
+      "phase": "V5.1",
+      "title": "Database Schema v4 Evolution & Data Models",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Schema v4 migration with 9 new relational tables",
+        "Zero alterations to existing songs table and downloads foundation",
+        "Deterministic SQLite connection management with reentrant RLock"
+      ]
+    },
+    {
+      "phase": "V5.2",
+      "title": "Fast Search & Composable Filter Engine",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "FTS5 full-text search with automatic sync triggers",
+        "ComposableFilterEngine with SQL AST generation",
+        "Server-side pagination and sub-15ms search performance"
+      ]
+    },
+    {
+      "phase": "V5.3",
+      "title": "Movie Catalog & Tracklist Discovery",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Regional scraper movie ingestion pipeline",
+        "Movie catalog and detailed tracklist views",
+        "Deduplicated bulk 'Download Missing' with DownloadPlanner integration"
+      ]
+    },
+    {
+      "phase": "V5.4",
+      "title": "Artist, Composer & Actor Exploration",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Multi-role artist entity recognition (Music Directors, Singers, Actors)",
+        "Artist exploration cards with role filters",
+        "Dedicated artist detail view with discography breakdowns"
+      ]
+    },
+    {
+      "phase": "V5.5",
+      "title": "Curated Charts & Top 100 Feeds",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Periodic chart snapshots with historical ranking and trend indicators",
+        "Apple Music / iTunes Tamil Top Hits & curated Tamil evergreen classics",
+        "Bulk and individual chart entry download execution"
+      ]
+    },
+    {
+      "phase": "V5.6",
+      "title": "Playlists, Ratings & User Collections",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Custom user playlist CRUD and arbitrary song reordering",
+        "1-5 star user song ratings and favorite toggling",
+        "External playlist import from Spotify/YouTube with canonical deduplication"
+      ]
+    },
+    {
+      "phase": "V5.7",
+      "title": "Artwork Disk Caching & Rich UI Polish",
+      "status": "COMPLETED",
+      "key_deliverables": [
+        "Multi-tier artwork cache (in-memory LRU + SHA256 disk cache)",
+        "Physical MP3 ID3 APIC cover art extraction via mutagen",
+        "Procedural high-contrast gradient fallback generator",
+        "Design system typography aliases and cross-view hover highlights"
+      ]
+    }
+  ],
+  "verification": {
+    "test_suite_total_passing": 286,
+    "test_suite_total_failing": 0,
+    "gui_suite_passing": 3,
+    "gui_suite_failing": 0,
+    "real_world_audit_screenshots": 10,
+    "screenshot_resolution": "1618x1047",
+    "regression_status": "100% GREEN"
+  }
+}
