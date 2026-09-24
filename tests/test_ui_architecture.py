@@ -106,6 +106,7 @@ class TestLibraryService:
         stats_after = temp_service.get_dashboard_stats()
         assert stats_after["active_downloads"] == 0
 
+    @pytest.mark.gui
     def test_dialog_instantiation_and_rendering(self, temp_service):
         """Verify PlanPreviewDialog and SongDetailsDialog can be instantiated without attribute errors."""
         import customtkinter as ctk
@@ -113,7 +114,10 @@ class TestLibraryService:
         from ui.dialogs.song_details import SongDetailsDialog
         from library.models import DiscoveryContext
 
-        root = ctk.CTk()
+        try:
+            root = ctk.CTk()
+        except Exception as exc:
+            pytest.skip(f"Tkinter environment not available: {exc}")
         root.withdraw()
         try:
             # Add sample song and source
