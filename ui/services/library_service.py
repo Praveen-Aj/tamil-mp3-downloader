@@ -489,7 +489,7 @@ class LibraryService:
                     result = downloader.download_song(dl_song, progress_cb=_http_prog)
                     if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
                         was_upgrade = (song.state == SongState.OWNED)
-                        file_size = result.size_downloaded or result.file_path.stat().st_size
+                        file_size = result.file_path.stat().st_size if result.file_path.exists() else (result.size_downloaded or 0)
                         self.registry.complete(
                             song_id=song.id,
                             download_id=download_id,
@@ -553,7 +553,7 @@ class LibraryService:
                     res = downloader.download_song(dl_song, progress_cb=_alt_prog)
                     if res.success and res.file_path and res.file_path.exists() and res.file_path.stat().st_size > 0:
                         was_upgrade = (song.state == SongState.OWNED)
-                        file_size = res.size_downloaded or res.file_path.stat().st_size
+                        file_size = res.file_path.stat().st_size if res.file_path.exists() else (res.size_downloaded or 0)
                         self.registry.complete(
                             song_id=song.id,
                             download_id=download_id,
@@ -623,7 +623,7 @@ class LibraryService:
                     else:
                         q_kbps = 320
                         fmt_label = "320 kbps MP3"
-                    file_size = prov_res.size_bytes or prov_res.file_path.stat().st_size
+                    file_size = prov_res.file_path.stat().st_size if prov_res.file_path.exists() else (prov_res.size_bytes or 0)
                     self.registry.complete(
                         song_id=song.id,
                         download_id=download_id,
@@ -875,7 +875,7 @@ class LibraryService:
                 if target.is_file() and target.exists():
                     if sys.platform == "win32":
                         try:
-                            subprocess.run(f'explorer /select,"{str(target)}"', shell=True, check=False)
+                            subprocess.run(["explorer", f'/select,"{str(target)}"'], check=False)
                         except Exception:
                             os.startfile(str(target.parent))
                     else:
@@ -883,14 +883,20 @@ class LibraryService:
                     return True, f"Opened {target.name} in Explorer"
                 elif target.is_dir() and target.exists():
                     if sys.platform == "win32":
-                        os.startfile(str(target))
+                        try:
+                            subprocess.run(["explorer", str(target)], check=False)
+                        except Exception:
+                            os.startfile(str(target))
                     else:
                         subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target)], check=False)
                     return True, f"Opened directory {target}"
 
             # Fallback to configured output directory
             if sys.platform == "win32":
-                os.startfile(str(out_dir))
+                try:
+                    subprocess.run(["explorer", str(out_dir)], check=False)
+                except Exception:
+                    os.startfile(str(out_dir))
             else:
                 subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(out_dir)], check=False)
             return True, f"Opened downloads folder: {out_dir}"

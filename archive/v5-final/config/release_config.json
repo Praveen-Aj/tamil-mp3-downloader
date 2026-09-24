@@ -1,0 +1,24 @@
+{
+  "version": "5.0.0",
+  "app_name": "Tamil MP3 Downloader",
+  "branch": "feature/library-source-foundation",
+  "default_settings": {
+    "download.output_dir": "downloads",
+    "download.preferred_quality": 320,
+    "download.max_workers": 3,
+    "download.retry_attempts": 3,
+    "sources.primary": "masstamilan",
+    "sources.fallback": ["tamilmp3", "friendstamilmp3"],
+    "database.path": "data/library.db",
+    "artwork.cache_dir": "data/cache/artwork",
+    "artwork.memory_cache_max": 256
+  },
+  "supported_providers": [
+    "masstamilan",
+    "tamilmp3",
+    "friendstamilmp3",
+    "youtube",
+    "direct_http"
+  ],
+  "schema_version": 5
+}

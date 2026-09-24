@@ -311,7 +311,9 @@ class TestDownloadEngineBackendLifecycle:
             )
         )
 
-        success = service.execute_single_download(song_id)
+        # Prevent live YouTube fallback for the broken item so it deterministically fails
+        with mock.patch.object(service.provider_registry, "search_and_rank_candidates", return_value=[]):
+            success = service.execute_single_download(song_id)
         assert success is False
 
         song = db.get_song(song_id)
@@ -530,8 +532,9 @@ class TestImportAndPlaylistFlow:
         ]
         db.add_import_job_items(items)
 
-        # Run 1: 1 success, 1 failure
-        summary = service.execute_import_job(job_id="job-partial-fail", run_async=False)
+        # Run 1: 1 success, 1 failure (prevent live YouTube fallback for the broken item)
+        with mock.patch.object(service.job_manager.provider_registry, "search_and_rank_candidates", return_value=[]):
+            summary = service.execute_import_job(job_id="job-partial-fail", run_async=False)
         assert summary["completed"] == 1
         assert summary["failed"] == 1
 
