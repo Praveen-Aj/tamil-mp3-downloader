@@ -17,6 +17,7 @@ from library.init import initialize_library, get_library
 from library.discovery import DiscoveryPipeline, song_to_canonical
 from library.planner import DownloadPlanner, DownloadPlan, SourceSelection, UpgradePlan
 from library.registry import DownloadRegistry
+from library.service import LibraryService
 
 __all__ = [
     'SQLiteDatabase',
@@ -36,4 +37,6 @@ __all__ = [
     'SourceSelection',
     'UpgradePlan',
     'DownloadRegistry',
+    'LibraryService',
 ]
+
