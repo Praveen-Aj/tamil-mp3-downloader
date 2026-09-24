@@ -47,3 +47,12 @@ def test_api_settings_crud(api_test_env):
     res_update = client.put("/api/settings", json={"max_workers": 5, "preferred_quality": 320})
     assert res_update.status_code == 200
     assert res_update.json()["success"] is True
+
+
+def test_root_spa_serving(api_test_env):
+    """Verify root / serves the built web single-page application."""
+    client = api_test_env["client"]
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "text/html" in res.headers.get("content-type", "")
+    assert "Tamil MP3" in res.text

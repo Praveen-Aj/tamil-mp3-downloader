@@ -51,3 +51,9 @@ cache/*
 # Archive (Preserve frozen V5 final release)
 archive/*
 !archive/v5-final/
+
+# Frontend Web Build & Node Dependencies
+node_modules/
+web/node_modules/
+web/dist/
+.vite/

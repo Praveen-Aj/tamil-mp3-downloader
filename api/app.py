@@ -110,6 +110,21 @@ def create_app() -> FastAPI:
             },
         )
 
+    # 5. Serve frontend static assets if compiled in web/dist
+    from pathlib import Path
+    dist_dir = Path(__file__).resolve().parent.parent / "web" / "dist"
+    if dist_dir.is_dir() and (dist_dir / "index.html").is_file():
+        from fastapi.staticfiles import StaticFiles
+        from fastapi.responses import FileResponse
+
+        assets_dir = dist_dir / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        @app.get("/")
+        async def serve_index() -> FileResponse:
+            return FileResponse(dist_dir / "index.html")
+
     return app
 
 
