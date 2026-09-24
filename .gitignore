@@ -1,27 +1,53 @@
+# Virtual Environments
 venv/
 .venv/
+
+# Python Cache & Bytecode
 __pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+
+# Testing & IDE Caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & Diagnostics
 logs/
 *.log
-models/
-output/
+
+# Build & Distribution Artifacts
 dist/
 build/
+output/
+artifacts/
+tmp_visual_validation/
+scratch/
+backup/
 *.exe
 *.jar
 *.bin
-*.pyd
-*.so
+
+# Database & Runtime State
 *.db
 *.sqlite
+data/
+
+# Machine Learning / Serialized Data
 *.pkl
 *.pt
 *.pth
-archive/*
-!archive/v5-final/
-backup/
+
+# Downloaded Audio & Runtime Cache (Filesystem Truth Protected)
 *.mp3
-cache/
 downloads/*
 !downloads/.gitkeep
-data/
+
+cache/*
+!cache/.gitkeep
+
+# Archive (Preserve frozen V5 final release)
+archive/*
+!archive/v5-final/

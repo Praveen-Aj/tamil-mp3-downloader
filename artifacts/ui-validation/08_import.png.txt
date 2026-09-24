@@ -1,2 +1,0 @@
-Screenshot failed: Headless agent environment (OSError: screen grab failed)
-The UI application successfully loaded this view, but no physical display exists to capture pixels.
