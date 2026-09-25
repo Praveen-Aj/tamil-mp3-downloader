@@ -26,6 +26,8 @@ export interface Song {
   album?: string;
   year?: number;
   state: 'NEW' | 'OWNED' | 'FAILED' | 'ARCHIVED' | string;
+  download_state?: 'DOWNLOADED' | 'UPGRADE_AVAILABLE' | 'NOT_DOWNLOADED' | 'DOWNLOADING' | 'FAILED' | string;
+  can_upgrade?: boolean;
   rating?: number | null;
   is_favorite: boolean;
   has_file: boolean;
@@ -43,18 +45,31 @@ export interface Movie {
   director?: string;
   music_director?: string;
   poster_url?: string;
+  banner_url?: string;
+  local_poster_path?: string;
   total_songs?: number;
+  total_tracks?: number;
   downloaded_count?: number;
+  missing_count?: number;
 }
 
 export interface Artist {
   id: number;
   name: string;
   role?: string;
+  roles?: string[];
+  roles_display?: string;
   image_url?: string;
   photo_url?: string;
+  local_photo_path?: string;
+  bio?: string;
+  total_songs?: number;
   total_tracks?: number;
+  downloaded_songs?: number;
   downloaded_tracks?: number;
+  missing_songs?: number;
+  missing_tracks?: number;
+  total_movies?: number;
   total_soundtracks?: number;
 }
 

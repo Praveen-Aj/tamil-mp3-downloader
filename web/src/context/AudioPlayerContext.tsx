@@ -15,12 +15,14 @@ interface AudioPlayerContextValue {
   volume: number;
   isMuted: boolean;
   queue: Song[];
-  playSong: (song: Song) => void;
+  playSong: (song: Song, contextQueue?: Song[]) => void;
   togglePlay: () => void;
   seek: (seconds: number) => void;
   setVolume: (v: number) => void;
   toggleMute: () => void;
   addToQueue: (song: Song) => void;
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
   playNext: () => void;
   playPrevious: () => void;
 }
@@ -98,13 +100,22 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, []);
 
-  const playSong = useCallback((song: Song) => {
+  const playSong = useCallback((song: Song, contextQueue?: Song[]) => {
     if (!audioRef.current) return;
     const audio = audioRef.current;
 
     setCurrentSong(song);
     setIsLoading(true);
     setProgress(0);
+
+    if (contextQueue && contextQueue.length > 0) {
+      const idx = contextQueue.findIndex((s) => s.id === song.id);
+      if (idx !== -1) {
+        setQueue(contextQueue.slice(idx + 1));
+      } else {
+        setQueue(contextQueue);
+      }
+    }
 
     const streamUrl = api.getStreamUrl(song.id);
     audio.src = streamUrl;
@@ -164,6 +175,14 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setQueue((prev) => [...prev, song]);
   }, []);
 
+  const removeFromQueue = useCallback((index: number) => {
+    setQueue((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+  }, []);
+
   const playNext = useCallback(() => {
     if (queue.length > 0) {
       const [nextSong, ...remaining] = queue;
@@ -198,6 +217,8 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setVolume,
         toggleMute,
         addToQueue,
+        removeFromQueue,
+        clearQueue,
         playNext,
         playPrevious,
       }}

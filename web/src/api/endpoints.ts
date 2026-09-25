@@ -61,6 +61,9 @@ export const songsApi = {
       delete_physical_file: String(deletePhysicalFile),
       remove_from_library: String(removeFromLibrary),
     }),
+
+  downloadMissingSongs: (preferredQuality = 320) =>
+    api.post<{ queued_count: number }>(`/songs/download-missing?preferred_quality=${preferredQuality}`),
 };
 
 export const moviesApi = {
@@ -194,5 +197,5 @@ export const importsApi = {
 export const settingsApi = {
   getSettings: () => api.get<Record<string, any>>('/settings'),
   updateSettings: (newSettings: Record<string, any>) => api.post('/settings', newSettings),
-  validatePath: (path: string) => api.post<{ is_valid: boolean; message: string }>('/settings/validate-path', { path }),
+  validatePath: (path: string) => api.post<{ is_valid: boolean; message: string; resolved_path?: string }>('/settings/validate-path', { path }),
 };

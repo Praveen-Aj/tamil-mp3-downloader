@@ -185,7 +185,8 @@ export const ArtistsView: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {artist.total_tracks ?? 0} tracks
+                  {((artist.total_songs ?? artist.total_tracks) ?? 0)} tracks
+                  {(artist.downloaded_tracks || artist.downloaded_songs) ? ` (${artist.downloaded_tracks || artist.downloaded_songs} owned)` : ''}
                 </span>
 
                 <Button
@@ -193,6 +194,7 @@ export const ArtistsView: React.FC = () => {
                   variant="primary"
                   onClick={(e) => handleDownloadAll(e, artist.id, artist.name)}
                   title="Download all artist songs"
+                  aria-label={`Download all songs by ${artist.name}`}
                 >
                   <Download size={13} /> Download
                 </Button>

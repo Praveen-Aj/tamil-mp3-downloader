@@ -6,7 +6,7 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { Song, Movie, Artist } from '../../api/types';
 
 export const Header: React.FC = () => {
-  const { currentView, stats, refreshStats, navigateTo } = useApp();
+  const { currentView, stats, refreshStats, navigateTo, setGlobalSearchQuery } = useApp();
   const { playSong } = useAudioPlayer();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -76,6 +76,10 @@ export const Header: React.FC = () => {
         return 'Featured Top Charts';
       case 'playlists':
         return 'Playlists Studio';
+      case 'favorites':
+        return 'Favorite Tracks';
+      case 'search':
+        return 'Global Search Results';
       case 'downloads':
         return 'Download Engine & Queue';
       case 'imports':
@@ -127,6 +131,13 @@ export const Header: React.FC = () => {
             placeholder="Search songs, movies, artists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchQuery.trim()) {
+                setGlobalSearchQuery(searchQuery.trim());
+                navigateTo('search');
+                setIsDropdownOpen(false);
+              }
+            }}
             onFocus={() => {
               if (results) setIsDropdownOpen(true);
             }}
@@ -135,6 +146,7 @@ export const Header: React.FC = () => {
               fontSize: '13px',
               color: 'var(--text-primary)',
             }}
+            aria-label="Global search input"
           />
           {searchQuery && (
             <button
@@ -303,6 +315,21 @@ export const Header: React.FC = () => {
                     ))}
                   </div>
                 )}
+
+                {/* View all results button */}
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                  <button
+                    onClick={() => {
+                      setGlobalSearchQuery(searchQuery.trim());
+                      navigateTo('search');
+                      setIsDropdownOpen(false);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    View all results for "{searchQuery}"
+                  </button>
+                </div>
               </>
             )}
           </div>

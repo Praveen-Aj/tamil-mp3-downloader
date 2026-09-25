@@ -47,6 +47,9 @@ def list_artists(
     )
 
 
+from library.canonical import clean_song_title
+
+
 @router.get("/{artist_id}", response_model=ApiResponse[Dict[str, Any]])
 def get_artist(
     artist_id: int,
@@ -59,7 +62,65 @@ def get_artist(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Artist ID {artist_id} not found",
         )
+
+    # Clean song titles
+    raw_songs = details.get("songs", [])
+    clean_songs = []
+    for s in raw_songs:
+        if isinstance(s, dict):
+            s_dict = dict(s)
+            s_dict["title"] = clean_song_title(s_dict.get("title", ""))
+            clean_songs.append(s_dict)
+        elif hasattr(s, "title"):
+            clean_songs.append({
+                "id": s.id,
+                "title": clean_song_title(s.title),
+                "artist": getattr(s, "artist", "") or "",
+                "album": getattr(s, "album", "") or "",
+                "year": getattr(s, "year", None),
+                "state": s.state.value if hasattr(s.state, "value") else str(s.state),
+                "quality": getattr(s, "quality_kbps", None),
+                "file_path": getattr(s, "file_path", None),
+            })
+        else:
+            clean_songs.append(s)
+
+    details["songs"] = clean_songs
+    stats = details.get("stats", {})
+    artist_obj = details.get("artist")
+    if artist_obj and hasattr(artist_obj, "name"):
+        details["artist"] = {
+            "id": artist_obj.id,
+            "name": artist_obj.name,
+            "role": artist_obj.role,
+            "photo_url": artist_obj.photo_url,
+            "local_photo_path": artist_obj.local_photo_path,
+            "bio": artist_obj.bio,
+            "total_songs": stats.get("total", len(clean_songs)),
+            "total_tracks": stats.get("total", len(clean_songs)),
+            "downloaded_songs": stats.get("downloaded", 0),
+            "downloaded_tracks": stats.get("downloaded", 0),
+            "total_movies": stats.get("movies_count", 0),
+            "total_soundtracks": stats.get("movies_count", 0),
+        }
+    elif isinstance(artist_obj, dict):
+        artist_dict = dict(artist_obj)
+        artist_dict["total_songs"] = stats.get("total", len(clean_songs))
+        artist_dict["total_tracks"] = stats.get("total", len(clean_songs))
+        artist_dict["downloaded_songs"] = stats.get("downloaded", 0)
+        artist_dict["downloaded_tracks"] = stats.get("downloaded", 0)
+        details["artist"] = artist_dict
+
     return ApiResponse(success=True, data=details)
+
+
+@router.get("/{artist_id}/songs", response_model=ApiResponse[Dict[str, Any]])
+def get_artist_songs(
+    artist_id: int,
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Get tracks and detailed information for a specific artist."""
+    return get_artist(artist_id, service)
 
 
 @router.post("/{artist_id}/plan", response_model=ApiResponse[DownloadPlanResponse])

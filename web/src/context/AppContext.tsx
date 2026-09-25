@@ -13,9 +13,11 @@ export type ViewType =
   | 'artists'
   | 'charts'
   | 'playlists'
+  | 'favorites'
   | 'downloads'
   | 'imports'
   | 'settings'
+  | 'search'
   | 'movie_detail'
   | 'artist_detail';
 

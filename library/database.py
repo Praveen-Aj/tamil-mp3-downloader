@@ -21,7 +21,7 @@ from library.models import (
 )
 from library.migrator import DatabaseMigrator
 from library.filter_engine import SongFilterCriteria, ComposableFilterEngine
-from library.canonical import normalize_string, normalize_artist_name, compute_canonical_hash
+from library.canonical import normalize_string, normalize_artist_name, compute_canonical_hash, clean_song_title
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +67,70 @@ class SQLiteDatabase:
             # Run migrations
             self._migrator.migrate()
 
+            # Sanitize legacy scraper titles and prune unowned zip stubs
+            try:
+                self.sanitize_existing_song_titles()
+            except Exception as e:
+                logger.warning(f"Could not sanitize legacy song titles: {e}")
+
             logger.info(f"Database connected: {self.db_path}")
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
             raise
+
+    def sanitize_existing_song_titles(self) -> int:
+        """
+        Sanitize legacy raw scraper strings (e.g. 'Download <song> 128kbps', '320kbps ZIP')
+        in the songs table to canonical metadata, and prune unowned ZIP records.
+        """
+        cleaned_count = 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                # 1. Prune unowned ZIP archive dummy rows
+                cursor.execute("""
+                    DELETE FROM songs
+                    WHERE (title LIKE '%ZIP%' OR title LIKE '%.zip%')
+                      AND (state != 'OWNED' OR state IS NULL)
+                      AND (file_path IS NULL OR file_path = '')
+                """)
+
+                # 2. Find songs with raw download / bitrate boilerplate in title
+                cursor.execute("""
+                    SELECT id, title, artist, album, year, duration_seconds, state, canonical_hash, file_path
+                    FROM songs
+                    WHERE title LIKE 'Download %'
+                       OR title LIKE 'Listen to %'
+                       OR title LIKE '%kbps%'
+                       OR title LIKE '%\n%'
+                """)
+                rows = cursor.fetchall()
+                for r in rows:
+                    sid = r['id']
+                    old_title = r['title']
+                    clean_t = clean_song_title(old_title)
+                    if clean_t and clean_t != old_title:
+                        norm_t = normalize_string(clean_t)
+                        new_hash = compute_canonical_hash(
+                            clean_t, r['artist'] or '', r['album'] or '', r['year'], r['duration_seconds']
+                        )
+                        cursor.execute("SELECT id, state, file_path FROM songs WHERE canonical_hash = ? AND id != ?", (new_hash, sid))
+                        existing = cursor.fetchone()
+                        if existing:
+                            target_id = existing['id']
+                            cursor.execute("UPDATE OR IGNORE song_sources SET song_id = ? WHERE song_id = ?", (target_id, sid))
+                            cursor.execute("UPDATE OR IGNORE song_movies SET song_id = ? WHERE song_id = ?", (target_id, sid))
+                            cursor.execute("UPDATE OR IGNORE song_artists SET song_id = ? WHERE song_id = ?", (target_id, sid))
+                            if r['state'] != 'OWNED' and not r['file_path']:
+                                cursor.execute("DELETE FROM songs WHERE id = ?", (sid,))
+                        else:
+                            cursor.execute("""
+                                UPDATE songs
+                                SET title = ?, title_normalized = ?, canonical_hash = ?
+                                WHERE id = ?
+                            """, (clean_t, norm_t, new_hash, sid))
+                        cleaned_count += 1
+        return cleaned_count
 
     def execute_write(self, sql: str, params: tuple = ()) -> bool:
         """Execute a write SQL query in a thread-safe transaction."""
@@ -1862,23 +1922,32 @@ class SQLiteDatabase:
                     (
                         SELECT COUNT(DISTINCT s_sub.id)
                         FROM songs s_sub
-                        WHERE s_sub.id IN (
-                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
-                            UNION
-                            SELECT sm.song_id FROM movie_composers mc
-                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                            WHERE mc.composer_id = a.id
+                        WHERE s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
+                            s_sub.id IN (
+                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                                UNION
+                                SELECT sm.song_id FROM movie_composers mc
+                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                                WHERE mc.composer_id = a.id
+                            )
+                            OR s_sub.artist LIKE '%' || a.name || '%'
+                            OR (a.name_normalized != '' AND s_sub.artist_normalized LIKE '%' || a.name_normalized || '%')
                         )
                     ) as total_songs,
                     (
                         SELECT COUNT(DISTINCT s_sub.id)
                         FROM songs s_sub
-                        WHERE s_sub.state = 'OWNED' AND s_sub.id IN (
-                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
-                            UNION
-                            SELECT sm.song_id FROM movie_composers mc
-                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                            WHERE mc.composer_id = a.id
+                        WHERE (s_sub.state = 'OWNED' OR (s_sub.file_path IS NOT NULL AND s_sub.file_path != ''))
+                        AND s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
+                            s_sub.id IN (
+                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                                UNION
+                                SELECT sm.song_id FROM movie_composers mc
+                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                                WHERE mc.composer_id = a.id
+                            )
+                            OR s_sub.artist LIKE '%' || a.name || '%'
+                            OR (a.name_normalized != '' AND s_sub.artist_normalized LIKE '%' || a.name_normalized || '%')
                         )
                     ) as downloaded_songs,
                     (
@@ -1918,9 +1987,13 @@ class SQLiteDatabase:
                     "local_photo_path": row['local_photo_path'],
                     "bio": row['bio'],
                     "total_songs": tot_s,
+                    "total_tracks": tot_s,
                     "downloaded_songs": dl_s,
+                    "downloaded_tracks": dl_s,
                     "missing_songs": miss_s,
+                    "missing_tracks": miss_s,
                     "total_movies": tot_m,
+                    "total_soundtracks": tot_m,
                     "is_complete": (tot_s > 0 and dl_s >= tot_s),
                 })
 
@@ -1935,23 +2008,32 @@ class SQLiteDatabase:
                     (
                         SELECT COUNT(DISTINCT s_sub.id)
                         FROM songs s_sub
-                        WHERE s_sub.id IN (
-                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
-                            UNION
-                            SELECT sm.song_id FROM movie_composers mc
-                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                            WHERE mc.composer_id = ?
+                        WHERE s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
+                            s_sub.id IN (
+                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
+                                UNION
+                                SELECT sm.song_id FROM movie_composers mc
+                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                                WHERE mc.composer_id = ?
+                            )
+                            OR s_sub.artist LIKE '%' || (SELECT name FROM artists WHERE id = ?) || '%'
+                            OR (s_sub.artist_normalized != '' AND s_sub.artist_normalized LIKE '%' || (SELECT name_normalized FROM artists WHERE id = ?) || '%')
                         )
                     ) as total_songs,
                     (
                         SELECT COUNT(DISTINCT s_sub.id)
                         FROM songs s_sub
-                        WHERE s_sub.state = 'OWNED' AND s_sub.id IN (
-                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
-                            UNION
-                            SELECT sm.song_id FROM movie_composers mc
-                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                            WHERE mc.composer_id = ?
+                        WHERE (s_sub.state = 'OWNED' OR (s_sub.file_path IS NOT NULL AND s_sub.file_path != ''))
+                        AND s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
+                            s_sub.id IN (
+                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = ?
+                                UNION
+                                SELECT sm.song_id FROM movie_composers mc
+                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                                WHERE mc.composer_id = ?
+                            )
+                            OR s_sub.artist LIKE '%' || (SELECT name FROM artists WHERE id = ?) || '%'
+                            OR (s_sub.artist_normalized != '' AND s_sub.artist_normalized LIKE '%' || (SELECT name_normalized FROM artists WHERE id = ?) || '%')
                         )
                     ) as downloaded_songs,
                     (
@@ -1962,18 +2044,26 @@ class SQLiteDatabase:
                             SELECT movie_id as m_sub_id FROM movie_composers WHERE composer_id = ?
                         )
                     ) as total_movies
-            """, (artist_id, artist_id, artist_id, artist_id, artist_id, artist_id))
+                FROM artists a
+                WHERE a.id = ?
+            """, (artist_id, artist_id, artist_id, artist_id, artist_id, artist_id, artist_id, artist_id, artist_id, artist_id, artist_id))
             row = cursor.fetchone()
-            tot_s = row['total_songs'] or 0
-            dl_s = row['downloaded_songs'] or 0
+            tot_s = (row['total_songs'] if row else 0) or 0
+            dl_s = (row['downloaded_songs'] if row else 0) or 0
             miss_s = max(0, tot_s - dl_s)
-            tot_m = row['total_movies'] or 0
+            tot_m = (row['total_movies'] if row else 0) or 0
             roles = self.get_artist_roles(artist_id)
             return {
                 "total": tot_s,
+                "total_songs": tot_s,
+                "total_tracks": tot_s,
                 "downloaded": dl_s,
+                "downloaded_songs": dl_s,
+                "downloaded_tracks": dl_s,
                 "missing": miss_s,
+                "missing_tracks": miss_s,
                 "movies_count": tot_m,
+                "total_movies": tot_m,
                 "roles": roles,
             }
 
@@ -2015,32 +2105,38 @@ class SQLiteDatabase:
                         LIMIT 1
                     ) as primary_source
                 FROM songs s
-                WHERE s.id IN (
-                    SELECT song_id FROM song_artists WHERE artist_id = ?
-                    UNION
-                    SELECT sm.song_id FROM movie_composers mc
-                    JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                    WHERE mc.composer_id = ?
+                WHERE s.title NOT LIKE '%ZIP%' AND s.title NOT LIKE '%.zip%' AND (
+                    s.id IN (
+                        SELECT song_id FROM song_artists WHERE artist_id = ?
+                        UNION
+                        SELECT sm.song_id FROM movie_composers mc
+                        JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                        WHERE mc.composer_id = ?
+                    )
+                    OR s.artist LIKE '%' || (SELECT name FROM artists WHERE id = ?) || '%'
+                    OR (s.artist_normalized != '' AND s.artist_normalized LIKE '%' || (SELECT name_normalized FROM artists WHERE id = ?) || '%')
                 )
                 ORDER BY s.title ASC
-            """, (artist_id, artist_id))
+            """, (artist_id, artist_id, artist_id, artist_id))
             results = []
             for r in cursor.fetchall():
-                is_dl = (r['state'] == 'OWNED')
+                is_dl = (r['state'] == 'OWNED' or bool(r['file_path']))
                 movie_name = r['movie_title'] or r['album'] or "Soundtrack"
                 results.append({
+                    "id": r['song_id'],
                     "song_id": r['song_id'],
-                    "title": r['title'],
+                    "title": clean_song_title(r['title']),
                     "artist": r['artist'] or "Unknown Artist",
                     "album": movie_name,
                     "movie_title": movie_name,
                     "movie_id": r['movie_id'],
                     "year": r['year'],
                     "duration_seconds": r['duration_seconds'],
-                    "state": r['state'],
+                    "state": "OWNED" if is_dl else r['state'],
                     "is_downloaded": is_dl,
                     "download_status_display": "✓ Downloaded" if is_dl else "Not Downloaded",
                     "quality_kbps": r['quality_kbps'],
+                    "quality": r['quality_kbps'],
                     "quality_display": f"{r['quality_kbps']} kbps" if r['quality_kbps'] else "320 kbps",
                     "file_path": r['file_path'],
                     "source": r['primary_source'] or "Regional",

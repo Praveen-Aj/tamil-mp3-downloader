@@ -6,6 +6,7 @@ import {
   Users,
   Flame,
   ListMusic,
+  Heart,
   ArrowDownCircle,
   Link2,
   Settings,
@@ -20,24 +21,45 @@ interface NavItem {
   badge?: number;
 }
 
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
 export const Sidebar: React.FC = () => {
   const { currentView, navigateTo, stats, isBackendHealthy } = useApp();
 
-  const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { id: 'songs', label: 'Songs', icon: <Music size={18} />, badge: stats?.total_songs },
-    { id: 'movies', label: 'Movies', icon: <Film size={18} />, badge: stats?.total_movies },
-    { id: 'artists', label: 'Artists', icon: <Users size={18} />, badge: stats?.total_artists },
-    { id: 'charts', label: 'Charts', icon: <Flame size={18} /> },
-    { id: 'playlists', label: 'Playlists', icon: <ListMusic size={18} />, badge: stats?.total_playlists },
+  const sections: NavSection[] = [
     {
-      id: 'downloads',
-      label: 'Downloads',
-      icon: <ArrowDownCircle size={18} />,
-      badge: stats?.active_downloads ? stats.active_downloads : undefined,
+      title: 'Discover',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { id: 'charts', label: 'Top Charts', icon: <Flame size={18} /> },
+        { id: 'movies', label: 'Soundtracks & Movies', icon: <Film size={18} />, badge: stats?.total_movies },
+        { id: 'artists', label: 'Artists & Composers', icon: <Users size={18} />, badge: stats?.total_artists },
+      ],
     },
-    { id: 'imports', label: 'Import Music', icon: <Link2 size={18} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+    {
+      title: 'My Collection',
+      items: [
+        { id: 'songs', label: 'Song Library', icon: <Music size={18} />, badge: stats?.total_songs },
+        { id: 'playlists', label: 'Playlists', icon: <ListMusic size={18} />, badge: stats?.total_playlists },
+        { id: 'favorites', label: 'Favorites', icon: <Heart size={18} /> },
+        {
+          id: 'downloads',
+          label: 'Downloads Queue',
+          icon: <ArrowDownCircle size={18} />,
+          badge: stats?.active_downloads ? stats.active_downloads : undefined,
+        },
+      ],
+    },
+    {
+      title: 'Engine & Tools',
+      items: [
+        { id: 'imports', label: 'Import Music / URLs', icon: <Link2 size={18} /> },
+        { id: 'settings', label: 'System Settings', icon: <Settings size={18} /> },
+      ],
+    },
   ];
 
   return (
@@ -61,7 +83,9 @@ export const Sidebar: React.FC = () => {
           alignItems: 'center',
           gap: '12px',
           borderBottom: '1px solid var(--border-subtle)',
+          cursor: 'pointer',
         }}
+        onClick={() => navigateTo('dashboard')}
       >
         <div
           style={{
@@ -90,83 +114,91 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation Menu */}
-      <nav style={{ padding: '16px 12px', flex: 1, overflowY: 'auto' }}>
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            color: 'var(--text-muted)',
-            padding: '0 12px 8px',
-          }}
-        >
-          Library
-        </div>
-        <ul style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {navItems.map((item) => {
-            const isActive = currentView === item.id;
-            return (
-              <li key={item.id}>
-                <button
-                  onClick={() => navigateTo(item.id)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: isActive ? 'var(--accent-primary)' : 'transparent',
-                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                    fontWeight: isActive ? 600 : 500,
-                    fontSize: '13px',
-                    boxShadow: isActive ? '0 4px 12px var(--accent-primary-glow)' : 'none',
-                    transition: 'all var(--transition-fast)',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span
+      {/* Grouped Navigation Sections */}
+      <nav style={{ padding: '16px 12px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {sections.map((section) => (
+          <div key={section.title}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-muted)',
+                padding: '0 12px 6px',
+              }}
+            >
+              {section.title}
+            </div>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: 0, padding: 0, listStyle: 'none' }}>
+              {section.items.map((item) => {
+                const isActive = currentView === item.id;
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => navigateTo(item.id)}
                       style={{
-                        padding: '1px 7px',
-                        borderRadius: 'var(--radius-pill)',
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        backgroundColor: isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '9px 12px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: isActive ? 'var(--accent-primary)' : 'transparent',
+                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                        fontWeight: isActive ? 600 : 500,
+                        fontSize: '13px',
+                        boxShadow: isActive ? '0 4px 12px var(--accent-primary-glow)' : 'none',
+                        transition: 'all var(--transition-fast)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
                       }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                          e.currentTarget.style.color = 'var(--text-primary)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                        }
+                      }}
+                      aria-current={isActive ? 'page' : undefined}
                     >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span
+                          style={{
+                            padding: '1px 7px',
+                            borderRadius: 'var(--radius-pill)',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            backgroundColor: isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                            color: isActive ? '#ffffff' : 'var(--text-muted)',
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {/* Backend Status Footer */}
       <div
         style={{
-          padding: '16px 20px',
+          padding: '14px 18px',
           borderTop: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',

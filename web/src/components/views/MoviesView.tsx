@@ -177,9 +177,13 @@ export const MoviesView: React.FC = () => {
                   borderTop: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                   <Music size={12} />
-                  <span>{movie.total_songs ?? 0} tracks</span>
+                  <span>
+                    {movie.downloaded_count !== undefined && movie.total_songs !== undefined && movie.total_songs > 0
+                      ? `${movie.downloaded_count}/${movie.total_songs} downloaded`
+                      : `${movie.total_songs ?? 0} tracks`}
+                  </span>
                 </div>
 
                 <Button
@@ -187,6 +191,7 @@ export const MoviesView: React.FC = () => {
                   variant="primary"
                   onClick={(e) => handleDownloadAll(e, movie.id, movie.title || movie.name || '')}
                   title="Download all movie tracks"
+                  aria-label={`Download all tracks from ${movie.title || movie.name}`}
                 >
                   <Download size={13} /> Download
                 </Button>

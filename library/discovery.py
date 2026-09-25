@@ -13,7 +13,7 @@ import logging
 import threading
 from typing import Optional, List
 
-from library.canonical import CanonicalIdentity
+from library.canonical import CanonicalIdentity, clean_song_title
 from library.database import SQLiteDatabase
 from library.models import LibrarySong, SongSource, DiscoveryContext, SongState
 from models.song import Song, Album
@@ -32,7 +32,7 @@ def song_to_canonical(song: Song, source_name: str = "") -> CanonicalIdentity:
     Returns:
         CanonicalIdentity for the song
     """
-    title = song.name or "Unknown"
+    title = clean_song_title(song.name) or "Unknown"
     artist = song.artist or ""
     album = song.album_title or song.album_name or ""
     year = song.year
@@ -139,6 +139,11 @@ class DiscoveryPipeline:
         Returns:
             Library song ID (stable across repeated calls for same song)
         """
+        # Ignore album-level zip archives so they are never inserted as individual song tracks
+        if extract_file_type(song) == "zip" or "zip" in (song.name or "").lower():
+            logger.debug(f"Skipping ZIP archive '{song.name}' from song registration")
+            return -1
+
         identity = song_to_canonical(song, source_name)
 
         with self._lock:
@@ -192,10 +197,14 @@ class DiscoveryPipeline:
         with self.db._conn:
             for song in songs:
                 try:
+                    if extract_file_type(song) == "zip" or "zip" in (song.name or "").lower():
+                        continue
                     identity = song_to_canonical(song, source_name)
                     # Check before registering to differentiate new vs existing in stats
                     pre_existing = self.db.get_song_by_canonical_hash(identity.hash)
-                    self.register_song(song, source_name, album, category)
+                    sid = self.register_song(song, source_name, album, category)
+                    if sid <= 0:
+                        continue
                     if pre_existing is not None:
                         existing_count += 1
                     else:

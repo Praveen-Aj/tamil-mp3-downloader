@@ -26,6 +26,7 @@ class SpotifyResolver(PlatformResolver):
     TRACK_REGEX = re.compile(r"open\.spotify\.com/(?:intl-[a-z]+/)?track/([a-zA-Z0-9]+)", re.I)
     ALBUM_REGEX = re.compile(r"open\.spotify\.com/(?:intl-[a-z]+/)?album/([a-zA-Z0-9]+)", re.I)
     PLAYLIST_REGEX = re.compile(r"open\.spotify\.com/(?:intl-[a-z]+/)?playlist/([a-zA-Z0-9]+)", re.I)
+    SHORT_LINK_REGEX = re.compile(r"(?:spotify\.link|spoti\.fi)/([a-zA-Z0-9]+)", re.I)
 
     HEADERS = {
         "User-Agent": (
@@ -46,10 +47,20 @@ class SpotifyResolver(PlatformResolver):
             self.TRACK_REGEX.search(url)
             or self.ALBUM_REGEX.search(url)
             or self.PLAYLIST_REGEX.search(url)
+            or self.SHORT_LINK_REGEX.search(url)
         )
 
     def resolve(self, url: str) -> ResolvedContent:
         """Analyze Spotify URL and return structured content."""
+        # Expand mobile short link redirects (e.g. spotify.link/xyz, spoti.fi/xyz)
+        if self.SHORT_LINK_REGEX.search(url):
+            try:
+                resp = requests.head(url, headers=self.HEADERS, allow_redirects=True, timeout=10)
+                if resp.url and resp.url != url:
+                    url = resp.url
+            except Exception as e:
+                logger.warning(f"Failed to expand Spotify short link {url}: {e}")
+
         clean_url = url.split("?")[0].strip()
 
         # 1. Track

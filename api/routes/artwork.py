@@ -40,6 +40,8 @@ def get_artwork(
     remote_key: Optional[str] = None
     local_path: Optional[str] = None
 
+    from library.canonical import clean_song_title
+
     if cat == "movie":
         try:
             movie = service.db.get_movie(int(entity_id))
@@ -47,6 +49,13 @@ def get_artwork(
                 title = getattr(movie, "title", getattr(movie, "name", "Movie"))
                 subtitle = str(movie.year) if movie.year else None
                 remote_key = movie.poster_url
+                local_path = getattr(movie, "local_poster_path", None)
+                if not remote_key and (not local_path or not Path(local_path).is_file()):
+                    movie_songs = service.db.get_movie_songs(int(entity_id))
+                    for ms in movie_songs:
+                        if ms.file_path and Path(ms.file_path).is_file():
+                            local_path = ms.file_path
+                            break
         except (ValueError, TypeError):
             pass
 
@@ -56,6 +65,14 @@ def get_artwork(
             if artist:
                 title = artist.name
                 remote_key = getattr(artist, "photo_url", getattr(artist, "image_url", None))
+                local_path = getattr(artist, "local_photo_path", None)
+                if not remote_key and (not local_path or not Path(local_path).is_file()):
+                    artist_songs = service.db.get_artist_songs_detailed(int(entity_id))
+                    for asong in artist_songs:
+                        fp = asong.get("file_path")
+                        if fp and Path(fp).is_file():
+                            local_path = fp
+                            break
         except (ValueError, TypeError):
             pass
 
@@ -79,9 +96,18 @@ def get_artwork(
         try:
             song = service.db.get_song(int(entity_id))
             if song:
-                title = song.title
+                title = clean_song_title(song.title)
                 subtitle = song.artist
                 local_path = song.file_path
+                if not local_path or not Path(local_path).is_file():
+                    song_movies = service.db.get_movies_for_song(int(entity_id))
+                    for sm in song_movies:
+                        if sm.poster_url:
+                            remote_key = sm.poster_url
+                            break
+                        if getattr(sm, "local_poster_path", None) and Path(sm.local_poster_path).is_file():
+                            local_path = sm.local_poster_path
+                            break
         except (ValueError, TypeError):
             pass
 

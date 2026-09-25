@@ -116,7 +116,7 @@ class ComposableFilterEngine:
             Tuple of (count_sql, count_params, data_sql, data_params)
         """
         joins: List[str] = []
-        where_clauses: List[str] = ["1=1"]
+        where_clauses: List[str] = ["1=1", "s.title NOT LIKE '%ZIP%'", "s.title NOT LIKE '%.zip%'"]
         params: List[Any] = []
 
         is_fts_active = False

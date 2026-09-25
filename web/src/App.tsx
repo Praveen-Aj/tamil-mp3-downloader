@@ -13,6 +13,8 @@ import { MoviesView } from './components/views/MoviesView';
 import { ArtistsView } from './components/views/ArtistsView';
 import { ChartsView } from './components/views/ChartsView';
 import { PlaylistsView } from './components/views/PlaylistsView';
+import { FavoritesView } from './components/views/FavoritesView';
+import { SearchView } from './components/views/SearchView';
 import { DownloadsView } from './components/views/DownloadsView';
 import { ImportsView } from './components/views/ImportsView';
 import { SettingsView } from './components/views/SettingsView';
@@ -36,6 +38,10 @@ const MainContent: React.FC = () => {
         return <ChartsView />;
       case 'playlists':
         return <PlaylistsView />;
+      case 'favorites':
+        return <FavoritesView />;
+      case 'search':
+        return <SearchView />;
       case 'downloads':
         return <DownloadsView />;
       case 'imports':

@@ -11,6 +11,40 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 
+def clean_song_title(title: Optional[str]) -> str:
+    """
+    Sanitize and canonicalize song title.
+    Strips raw scraper artifacts such as 'Download <song>', bitrate suffixes,
+    and archive indicators while preserving musical title integrity.
+    """
+    if not title:
+        return "Unknown"
+
+    t = str(title).strip()
+    # Normalize whitespaces and newlines
+    t = re.sub(r'[\r\n\t]+', ' ', t)
+
+    # Strip leading Download / Listen / Free Download boilerplate
+    t = re.sub(r'^(?:Download|Listen\s+to|Free\s+Download)\s+', '', t, flags=re.IGNORECASE)
+
+    # Strip trailing bitrate indicators (e.g. ' 320kbps', ' - 128kbps', ' [320 kbps]')
+    t = re.sub(r'\s*[-–—]?\s*\[?\b(?:128|160|192|256|320)\s*kbps\b\]?.*$', '', t, flags=re.IGNORECASE)
+
+    # Strip file size in parens (e.g. ' (18.2 MB)')
+    t = re.sub(r'\s*\(\d+(?:\.\d+)?\s*(?:MB|KB|GB)\).*$', '', t, flags=re.IGNORECASE)
+
+    # Strip trailing file extensions
+    t = re.sub(r'\.(?:mp3|m4a|flac|wav|zip)$', '', t, flags=re.IGNORECASE)
+
+    # Strip trailing ZIP indicator
+    t = re.sub(r'\s+ZIP\b.*$', '', t, flags=re.IGNORECASE)
+
+    # Collapse multiple whitespaces
+    t = re.sub(r'\s+', ' ', t).strip()
+
+    return t or "Unknown"
+
+
 def compute_canonical_hash(title: str, artist: str, album: str,
                           year: Optional[int] = None,
                           duration: Optional[int] = None,
@@ -19,6 +53,7 @@ def compute_canonical_hash(title: str, artist: str, album: str,
     Compute canonical hash for song identity.
 
     Normalization rules:
+    - Clean scraper boilerplate (Download, bitrates, file sizes)
     - Case-insensitive
     - Remove extra whitespace and special chars
     - Strip variants only if strip_variants=True (for grouping purposes)
@@ -35,11 +70,12 @@ def compute_canonical_hash(title: str, artist: str, album: str,
     Returns:
         SHA256 hash of canonical metadata
     """
+    cleaned_title = clean_song_title(title)
     # Extract base title (remove variant suffixes) only if requested
     if strip_variants:
-        base_title = extract_base_title(title)
+        base_title = extract_base_title(cleaned_title)
     else:
-        base_title = title
+        base_title = cleaned_title
 
     # Normalize components
     norm_title = normalize_string(base_title)
@@ -57,6 +93,7 @@ def compute_canonical_hash(title: str, artist: str, album: str,
 
     # SHA256 hash
     return hashlib.sha256(canonical_string.encode('utf-8')).hexdigest()
+
 
 
 def extract_base_title(title: str) -> str:
@@ -177,11 +214,12 @@ class CanonicalIdentity:
         Returns:
             CanonicalIdentity instance
         """
-        canonical_hash = compute_canonical_hash(title, artist, album, year, duration, strip_variants)
-        base_title = extract_base_title(title) if strip_variants else title
+        cleaned_title = clean_song_title(title)
+        canonical_hash = compute_canonical_hash(cleaned_title, artist, album, year, duration, strip_variants)
+        base_title = extract_base_title(cleaned_title) if strip_variants else cleaned_title
 
         # Check if original title has variant suffix
-        has_variant = any(suffix.lower() in title.lower() for suffix in
+        has_variant = any(suffix.lower() in cleaned_title.lower() for suffix in
                          ['remix', 'instrumental', 'karaoke', 'extended', 'reprise', 'version'])
 
         return cls(
@@ -191,7 +229,7 @@ class CanonicalIdentity:
             album_normalized=normalize_string(album) if album else "",
             year=year,
             duration_seconds=duration,
-            title_original=title,
+            title_original=cleaned_title,
             artist_original=artist or "",
             album_original=album or "",
             has_variant=has_variant,

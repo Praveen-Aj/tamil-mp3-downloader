@@ -50,6 +50,9 @@ def list_movies(
     )
 
 
+from library.canonical import clean_song_title
+
+
 @router.get("/{movie_id}", response_model=ApiResponse[Dict[str, Any]])
 def get_movie(
     movie_id: int,
@@ -64,19 +67,70 @@ def get_movie(
         )
 
     movie_obj = details.get("movie")
+    movie_dict = {}
     if movie_obj and hasattr(movie_obj, "title"):
-        details["movie"] = {
+        movie_dict = {
             "id": movie_obj.id,
             "name": movie_obj.title,
             "title": movie_obj.title,
             "year": movie_obj.year,
             "director": movie_obj.director,
             "poster_url": movie_obj.poster_url,
+            "banner_url": getattr(movie_obj, "banner_url", None),
+            "local_poster_path": getattr(movie_obj, "local_poster_path", None),
         }
-    elif isinstance(movie_obj, dict) and "name" not in movie_obj:
-        movie_obj["name"] = movie_obj.get("title", "")
+    elif isinstance(movie_obj, dict):
+        movie_dict = dict(movie_obj)
+        if "name" not in movie_dict:
+            movie_dict["name"] = movie_dict.get("title", "")
 
-    return ApiResponse(success=True, data=details)
+    # Clean titles in songs list
+    raw_songs = details.get("songs", [])
+    clean_songs = []
+    for s in raw_songs:
+        if isinstance(s, dict):
+            s_dict = dict(s)
+            s_dict["title"] = clean_song_title(s_dict.get("title", ""))
+            clean_songs.append(s_dict)
+        elif hasattr(s, "title"):
+            clean_songs.append({
+                "id": s.id,
+                "title": clean_song_title(s.title),
+                "artist": getattr(s, "artist", "") or "",
+                "album": getattr(s, "album", "") or "",
+                "year": getattr(s, "year", None),
+                "state": s.state.value if hasattr(s.state, "value") else str(s.state),
+                "quality": getattr(s, "quality_kbps", None),
+                "file_path": getattr(s, "file_path", None),
+            })
+        else:
+            clean_songs.append(s)
+
+    stats = details.get("stats") or service.db.get_movie_download_stats(movie_id)
+    if isinstance(movie_dict, dict):
+        movie_dict["total_songs"] = stats.get("total", len(clean_songs))
+        movie_dict["downloaded_count"] = stats.get("downloaded", 0)
+        movie_dict["missing_count"] = stats.get("missing", 0)
+
+    return ApiResponse(
+        success=True,
+        data={
+            "movie": movie_dict,
+            "songs": clean_songs,
+            "stats": stats,
+            "cast": details.get("cast", []),
+            "composers": details.get("composers", []),
+        },
+    )
+
+
+@router.get("/{movie_id}/songs", response_model=ApiResponse[Dict[str, Any]])
+def get_movie_songs(
+    movie_id: int,
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Get songs and details for a specific movie."""
+    return get_movie(movie_id, service)
 
 
 @router.post("/{movie_id}/plan", response_model=ApiResponse[DownloadPlanResponse])
