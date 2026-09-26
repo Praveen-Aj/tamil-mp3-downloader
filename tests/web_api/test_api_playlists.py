@@ -15,14 +15,22 @@ def test_playlist_crud_lifecycle(api_test_env):
     # 2. Get Details
     res_detail = client.get(f"/api/playlists/{p_id}")
     assert res_detail.status_code == 200
-    assert res_detail.json()["data"]["name"] == "Workout Vibe"
+    detail_data = res_detail.json()["data"]
+    assert detail_data["name"] == "Workout Vibe"
+    assert "playlist" in detail_data
+    assert "songs" in detail_data
 
-    # 3. Add Song
-    res_add = client.post(f"/api/playlists/{p_id}/items", json={"song_id": s2_id})
+    # 3. Add Song (via /add-song endpoint alias used by web client)
+    res_add = client.post(f"/api/playlists/{p_id}/add-song", json={"song_id": s2_id})
     assert res_add.status_code == 200
 
-    # 4. Remove Song
-    res_rem = client.delete(f"/api/playlists/{p_id}/items/{s2_id}")
+    # 3b. Test playlist download endpoint returns integer queued_count
+    res_dl = client.post(f"/api/playlists/{p_id}/download", json={"preferred_quality": 320})
+    assert res_dl.status_code == 200
+    assert isinstance(res_dl.json()["data"]["queued_count"], int)
+
+    # 4. Remove Song (via /remove-song endpoint alias used by web client)
+    res_rem = client.post(f"/api/playlists/{p_id}/remove-song", json={"song_id": s2_id})
     assert res_rem.status_code == 200
 
     # 5. Delete Playlist

@@ -32,20 +32,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     def progress_listener(event: DownloadProgressEvent) -> None:
         """Listener invoked by background download workers."""
         try:
+            raw_pct = getattr(event, "percent", None)
+            if raw_pct is not None:
+                prog_pct = round(raw_pct * 100.0 if raw_pct <= 1.0 else raw_pct, 1)
+            else:
+                prog_pct = round(getattr(event, "progress_percent", 0.0), 1)
+
+            raw_speed = getattr(event, "speed_bps", None)
+            if raw_speed is not None:
+                spd_kbps = round(raw_speed / 1024.0, 1)
+            else:
+                spd_kbps = round(getattr(event, "speed_kbps", 0.0), 1)
+
             ws_manager.dispatch_from_thread(
                 event_type="download.progress",
                 data={
-                    "download_id": event.download_id,
-                    "song_id": event.song_id,
-                    "track_title": event.track_title,
-                    "artist": event.artist,
-                    "status": event.status,
-                    "progress_percent": round(event.progress_percent, 1),
-                    "bytes_downloaded": event.bytes_downloaded,
-                    "total_bytes": event.total_bytes,
-                    "speed_kbps": round(event.speed_kbps, 1),
-                    "eta_seconds": event.eta_seconds,
-                    "error": event.error,
+                    "download_id": getattr(event, "download_id", None),
+                    "song_id": getattr(event, "song_id", None),
+                    "track_title": getattr(event, "title", "") or getattr(event, "track_title", ""),
+                    "artist": getattr(event, "artist", None),
+                    "status": getattr(event, "status", "DOWNLOADING"),
+                    "progress_percent": prog_pct,
+                    "bytes_downloaded": getattr(event, "bytes_downloaded", 0),
+                    "total_bytes": getattr(event, "total_bytes", None),
+                    "speed_kbps": spd_kbps,
+                    "eta_seconds": getattr(event, "eta_seconds", None),
+                    "error": getattr(event, "error_message", None) or getattr(event, "error", None),
                 },
             )
         except Exception:
@@ -80,6 +92,8 @@ def create_app() -> FastAPI:
 
     # 2. WebSocket live event endpoint
     @app.websocket("/ws/events")
+    @app.websocket("/api/downloads/ws")
+    @app.websocket("/ws/downloads")
     async def websocket_events(websocket: WebSocket) -> None:
         await ws_manager.connect(websocket)
         try:
@@ -116,6 +130,7 @@ def create_app() -> FastAPI:
     if dist_dir.is_dir() and (dist_dir / "index.html").is_file():
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
+        from fastapi import HTTPException
 
         assets_dir = dist_dir / "assets"
         if assets_dir.is_dir():
@@ -123,6 +138,16 @@ def create_app() -> FastAPI:
 
         @app.get("/")
         async def serve_index() -> FileResponse:
+            return FileResponse(dist_dir / "index.html")
+
+        @app.get("/{full_path:path}")
+        async def serve_spa_fallback(full_path: str) -> FileResponse:
+            """Catch-all route handler supporting HTML5 history client-side routing."""
+            if full_path.startswith("api/") or full_path == "api" or full_path.startswith("ws/") or full_path == "ws":
+                raise HTTPException(status_code=404, detail="Not Found")
+            file_candidate = dist_dir / full_path
+            if full_path and file_candidate.is_file():
+                return FileResponse(file_candidate)
             return FileResponse(dist_dir / "index.html")
 
     return app

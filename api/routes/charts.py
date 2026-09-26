@@ -110,7 +110,8 @@ def execute_chart_download(
     else:
         plan = service.plan_chart_download_missing(chart_id)
 
-    queued_count = service.execute_download_plan(plan)
+    queued_ids = service.execute_download_plan(plan)
+    queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
         message=f"Queued {queued_count} downloads for chart",

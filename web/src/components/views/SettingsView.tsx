@@ -151,7 +151,7 @@ export const SettingsView: React.FC = () => {
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
             Authoritative folder on your filesystem where verified MP3 audio files and soundtrack albums are saved.
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
             <input
               type="text"
               value={downloadDir}
@@ -159,6 +159,7 @@ export const SettingsView: React.FC = () => {
               onBlur={() => validateDirectory(downloadDir)}
               style={{
                 flex: 1,
+                minWidth: 0,
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
                 backgroundColor: 'var(--bg-surface)',
@@ -167,7 +168,12 @@ export const SettingsView: React.FC = () => {
               }}
               aria-label="Download Directory Path"
             />
-            <Button variant="secondary" onClick={() => validateDirectory(downloadDir)} aria-label="Verify directory path">
+            <Button
+              variant="secondary"
+              onClick={() => validateDirectory(downloadDir)}
+              aria-label="Verify directory path"
+              style={{ flexShrink: 0 }}
+            >
               <Folder size={15} /> Validate Path
             </Button>
           </div>

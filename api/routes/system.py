@@ -31,6 +31,11 @@ def get_system_stats(
 ) -> ApiResponse[Dict[str, Any]]:
     """Return library high-level counts and statistics."""
     stats = service.get_dashboard_stats()
+    stats["total_owned"] = stats.get("owned_songs", 0)
+    stats["total_storage_bytes"] = stats.get("storage_bytes", 0)
+    stats["queued_downloads"] = len(service.registry.get_queued_downloads()) if hasattr(service.registry, "get_queued_downloads") else 0
+    stats["active_downloads"] = len(service.registry.get_active_downloads()) if hasattr(service.registry, "get_active_downloads") else stats.get("active_downloads", 0)
+
     try:
         stats["total_movies"] = len(service.db.list_movies(limit=10000))
     except Exception:

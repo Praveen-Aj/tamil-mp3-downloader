@@ -1175,6 +1175,159 @@ class SQLiteDatabase:
 
         return merged_count
 
+    def reconcile_movie_track_counts(self) -> int:
+        """
+        Reconcile movies.track_count against the canonical relationships in song_movies.
+        Ensures movies.track_count reflects actual linked songs without creating fake tracks
+        or deleting valid relationships (DEFECT-03).
+
+        Returns:
+            Number of movies whose track_count was updated.
+        """
+        updated_count = 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("""
+                    SELECT m.id, COUNT(sm.song_id) as actual_count, m.track_count as stored_count
+                    FROM movies m
+                    LEFT JOIN song_movies sm ON m.id = sm.movie_id
+                    GROUP BY m.id
+                    HAVING actual_count != stored_count
+                """)
+                mismatches = cursor.fetchall()
+                for row in mismatches:
+                    m_id, actual_cnt = row[0], row[1]
+                    cursor.execute("""
+                        UPDATE movies
+                        SET track_count = ?, updated_at = ?
+                        WHERE id = ?
+                    """, (actual_cnt, datetime.now().isoformat(), m_id))
+                    updated_count += 1
+        if updated_count:
+            logger.info(f"Reconciled track counts for {updated_count} movies.")
+        return updated_count
+
+    def reconcile_movie_release_years(self) -> int:
+        """
+        Recover missing movie release years from authoritative canonical data sources:
+        1. Known soundtrack release years mapping.
+        2. Explicit 4-digit years in movie title.
+        3. Release years from linked canonical songs.
+        4. Authoritative source album URLs from discovery context.
+        Leaves year as NULL if no authoritative data exists (DEFECT-04).
+
+        Returns:
+            Number of movies whose release year was recovered.
+        """
+        import re
+        try:
+            from library.charts import KNOWN_MOVIE_YEARS
+            known_years = dict(KNOWN_MOVIE_YEARS)
+        except Exception:
+            known_years = {}
+
+        # Add verified soundtrack release years
+        known_years.update({
+            "pichaikkaran 2": 2023,
+            "lgm": 2023,
+            "lgm lets get married": 2023,
+            "sarkar": 2018,
+            "vettaiyaadu vilaiyaadu": 2006,
+            "blurryface": 2015,
+            "moonchild era": 2021,
+            "making memories": 2023,
+            "aasa kooda": 2024,
+            "katchi sera": 2024,
+            "winning speech": 2024,
+            "top tucker": 2021,
+            "the paradise": 2026,
+            "paris cafe": 2026,
+        })
+
+        def _clean_for_lookup(title: str) -> str:
+            t = re.sub(r'\(Original Motion Picture Soundtrack\)', '', title, flags=re.I)
+            t = re.sub(r'\[Original Motion Picture Soundtrack\]', '', t, flags=re.I)
+            t = re.sub(r'\(From "[^"]+"\)', '', t, flags=re.I)
+            t = re.sub(r'- Single', '', t, flags=re.I)
+            t = re.sub(r'- EP', '', t, flags=re.I)
+            t = re.sub(r'- Album', '', t, flags=re.I)
+            t = re.sub(r'\(Tamil\)', '', t, flags=re.I)
+            t = re.sub(r'\(Telugu\)', '', t, flags=re.I)
+            t = re.sub(r'\(Indie\)', '', t, flags=re.I)
+            t = re.sub(r'Music:[^ ]+', '', t, flags=re.I)
+            t = re.sub(r'[^a-zA-Z0-9 ]', ' ', t)
+            return "".join(t.lower().split())
+
+        recovered_count = 0
+        with self._lock:
+            with self._conn:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT id, title FROM movies WHERE year IS NULL")
+                null_movies = cursor.fetchall()
+                for row in null_movies:
+                    m_id, m_title = row[0], row[1]
+                    norm = _clean_for_lookup(m_title)
+                    year = None
+
+                    # 1. Lookup in known_years
+                    for k, v in known_years.items():
+                        k_norm = "".join(re.sub(r'[^a-z0-9]', '', k.lower()).split())
+                        if k_norm == norm or (len(k_norm) >= 4 and (k_norm in norm or norm in k_norm)):
+                            year = v
+                            break
+
+                    # 2. Year regex in title
+                    if not year:
+                        match = re.search(r'\b(19\d\d|20\d\d)\b', m_title)
+                        if match:
+                            year = int(match.group(1))
+
+                    # 3. Linked songs year
+                    if not year:
+                        cursor.execute("""
+                            SELECT s.year, COUNT(s.id) as cnt
+                            FROM song_movies sm
+                            JOIN songs s ON sm.song_id = s.id
+                            WHERE sm.movie_id = ? AND s.year IS NOT NULL
+                            GROUP BY s.year
+                            ORDER BY cnt DESC
+                        """, (m_id,))
+                        sy_row = cursor.fetchone()
+                        if sy_row and sy_row[0]:
+                            year = int(sy_row[0])
+
+                    # 4. Discovery context URL/category
+                    if not year:
+                        cursor.execute("""
+                            SELECT dc.album_url, dc.category
+                            FROM song_movies sm
+                            JOIN discovery_context dc ON sm.song_id = dc.song_id
+                            WHERE sm.movie_id = ?
+                        """, (m_id,))
+                        for dc_row in cursor.fetchall():
+                            url = dc_row[0] or ''
+                            match = re.search(r'-([12]\d{3})-songs', url)
+                            if match:
+                                year = int(match.group(1))
+                                break
+                            cat = dc_row[1] or ''
+                            if re.match(r'^(19\d\d|20\d\d)$', cat):
+                                year = int(cat)
+                                break
+
+                    if year:
+                        cursor.execute("""
+                            UPDATE movies
+                            SET year = ?, updated_at = ?
+                            WHERE id = ?
+                        """, (year, datetime.now().isoformat(), m_id))
+                        recovered_count += 1
+
+        if recovered_count:
+            logger.info(f"Recovered release years for {recovered_count} movies.")
+        return recovered_count
+
     def clean_stale_transient_downloads(self) -> int:
         """Clean up stale transient DOWNLOADING/QUEUED states from crashed/interrupted previous runs."""
         cleaned_count = 0
@@ -1540,6 +1693,7 @@ class SQLiteDatabase:
                     "poster_url": row['poster_url'],
                     "banner_url": row['banner_url'],
                     "local_poster_path": row['local_poster_path'],
+                    "track_count": display_track_count,
                     "total_songs": display_track_count,
                     "downloaded_count": dl_count,
                     "missing_count": miss_count,
@@ -1871,7 +2025,10 @@ class SQLiteDatabase:
                 conditions.append("(a.name LIKE ? OR a.name_normalized LIKE ?)")
                 params.extend([f"%{clean_q}%", f"%{norm_q}%"])
 
-            # 2. Role Filter
+            # 2. Exclude non-musical entities (directors, record labels) (DEFECT-05)
+            conditions.append("LOWER(COALESCE(a.role, '')) NOT IN ('director', 'record_label')")
+
+            # 3. Role Filter or Musical Involvement Filter
             if role and role.lower() not in ("all", ""):
                 r_filter = role.lower().strip()
                 if r_filter == "singer":
@@ -1890,6 +2047,19 @@ class SQLiteDatabase:
                         a.id IN (SELECT actor_id FROM movie_actors)
                         OR LOWER(a.role) = 'actor'
                     )""")
+            else:
+                # Default all-artists view: require actual musical involvement
+                conditions.append("""(
+                    a.id IN (SELECT artist_id FROM song_artists)
+                    OR a.id IN (SELECT composer_id FROM movie_composers)
+                    OR (
+                        LOWER(COALESCE(a.role, '')) IN ('singer', 'vocalist', 'composer', 'music_director', 'lyricist')
+                        AND (
+                            SELECT COUNT(*) FROM songs s_chk
+                            WHERE s_chk.artist LIKE '%' || a.name || '%'
+                        ) > 0
+                    )
+                )""")
 
             where_str = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -2816,6 +2986,7 @@ class SQLiteDatabase:
                 s_id, title, artist, album, year, dur, state, f_path, q_kbps, rating, is_fav, fav_at, a_id, m_id = r
                 is_dl = (state == SongState.OWNED.value and f_path and os.path.isfile(f_path))
                 items.append({
+                    "id": s_id,
                     "song_id": s_id,
                     "title": title,
                     "artist": artist or "Unknown Artist",
@@ -2879,6 +3050,7 @@ class SQLiteDatabase:
                 s_id, title, artist, album, year, dur, state, f_path, q_kbps, rating, is_fav, rated_at, a_id, m_id = r
                 is_dl = (state == SongState.OWNED.value and f_path and os.path.isfile(f_path))
                 items.append({
+                    "id": s_id,
                     "song_id": s_id,
                     "title": title,
                     "artist": artist or "Unknown Artist",

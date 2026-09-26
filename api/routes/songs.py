@@ -22,7 +22,7 @@ router = APIRouter(prefix="/songs", tags=["Songs"])
 def format_song_item(s: Any, service: Optional[LibraryService] = None) -> Dict[str, Any]:
     """Normalize a LibrarySong object or dict to a uniform dictionary with canonical metadata."""
     if isinstance(s, dict):
-        sid = s.get("id")
+        sid = s.get("id") or s.get("song_id")
         raw_title = s.get("title", "")
         artist = s.get("artist") or "—"
         album = s.get("album") or "—"
@@ -140,7 +140,8 @@ def download_all_missing_songs(
         return ApiResponse(success=True, message="All songs are already downloaded", data={"queued_count": 0})
 
     plan = service.planner.plan_downloads_for_songs(missing_songs, preferred_quality=preferred_quality)
-    queued_count = service.execute_download_plan(plan)
+    queued_ids = service.execute_download_plan(plan)
+    queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
         message=f"Queued {queued_count} missing songs for download",

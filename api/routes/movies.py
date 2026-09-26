@@ -35,6 +35,8 @@ def list_movies(
     for it in items:
         if "name" not in it:
             it["name"] = it.get("title", "")
+        if "track_count" not in it or it["track_count"] is None:
+            it["track_count"] = it.get("total_songs", 0)
 
     total_pages = max(1, (total + page_size - 1) // page_size) if total > 0 else 1
 
@@ -163,7 +165,8 @@ def execute_movie_download(
     else:
         plan = service.plan_movie_download_missing(movie_id)
 
-    queued_count = service.execute_download_plan(plan)
+    queued_ids = service.execute_download_plan(plan)
+    queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
         message=f"Queued {queued_count} downloads for movie",

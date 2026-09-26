@@ -111,7 +111,7 @@ export const FavoritesView: React.FC = () => {
               Favorite Tracks
             </h2>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {total} starred songs in your personal collection
+              {total} {total === 1 ? 'starred song' : 'starred songs'} in your personal collection
             </div>
           </div>
         </div>

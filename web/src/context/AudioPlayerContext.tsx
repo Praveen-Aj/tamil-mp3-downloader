@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { Song } from '../api/types';
 import { api } from '../api/client';
+import { useApp } from './AppContext';
 
 interface AudioPlayerContextValue {
   currentSong: Song | null;
@@ -30,8 +31,11 @@ interface AudioPlayerContextValue {
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
 
 export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { showToast } = useApp();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const currentSongRef = useRef<Song | null>(null);
+  currentSongRef.current = currentSong;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -76,6 +80,17 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const handleError = () => {
       setIsLoading(false);
       setIsPlaying(false);
+      setCurrentSong(null);
+      currentSongRef.current = null;
+      if (audioRef.current) {
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+      }
+      showToast(
+        'Download the song before playing.',
+        'warning',
+        'Playback Unavailable'
+      );
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -98,13 +113,31 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       audio.removeEventListener('error', handleError);
       audio.pause();
     };
-  }, []);
+  }, [showToast]);
 
   const playSong = useCallback((song: Song, contextQueue?: Song[]) => {
     if (!audioRef.current) return;
-    const audio = audioRef.current;
 
+    const isDownloaded = Boolean(
+      song.has_file ||
+      song.file_path ||
+      (song.download_state && song.download_state.toUpperCase() === 'DOWNLOADED') ||
+      (song as any).is_downloaded ||
+      (song.state && song.state.toUpperCase() === 'OWNED')
+    );
+
+    if (!isDownloaded) {
+      showToast(
+        'Download the song before playing.',
+        'warning',
+        'Download Required'
+      );
+      return;
+    }
+
+    const audio = audioRef.current;
     setCurrentSong(song);
+    currentSongRef.current = song;
     setIsLoading(true);
     setProgress(0);
 
@@ -125,8 +158,19 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.warn('Autoplay prevented or stream error:', err);
       setIsLoading(false);
       setIsPlaying(false);
+      setCurrentSong(null);
+      currentSongRef.current = null;
+      if (audioRef.current) {
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+      }
+      showToast(
+        'Download the song before playing.',
+        'warning',
+        'Playback Unavailable'
+      );
     });
-  }, []);
+  }, [showToast]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentSong) return;

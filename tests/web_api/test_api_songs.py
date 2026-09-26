@@ -45,10 +45,26 @@ def test_song_rating_and_favorite(api_test_env):
     assert res_fav.status_code == 200
     assert res_fav.json()["data"]["is_favorite"] is True
 
-    # Check in favorites list
+    # Check in favorites list - ensure "id" field is present on each item (BUG-009)
     res_favs = client.get("/api/songs/favorites")
     assert res_favs.status_code == 200
-    assert res_favs.json()["data"]["total"] >= 1
+    favs_data = res_favs.json()["data"]
+    assert favs_data["total"] >= 1
+    assert len(favs_data["items"]) >= 1
+    first_item = favs_data["items"][0]
+    assert "id" in first_item
+    assert first_item["id"] == s1_id
+
+
+def test_download_missing_songs(api_test_env):
+    """Verify download-missing endpoint returns integer queued_count (BUG-003)."""
+    client = api_test_env["client"]
+    res = client.post("/api/songs/download-missing", json={"preferred_quality": 320})
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert "queued_count" in data
+    assert isinstance(data["queued_count"], int)
+    assert data["queued_count"] >= 0
 
 
 def test_song_deletion(api_test_env):

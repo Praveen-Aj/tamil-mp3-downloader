@@ -47,7 +47,7 @@
     "chunk_size": 65536,
     "timeout": 90,
     "concurrent_enabled": true,
-    "max_workers": 3,
+    "max_workers": 4,
     "retries": 3,
     "preferred_quality": 320,
     "external_downloader": {
@@ -57,7 +57,8 @@
       "queue_mode": true,
       "max_concurrent": 3
     },
-    "auto_upgrade": true
+    "auto_upgrade": true,
+    "download_dir": "downloads"
   },
   "ui": {
     "page_size": 10,

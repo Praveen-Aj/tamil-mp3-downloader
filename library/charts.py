@@ -33,6 +33,44 @@ _DEFAULT_HEADERS = {
 }
 
 
+KNOWN_MOVIE_YEARS: Dict[str, int] = {
+    "moondram pirai": 1982,
+    "mouna ragam": 1986,
+    "thalapathi": 1991,
+    "roja": 1992,
+    "kadhalan": 1994,
+    "bombay": 1995,
+    "love birds": 1996,
+    "minsara kanavu": 1997,
+    "alaipayuthey": 2000,
+    "sillunu oru kaadhal": 2006,
+    "nepali": 2008,
+    "kadhalil vizhundhen": 2008,
+    "yaaradi nee mohini": 2008,
+    "maari 2": 2018,
+    "96": 2018,
+    "beast": 2022,
+    "jailer": 2023,
+    "leo": 2023,
+    "jawan": 2023,
+    "maamannan": 2023,
+    "devara": 2024,
+    "vettaiyan": 2024,
+    "goat": 2024,
+    "aavesham": 2024,
+    "think indie": 2024,
+}
+
+KNOWN_RECORD_LABELS: set = {
+    "aditya music", "aditya music tamil", "sony music", "sony music south",
+    "sony music malayalam", "think music", "think music india", "t-series",
+    "t-series tamil", "tips", "tips tamil", "tips official", "muzik247",
+    "muzik247 tamil", "lahari music", "zee music", "zee music south",
+    "saregama", "saregama tamil", "mango music", "star music", "sun music",
+    "junglee music", "junglee music tamil", "tr king music", "power music workout",
+}
+
+
 class ChartDiscoveryService:
     """
     Coordinates chart discovery, external syncing, and canonical ingestion.
@@ -363,23 +401,39 @@ class ChartDiscoveryService:
         # 4. Also register movie and artist links where available
         if song_id:
             if movie and movie.lower() != "single":
+                # Look up existing movie or known release year or extract 4-digit year from title
+                known_year = KNOWN_MOVIE_YEARS.get(norm_album)
+                if not known_year:
+                    m_existing = self.db.find_movie_by_title(movie)
+                    if m_existing and m_existing.year:
+                        known_year = m_existing.year
+                if not known_year:
+                    m_match = re.search(r"\b(19\d{2}|20\d{2})\b", movie)
+                    if m_match:
+                        known_year = int(m_match.group(1))
+
                 mov_id = self.db.add_movie(Movie(
                     title=movie,
                     title_normalized=norm_album,
-                    year=datetime.now().year,
+                    year=known_year,
                 ))
                 if mov_id:
                     self.db.add_song_movie(song_id=song_id, movie_id=mov_id)
 
             if artist:
                 for a_name in [a.strip() for a in re.split(r"[,&/]", artist) if a.strip()]:
+                    norm_a = normalize_string(a_name)
+                    is_label = norm_a in KNOWN_RECORD_LABELS or any(
+                        lbl in norm_a for lbl in ("music", "records", "t-series", "audio", "channel", "label")
+                    )
+                    role = "record_label" if is_label else "singer"
                     art_id = self.db.add_artist(Artist(
                         name=a_name,
-                        name_normalized=normalize_string(a_name),
-                        role="singer",
+                        name_normalized=norm_a,
+                        role=role,
                     ))
                     if art_id:
-                        self.db.add_song_artist(song_id=song_id, artist_id=art_id, role="singer")
+                        self.db.add_song_artist(song_id=song_id, artist_id=art_id, role=role)
 
         return song_id
 

@@ -20,9 +20,24 @@ export const DownloadsView: React.FC = () => {
     try {
       const res = await downloadsApi.getDownloads();
       if (res.success && res.data) {
-        setActive(res.data.active || []);
-        setQueue(res.data.queue || []);
-        setHistory(res.data.history || []);
+        if (Array.isArray(res.data)) {
+          const act = res.data.filter((d: any) =>
+            ['downloading', 'in_progress', 'DOWNLOADING', 'IN_PROGRESS'].includes(d.status)
+          );
+          const q = res.data.filter((d: any) =>
+            ['pending', 'queued', 'planned', 'QUEUED', 'PLANNED'].includes(d.status)
+          );
+          const hist = res.data.filter((d: any) =>
+            ['completed', 'failed', 'cancelled', 'canceled', 'COMPLETED', 'FAILED', 'CANCELLED'].includes(d.status)
+          );
+          setActive(act);
+          setQueue(q);
+          setHistory(hist);
+        } else {
+          setActive(res.data.active || []);
+          setQueue(res.data.queue || []);
+          setHistory(res.data.history || []);
+        }
       }
     } catch (err: any) {
       console.error('Failed to load downloads:', err);
@@ -38,11 +53,16 @@ export const DownloadsView: React.FC = () => {
   // Real-time WebSocket event listener
   useEffect(() => {
     const unsub = subscribe('*', (event) => {
+      const evType = (event.type || event.event || '').toLowerCase();
       if (
-        event.type === 'download_progress' ||
-        event.type === 'download_completed' ||
-        event.type === 'download_failed' ||
-        event.type === 'queue_updated'
+        evType === 'download_progress' ||
+        evType === 'download.progress' ||
+        evType === 'download_completed' ||
+        evType === 'download.completed' ||
+        evType === 'download_failed' ||
+        evType === 'download.failed' ||
+        evType === 'queue_updated' ||
+        evType === 'queue.updated'
       ) {
         loadDownloads();
         refreshStats();

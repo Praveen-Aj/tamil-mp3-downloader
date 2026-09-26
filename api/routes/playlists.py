@@ -78,12 +78,21 @@ def get_playlist(
         )
 
     playlist_obj = details["playlist"]
+    pl_dict = {
+        "id": playlist_obj.id,
+        "name": playlist_obj.name,
+        "description": playlist_obj.description,
+        "song_count": details["total_matching"],
+    }
     data = {
         "id": playlist_obj.id,
         "name": playlist_obj.name,
         "description": playlist_obj.description,
+        "playlist": pl_dict,
         "stats": details["stats"],
         "items": details["items"],
+        "songs": details["items"],
+        "total": details["total_matching"],
         "total_matching": details["total_matching"],
     }
     return ApiResponse(success=True, data=data)
@@ -105,6 +114,7 @@ def delete_playlist(
 
 
 @router.post("/{playlist_id}/items", response_model=ApiResponse[Dict[str, Any]])
+@router.post("/{playlist_id}/add-song", response_model=ApiResponse[Dict[str, Any]])
 def add_song_to_playlist(
     playlist_id: int,
     payload: PlaylistItemAdd,
@@ -128,6 +138,22 @@ def remove_song_from_playlist(
 ) -> ApiResponse[Dict[str, Any]]:
     """Remove a song from the playlist."""
     success = service.remove_song_from_playlist(playlist_id, song_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to remove song from playlist",
+        )
+    return ApiResponse(success=True, message="Song removed from playlist")
+
+
+@router.post("/{playlist_id}/remove-song", response_model=ApiResponse[Dict[str, Any]])
+def remove_song_from_playlist_post(
+    playlist_id: int,
+    payload: PlaylistItemAdd,
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Remove a song from the playlist via POST."""
+    success = service.remove_song_from_playlist(playlist_id, payload.song_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -183,7 +209,8 @@ def execute_playlist_download(
     else:
         plan = service.plan_playlist_download_missing(playlist_id)
 
-    queued_count = service.execute_download_plan(plan)
+    queued_ids = service.execute_download_plan(plan)
+    queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
         message=f"Queued {queued_count} downloads for playlist",

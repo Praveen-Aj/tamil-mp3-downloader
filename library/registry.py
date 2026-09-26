@@ -238,6 +238,34 @@ class DownloadRegistry:
                 if d.state in active_states or (hasattr(d.state, "value") and d.state.value in active_states)
             ]
 
+    def get_queued_downloads(self) -> List[Download]:
+        """
+        Get all downloads currently queued.
+        """
+        with self._lock:
+            all_dls = self.db.get_all_downloads()
+            queued_states = {
+                DownloadState.QUEUED, DownloadState.PLANNED,
+                "QUEUED", "PLANNED", "queued", "planned"
+            }
+            return [
+                d for d in all_dls
+                if d.state in queued_states or (hasattr(d.state, "value") and d.state.value in queued_states)
+            ]
+
+    def cancel(self, download_id: int) -> bool:
+        """
+        Cancel a download slot and reset associated song state.
+        """
+        with self._lock:
+            dl = self.db.get_download(download_id)
+            if not dl:
+                return False
+            self.db.update_download_state(download_id, DownloadState.FAILED, error_message="Cancelled by user")
+            if dl.song_id:
+                self.db.update_song_state(dl.song_id, SongState.NEW)
+            logger.info(f"cancel: download {download_id} cancelled and song {dl.song_id} reset to NEW")
+            return True
 
     # ------------------------------------------------------------------
     # Source reliability tracking

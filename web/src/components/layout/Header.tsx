@@ -91,6 +91,15 @@ export const Header: React.FC = () => {
     }
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setGlobalSearchQuery(searchQuery.trim());
+      navigateTo('search');
+      setIsDropdownOpen(false);
+    }
+  };
+
   return (
     <header
       style={{
@@ -113,7 +122,8 @@ export const Header: React.FC = () => {
 
       {/* Global Search Bar */}
       <div ref={dropdownRef} style={{ position: 'relative', width: '380px' }}>
-        <div
+        <form
+          onSubmit={handleSearchSubmit}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -125,19 +135,26 @@ export const Header: React.FC = () => {
             transition: 'border-color var(--transition-fast)',
           }}
         >
-          <Search size={16} color="var(--text-muted)" />
+          <button
+            type="submit"
+            aria-label="Execute search"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <Search size={16} />
+          </button>
           <input
             type="text"
             placeholder="Search songs, movies, artists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && searchQuery.trim()) {
-                setGlobalSearchQuery(searchQuery.trim());
-                navigateTo('search');
-                setIsDropdownOpen(false);
-              }
-            }}
             onFocus={() => {
               if (results) setIsDropdownOpen(true);
             }}
@@ -145,22 +162,33 @@ export const Header: React.FC = () => {
               flex: 1,
               fontSize: '13px',
               color: 'var(--text-primary)',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
             }}
             aria-label="Global search input"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => {
                 setSearchQuery('');
                 setResults(null);
                 setIsDropdownOpen(false);
               }}
-              style={{ color: 'var(--text-muted)' }}
+              aria-label="Clear search input"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+              }}
             >
               <X size={14} />
             </button>
           )}
-        </div>
+        </form>
 
         {/* Search Results Dropdown */}
         {isDropdownOpen && results && (

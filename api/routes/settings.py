@@ -46,7 +46,7 @@ def validate_download_path(
 ) -> ApiResponse[Dict[str, Any]]:
     """
     Validate and resolve download directory path.
-    Resolves relative paths to the authoritative project location and verifies filesystem access.
+    Verifies that the target directory exists and is a directory without mutating the filesystem.
     """
     raw_path = (payload.path or "").strip()
     if not raw_path:
@@ -59,13 +59,15 @@ def validate_download_path(
     else:
         resolved = p.resolve()
 
-    try:
-        resolved.mkdir(parents=True, exist_ok=True)
-        is_valid = resolved.is_dir()
-        msg = f"Authoritative directory: {resolved}" if is_valid else "Path exists but is not a directory"
-    except Exception as exc:
+    if not resolved.exists():
         is_valid = False
-        msg = f"Cannot access path: {exc}"
+        msg = f"Directory does not exist: {resolved}"
+    elif not resolved.is_dir():
+        is_valid = False
+        msg = f"Path exists but is not a directory: {resolved}"
+    else:
+        is_valid = True
+        msg = f"Valid directory: {resolved}"
 
     return ApiResponse(
         success=True,
@@ -78,20 +80,39 @@ def validate_download_path(
 
 
 @router.put("", response_model=ApiResponse[Dict[str, Any]])
+@router.post("", response_model=ApiResponse[Dict[str, Any]])
 def update_settings(
-    payload: SettingsUpdateRequest,
+    payload: Dict[str, Any],
     settings_obj: Settings = Depends(get_settings),
 ) -> ApiResponse[Dict[str, Any]]:
-    """Update system settings."""
-    if payload.output_dir is not None:
-        settings_obj.set("download.output_dir", payload.output_dir)
-    if payload.max_workers is not None:
-        settings_obj.set("download.max_workers", payload.max_workers)
-    if payload.preferred_quality is not None:
-        settings_obj.set("download.preferred_quality", payload.preferred_quality)
-    if payload.concurrent_enabled is not None:
-        settings_obj.set("download.concurrent_enabled", payload.concurrent_enabled)
+    """Update system settings, supporting flat and nested download configurations."""
+    # Check if download settings are nested under "download"
+    dl_cfg = payload.get("download", {}) if isinstance(payload.get("download"), dict) else payload
+
+    out_dir = dl_cfg.get("output_dir") or dl_cfg.get("download_dir") or payload.get("output_dir") or payload.get("download_dir")
+    if out_dir:
+        settings_obj.set("download.output_dir", str(out_dir))
+        settings_obj.set("download.download_dir", str(out_dir))
+
+    max_w = dl_cfg.get("max_workers") if "max_workers" in dl_cfg else payload.get("max_workers")
+    if max_w is not None:
+        settings_obj.set("download.max_workers", int(max_w))
+
+    pref_q = dl_cfg.get("preferred_quality") if "preferred_quality" in dl_cfg else payload.get("preferred_quality")
+    if pref_q is not None:
+        settings_obj.set("download.preferred_quality", int(pref_q))
+
+    conc = dl_cfg.get("concurrent_enabled") if "concurrent_enabled" in dl_cfg else payload.get("concurrent_enabled")
+    if conc is not None:
+        settings_obj.set("download.concurrent_enabled", bool(conc))
+
+    if "sources" in payload and isinstance(payload["sources"], dict):
+        settings_obj.set("sources", payload["sources"])
+
+    if "library" in payload and isinstance(payload["library"], dict):
+        settings_obj.set("library", payload["library"])
 
     settings_obj.save()
     return ApiResponse(success=True, message="Settings updated successfully")
+
 

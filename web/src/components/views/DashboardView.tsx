@@ -392,10 +392,10 @@ export const DashboardView: React.FC = () => {
 
         {/* Missing Tracks in Collection */}
         <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ArrowDownCircle size={18} color="var(--accent-primary)" />
-              <h3 className="title-display" style={{ fontSize: '16px' }}>Missing in Library</h3>
+              <h3 className="title-display" style={{ fontSize: '16px', margin: 0 }}>Missing in Library</h3>
             </div>
             {missingCount > 0 && (
               <Button

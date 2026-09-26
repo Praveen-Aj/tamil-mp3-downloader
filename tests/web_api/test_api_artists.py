@@ -30,3 +30,22 @@ def test_artist_download_planning(api_test_env):
     res = client.post(f"/api/artists/{a1_id}/plan?mode=missing")
     assert res.status_code == 200
     assert "to_download" in res.json()["data"]
+
+
+def test_directors_and_labels_filtered_from_artists_view(api_test_env):
+    """Regression test for DEFECT-05: directors and record labels are filtered out of artists listing."""
+    client = api_test_env["client"]
+    service = api_test_env["service"]
+    db = service.db
+    from library.models import Artist
+
+    # Add a director and a record label with 0 songs
+    db.add_artist(Artist(name="Nelson Dilipkumar", role="director"))
+    db.add_artist(Artist(name="Sony Music South", role="record_label"))
+
+    # Fetch artists list
+    res = client.get("/api/artists?page_size=100")
+    assert res.status_code == 200
+    names = [it["name"] for it in res.json()["data"]["items"]]
+    assert "Nelson Dilipkumar" not in names
+    assert "Sony Music South" not in names

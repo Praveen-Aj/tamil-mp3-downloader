@@ -74,6 +74,30 @@ class DownloadProgressEvent:
     eta_str: str = ""
     error_message: Optional[str] = None
 
+    @property
+    def progress_percent(self) -> float:
+        """Percentage completed (0.0 to 100.0)."""
+        if self.percent is None:
+            return 0.0
+        return round(self.percent * 100.0 if self.percent <= 1.0 else self.percent, 1)
+
+    @property
+    def speed_kbps(self) -> float:
+        """Download speed in kilobits/kilobytes per second."""
+        if self.speed_bps:
+            return round(self.speed_bps / 1024.0, 1)
+        return 0.0
+
+    @property
+    def track_title(self) -> str:
+        """Track title alias."""
+        return self.title
+
+    @property
+    def error(self) -> Optional[str]:
+        """Error message alias."""
+        return self.error_message
+
 
 class LibraryService:
     """
@@ -121,6 +145,72 @@ class LibraryService:
         self.reconcile_library_files()
         self.db.clean_stale_transient_downloads()
         self.enrich_people_from_library()
+        self._reconcile_metadata_integrity()
+
+    def _reconcile_metadata_integrity(self) -> None:
+        """
+        Reconcile corrupted release years and record label classifications in the database.
+        Restores true historical release years and prevents music labels from masquerading as singers.
+        """
+        try:
+            with self.db._lock, self.db._conn:
+                cursor = self.db._conn.cursor()
+                # 1. Historical movie years corrupted to 2026
+                movie_year_fixes = [
+                    ("Moondram Pirai", 1982),
+                    ("Mouna Ragam", 1986),
+                    ("Thalapathi", 1991),
+                    ("Roja", 1992),
+                    ("Kadhalan", 1994),
+                    ("Bombay", 1995),
+                    ("Love Birds", 1996),
+                    ("Minsara Kanavu", 1997),
+                    ("Alaipayuthey", 2000),
+                    ("Sillunu Oru Kaadhal", 2006),
+                    ("Nepali", 2008),
+                    ("Kadhalil Vizhundhen", 2008),
+                    ("Yaaradi Nee Mohini", 2008),
+                    ("2008 Top Tamil Hits", 2008),
+                    ("96", 2018),
+                    ("Maari 2", 2018),
+                    ("2020 Top Hits (Tamil)", 2020),
+                    ("2022 Top Hits (Tamil)", 2022),
+                    ("Beast", 2022),
+                    ("2023 Top Hits (Tamil)", 2023),
+                    ("Jailer", 2023),
+                    ("Leo", 2023),
+                    ("Jawan", 2023),
+                    ("Maamannan", 2023),
+                    ("Devara", 2024),
+                    ("Vettaiyan", 2024),
+                    ("GOAT", 2024),
+                    ("Aavesham", 2024),
+                ]
+                for title, yr in movie_year_fixes:
+                    cursor.execute(
+                        "UPDATE movies SET year = ? WHERE (title = ? OR title_normalized = ?) AND year = 2026",
+                        (yr, title, title.lower()),
+                    )
+                # Nullify invalid 2026 release years for movies whose title does not mention 2026
+                cursor.execute(
+                    "UPDATE movies SET year = NULL WHERE year = 2026 AND title NOT LIKE '%2026%' AND title NOT LIKE '%Top Hits 2026%'"
+                )
+
+                # 2. Record labels classified as singer
+                label_names = [
+                    'Aditya Music Tamil', 'Junglee Music Tamil', 'Power Music Workout',
+                    'Sony Music Malayalam', 'Sony Music South', 'Sun Music',
+                    'T-Series Tamil', 'TR KING MUSIC', 'Think Music India'
+                ]
+                for lname in label_names:
+                    cursor.execute("UPDATE artists SET role = 'record_label' WHERE name = ?", (lname,))
+                cursor.execute("UPDATE artists SET role = 'record_label' WHERE (LOWER(name) LIKE '%music%' OR LOWER(name) LIKE '%t-series%') AND role = 'singer'")
+                cursor.execute("""
+                    UPDATE song_artists SET role = 'record_label'
+                    WHERE artist_id IN (SELECT id FROM artists WHERE role = 'record_label')
+                """)
+        except Exception as e:
+            logger.debug(f"Metadata integrity reconciliation skipped or error: {e}")
 
     def add_progress_listener(self, listener: Callable[[DownloadProgressEvent], None]) -> None:
         with self._lock:
@@ -149,14 +239,23 @@ class LibraryService:
 
     def reconcile_library_files(self) -> int:
         """
-        Actively reconcile SQLite database records with physical files on disk
-        and unify canonical artist duplicates.
+        Actively reconcile SQLite database records with physical files on disk,
+        unify canonical artist duplicates, reconcile movie track counts with canonical song_movies relationships,
+        and recover missing movie release years from authoritative canonical data.
         Resets any orphaned OWNED records (missing or empty files) to NEW.
         """
         try:
             self.db.reconcile_artist_duplicates()
         except Exception as e:
             logger.warning(f"Artist duplicate reconciliation warning: {e}")
+        try:
+            self.db.reconcile_movie_track_counts()
+        except Exception as e:
+            logger.warning(f"Movie track count reconciliation warning: {e}")
+        try:
+            self.db.reconcile_movie_release_years()
+        except Exception as e:
+            logger.warning(f"Movie release year reconciliation warning: {e}")
         return self.db.reconcile_filesystem_integrity()
 
     def _init_default_sources(self) -> None:
@@ -1075,6 +1174,10 @@ class LibraryService:
         """Resume pending downloads."""
         pass
 
+    def cancel_download(self, download_id: int) -> bool:
+        """Cancel an active or queued download."""
+        return self.registry.cancel(download_id)
+
     # ------------------------------------------------------------------
     # V5.3 Movie Discovery & Movie Library Operations
     # ------------------------------------------------------------------
@@ -1813,10 +1916,20 @@ def split_artist_names(raw_artist: Optional[str]) -> List[str]:
     pattern = r"\s*(?:,|&|;|/|\bfeat\.?|\bft\.?|\band\b|\bwith\b|\bvs\.?)\s*"
     parts = re.split(pattern, text, flags=re.IGNORECASE)
     cleaned = []
+    known_labels = {
+        "aditya music", "aditya music tamil", "sony music", "sony music south",
+        "sony music malayalam", "think music", "think music india", "t-series",
+        "t-series tamil", "tips", "tips tamil", "tips official", "muzik247",
+        "muzik247 tamil", "lahari music", "zee music", "zee music south",
+        "saregama", "saregama tamil", "mango music", "star music", "sun music",
+        "junglee music", "junglee music tamil", "tr king music", "power music workout",
+    }
     for p in parts:
         name = p.strip(" .,;/-")
-        if len(name) >= 2 and not name.lower().startswith(("unknown", "various", "ost")):
-            cleaned.append(name)
+        low = name.lower()
+        if len(name) >= 2 and not low.startswith(("unknown", "various", "ost")):
+            if low not in known_labels and not any(k in low for k in ("aditya music", "sony music", "think music", "t-series", "tips tamil", "zee music", "saregama", "lahari music", "junglee music")):
+                cleaned.append(name)
     return cleaned
 
 

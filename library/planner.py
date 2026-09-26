@@ -277,7 +277,11 @@ class DownloadPlanner:
         )
         return plan
 
-    def plan_downloads_for_songs(self, lib_songs: List[LibrarySong]) -> DownloadPlan:
+    def plan_downloads_for_songs(
+        self,
+        lib_songs: List[LibrarySong],
+        preferred_quality: Optional[int] = None,
+    ) -> DownloadPlan:
         """
         Generate a DownloadPlan for a list of LibrarySong instances from DB.
         """

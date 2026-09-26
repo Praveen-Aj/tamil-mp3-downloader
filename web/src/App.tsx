@@ -72,7 +72,7 @@ const MainContent: React.FC = () => {
         <Sidebar />
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Header />
-          <main style={{ flex: 1, overflowY: 'auto' }}>
+          <main style={{ flex: 1, overflowY: 'auto', paddingBottom: '96px' }}>
             {renderView()}
           </main>
         </div>
