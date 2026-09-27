@@ -129,10 +129,10 @@ export const SettingsView: React.FC = () => {
         </div>
         <div>
           <h2 className="title-display" style={{ fontSize: '22px', margin: 0 }}>
-            Application & Engine Settings
+            Settings
           </h2>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Configure download concurrency, authoritative storage directories, audio defaults, and engine health
+            Configure downloads, library storage, and advanced diagnostics
           </div>
         </div>
       </div>
@@ -286,9 +286,9 @@ export const SettingsView: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Activity size={18} color="var(--accent-secondary)" />
             <div>
-              <div style={{ fontWeight: 700, fontSize: '15px' }}>Engine Diagnostics & Scraper Health</div>
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>Advanced Diagnostics</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Provider status, circuit breakers, and backend service connectivity
+                Provider status and system connectivity
               </div>
             </div>
           </div>
@@ -355,9 +355,9 @@ export const SettingsView: React.FC = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Cpu size={15} color="var(--accent-primary)" />
-                <span>FastAPI Microservice Engine: <strong>{isBackendHealthy ? 'Online (Port 8000)' : 'Unreachable'}</strong></span>
+                <span>System Status: <strong>{isBackendHealthy ? 'Online' : 'Offline'}</strong></span>
               </div>
-              <span style={{ color: 'var(--text-muted)' }}>SQLite V6 Canonical Storage</span>
+              <span style={{ color: 'var(--text-muted)' }}>Library Storage Active</span>
             </div>
           </div>
         )}

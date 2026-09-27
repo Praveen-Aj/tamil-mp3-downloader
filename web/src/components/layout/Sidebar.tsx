@@ -42,22 +42,22 @@ export const Sidebar: React.FC = () => {
     {
       title: 'My Collection',
       items: [
-        { id: 'songs', label: 'Song Library', icon: <Music size={18} />, badge: stats?.total_songs },
+        { id: 'songs', label: 'Songs', icon: <Music size={18} />, badge: stats?.total_songs },
         { id: 'playlists', label: 'Playlists', icon: <ListMusic size={18} />, badge: stats?.total_playlists },
         { id: 'favorites', label: 'Favorites', icon: <Heart size={18} /> },
         {
           id: 'downloads',
-          label: 'Downloads Queue',
+          label: 'Downloads',
           icon: <ArrowDownCircle size={18} />,
           badge: stats?.active_downloads ? stats.active_downloads : undefined,
         },
       ],
     },
     {
-      title: 'Engine & Tools',
+      title: 'Tools',
       items: [
-        { id: 'imports', label: 'Import Music / URLs', icon: <Link2 size={18} /> },
-        { id: 'settings', label: 'System Settings', icon: <Settings size={18} /> },
+        { id: 'imports', label: 'Import', icon: <Link2 size={18} /> },
+        { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
       ],
     },
   ];
@@ -103,13 +103,10 @@ export const Sidebar: React.FC = () => {
         </div>
         <div>
           <div
-            className="title-display text-gradient"
-            style={{ fontSize: '16px', fontWeight: 800, lineHeight: 1.1 }}
+            className="title-display"
+            style={{ fontSize: '16px', fontWeight: 800, lineHeight: 1.1, color: 'var(--text-primary)' }}
           >
             TAMIL MP3
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-            STUDIO V6
           </div>
         </div>
       </div>
@@ -195,35 +192,6 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Backend Status Footer */}
-      <div
-        style={{
-          padding: '14px 18px',
-          borderTop: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: isBackendHealthy ? 'var(--color-success)' : 'var(--color-error)',
-              boxShadow: isBackendHealthy
-                ? '0 0 8px rgba(16, 185, 129, 0.6)'
-                : '0 0 8px rgba(239, 68, 68, 0.6)',
-            }}
-          />
-          <span style={{ color: 'var(--text-muted)' }}>
-            {isBackendHealthy ? 'FastAPI Online' : 'Backend Offline'}
-          </span>
-        </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v6.2</span>
-      </div>
     </aside>
   );
 };

@@ -120,7 +120,7 @@ export const DownloadsView: React.FC = () => {
             <ArrowDownCircle size={22} color="var(--accent-secondary)" />
           </div>
           <div>
-            <h2 className="title-display" style={{ fontSize: '18px' }}>Download Engine</h2>
+            <h2 className="title-display" style={{ fontSize: '18px' }}>Downloads</h2>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               Active downloads: {active.length} • Queued: {queue.length}
             </div>

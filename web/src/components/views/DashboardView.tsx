@@ -114,8 +114,7 @@ export const DashboardView: React.FC = () => {
       <div
         className="glass-panel"
         style={{
-          padding: '32px 36px',
-          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.85) 100%)',
+          padding: '16px 24px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -124,17 +123,18 @@ export const DashboardView: React.FC = () => {
           position: 'relative',
           overflow: 'hidden',
           borderRadius: 'var(--radius-xl)',
+          backgroundColor: 'transparent',
         }}
       >
         <div style={{ zIndex: 2, maxWidth: '640px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
             <Sparkles size={14} /> Personal Music Vault
           </div>
           <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
-            Tamil MP3 Downloader & Studio
+            Tamil MP3 Library
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px', lineHeight: 1.5, marginBottom: '20px' }}>
-            High-fidelity Tamil soundtracks, lossless ID3 tag preservation, and automated multi-source audio acquisition.
+            High-fidelity Tamil soundtracks, lossless metadata preservation, and automated audio acquisition.
           </p>
 
           {/* Minimalist Stats Chips */}

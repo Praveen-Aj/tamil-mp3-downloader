@@ -65,29 +65,29 @@ export const Header: React.FC = () => {
   const getPageTitle = () => {
     switch (currentView) {
       case 'dashboard':
-        return 'Overview & Dashboard';
+        return 'Home';
       case 'songs':
-        return 'Song Library';
+        return 'Songs';
       case 'movies':
-        return 'Soundtracks & Movies';
+        return 'Movies & Soundtracks';
       case 'artists':
-        return 'Artists & Composers';
+        return 'Artists';
       case 'charts':
-        return 'Featured Top Charts';
+        return 'Charts';
       case 'playlists':
-        return 'Playlists Studio';
+        return 'Playlists';
       case 'favorites':
-        return 'Favorite Tracks';
+        return 'Favorites';
       case 'search':
-        return 'Global Search Results';
+        return 'Search';
       case 'downloads':
-        return 'Download Engine & Queue';
+        return 'Downloads';
       case 'imports':
-        return 'Playlist URL Import';
+        return 'Import';
       case 'settings':
-        return 'System & Engine Settings';
+        return 'Settings';
       default:
-        return 'Music Studio';
+        return 'Music';
     }
   };
 
