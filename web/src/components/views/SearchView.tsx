@@ -213,7 +213,10 @@ export const SearchView: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <QualityBadge quality={song.quality} />
+                      <QualityBadge
+                        quality={song.quality}
+                        isDownloaded={song.download_state === 'DOWNLOADED' || song.state === 'OWNED' || song.has_file}
+                      />
                       <DownloadStateBadge state={song.download_state || song.state} />
                       {song.download_state !== 'DOWNLOADED' ? (
                         <button

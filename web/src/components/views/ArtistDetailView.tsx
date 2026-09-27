@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Play, Download, Users, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Download, Users, CheckCircle2, Music, Sparkles } from 'lucide-react';
 import { artistsApi, downloadsApi } from '../../api/endpoints';
 import { Artist, Song } from '../../api/types';
 import { useApp } from '../../context/AppContext';
@@ -10,7 +10,7 @@ import { api } from '../../api/client';
 
 export const ArtistDetailView: React.FC = () => {
   const { selectedEntityId, navigateTo, showToast, refreshStats } = useApp();
-  const { playSong } = useAudioPlayer();
+  const { playSong, currentSong, isPlaying } = useAudioPlayer();
 
   const [artist, setArtist] = useState<Artist | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
@@ -42,22 +42,77 @@ export const ArtistDetailView: React.FC = () => {
       if (res.success) {
         showToast(`Queued ${res.data.queued_count} songs by "${artist.name}"`, 'success');
         refreshStats();
+        // Refresh local details
+        const refreshed = await artistsApi.getArtistSongs(Number(selectedEntityId));
+        if (refreshed.success && refreshed.data) {
+          setSongs(refreshed.data.songs || []);
+        }
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to queue download', 'error');
     }
   };
 
-  const handleDownloadSong = async (songId: number) => {
+  const handleDownloadMissing = async () => {
+    if (!selectedEntityId || !artist) return;
+    const missing = songs.filter(s => !s.has_file && s.state !== 'OWNED');
+    if (missing.length === 0) {
+      showToast('All songs are already downloaded in high quality!', 'info');
+      return;
+    }
+    try {
+      const res = await downloadsApi.queueSongs(missing.map(s => s.id));
+      if (res.success) {
+        showToast(`Queued ${missing.length} missing songs for download`, 'success');
+        refreshStats();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to queue missing tracks', 'error');
+    }
+  };
+
+  const handleDownloadSong = async (songId: number, title: string) => {
     try {
       const res = await downloadsApi.queueSongs([songId]);
       if (res.success) {
-        showToast('Song queued for download', 'success');
+        showToast(`Queued "${title}" for download`, 'success');
         refreshStats();
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to download song', 'error');
     }
+  };
+
+  const handlePlayAll = () => {
+    const playable = songs.filter(s => s.has_file || s.file_path || s.state === 'OWNED');
+    if (playable.length > 0) {
+      playSong(playable[0], playable);
+      showToast(`Playing songs by: ${artist?.name}`, 'info');
+    } else {
+      showToast('Download tracks first to enable audio streaming', 'warning');
+    }
+  };
+
+  const formatRoleName = (role?: string) => {
+    if (!role) return 'Artist Discography';
+    switch (role.toLowerCase()) {
+      case 'music_director':
+      case 'composer':
+        return 'Music Director & Composer';
+      case 'singer':
+        return 'Playback Singer';
+      case 'lyricist':
+        return 'Lyricist & Poet';
+      default:
+        return 'Artist Discography';
+    }
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '—';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   if (!selectedEntityId || (!loading && !artist)) {
@@ -67,113 +122,224 @@ export const ArtistDetailView: React.FC = () => {
           <ArrowLeft size={16} /> Back to Artists
         </Button>
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-          Artist not found.
+          Artist profile not found.
         </div>
       </div>
     );
   }
 
+  const downloadedCount = songs.filter(s => s.has_file || s.state === 'OWNED').length;
+  const missingCount = Math.max(0, songs.length - downloadedCount);
+  const isComplete = songs.length > 0 && downloadedCount >= songs.length;
+
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <Button variant="ghost" onClick={() => navigateTo('artists')} style={{ alignSelf: 'flex-start' }}>
-        <ArrowLeft size={16} /> Back to Artists
+        <ArrowLeft size={16} /> Back to Artists & Composers
       </Button>
 
-      {/* Hero Artist Banner */}
+      {/* 1. Artist Hero Banner */}
       <div
         className="glass-panel"
         style={{
-          padding: '28px 32px',
+          padding: '36px',
           display: 'flex',
-          gap: '28px',
+          gap: '32px',
           alignItems: 'center',
           flexWrap: 'wrap',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(17, 26, 46, 0.8) 100%)',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 27, 75, 0.9) 100%)',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 'var(--radius-xl)',
         }}
       >
-        <img
-          src={api.getArtworkUrl('artist', Number(selectedEntityId), 180, 180)}
-          alt={artist?.name}
+        {/* Large Circular Portrait with Glow */}
+        <div
           style={{
-            width: '130px',
-            height: '130px',
+            width: '150px',
+            height: '150px',
             borderRadius: '50%',
-            objectFit: 'cover',
-            boxShadow: 'var(--shadow-lg)',
-            border: '2px solid var(--border-medium)',
+            overflow: 'hidden',
+            backgroundColor: '#0f172a',
+            border: '3px solid rgba(255, 255, 255, 0.15)',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+            flexShrink: 0,
           }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="130" height="130" fill="%230f172a"><circle cx="65" cy="65" r="65"/></svg>';
-          }}
-        />
+        >
+          <img
+            src={api.getArtworkUrl('artist', Number(selectedEntityId), 300, 300)}
+            alt={artist?.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%230f172a"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23a5b4fc" font-size="48">👤</text></svg>';
+            }}
+          />
+        </div>
 
-        <div style={{ flex: 1, minWidth: '240px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '13px', fontWeight: 600 }}>
-            <Users size={15} /> ARTIST DISCOGRAPHY
+        {/* Hero Metadata & Actions */}
+        <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <Users size={15} /> {formatRoleName(artist?.role)}
           </div>
-          <h2 className="title-display" style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>
+
+          <h1 className="title-display" style={{ fontSize: '36px', fontWeight: 800, marginTop: '8px', marginBottom: '8px', color: '#f8fafc' }}>
             {artist?.name}
-          </h2>
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            {artist?.role || 'Composer & Singer'} • {songs.length} Tracks in Catalog
+          </h1>
+
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginTop: '4px', marginBottom: '20px' }}>
+            <span style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', color: '#f8fafc', fontWeight: 600 }}>
+              {artist?.role ? artist.role.replace('_', ' ').toUpperCase() : 'ARTIST'}
+            </span>
+            <span>{songs.length} Tracks in Catalog</span>
+            <span>•</span>
+            <span style={{ color: isComplete ? 'var(--color-success)' : 'var(--text-secondary)' }}>
+              {downloadedCount} Ready {isComplete ? '(All Downloaded)' : `(${missingCount} Missing)`}
+            </span>
           </div>
 
-          <div style={{ marginTop: '16px' }}>
-            <Button variant="primary" onClick={handleDownloadAll}>
-              <Download size={16} /> Download All Songs
+          {/* Action Bar */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Button variant="primary" onClick={handlePlayAll} style={{ padding: '10px 20px', gap: '8px' }}>
+              <Play size={16} fill="currentColor" /> Play Artist Tracks
+            </Button>
+
+            {missingCount > 0 && (
+              <Button variant="secondary" onClick={handleDownloadMissing} style={{ padding: '10px 20px', gap: '8px' }}>
+                <Download size={16} color="var(--accent-primary)" /> Download Missing ({missingCount})
+              </Button>
+            )}
+
+            <Button variant="ghost" onClick={handleDownloadAll} style={{ padding: '10px 18px', gap: '8px' }}>
+              <Download size={15} /> Download All Tracks
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Tracklist Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
+      {/* 2. Tracklist Section */}
+      <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Discography & Tracks ({songs.length} Songs)
+          </h3>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            High-fidelity 320 kbps stream & download
+          </span>
+        </div>
+
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: '50px' }}>Play</th>
+              <th style={{ width: '48px', textAlign: 'center' }}>#</th>
+              <th style={{ width: '48px' }}>Play</th>
+              <th style={{ width: '56px' }}>Art</th>
               <th>Track Title</th>
               <th>Soundtrack / Album</th>
+              <th style={{ width: '80px' }}>Duration</th>
               <th>Quality</th>
               <th>Status</th>
-              <th style={{ textAlign: 'right', width: '100px' }}>Action</th>
+              <th style={{ textAlign: 'right', width: '120px' }}>Action</th>
             </tr>
           </thead>
           <tbody>
-            {songs.map((song) => (
-              <tr key={song.id}>
-                <td>
-                  <button
-                    onClick={() => playSong(song)}
-                    className="btn-icon"
-                    style={{ width: '32px', height: '32px' }}
-                    title="Play track"
-                  >
-                    <Play size={14} fill="currentColor" />
-                  </button>
-                </td>
-                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{song.title}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{song.album || '—'}</td>
-                <td>
-                  <QualityBadge quality={song.quality} />
-                </td>
-                <td>
-                  <StateBadge state={song.state} />
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  {song.state !== 'OWNED' ? (
-                    <Button size="sm" variant="secondary" onClick={() => handleDownloadSong(song.id)}>
-                      <Download size={13} />
-                    </Button>
-                  ) : (
-                    <span style={{ color: 'var(--color-success)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={14} /> Saved
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {songs.map((song, index) => {
+              const isCurrentlyPlaying = currentSong?.id === song.id && isPlaying;
+              const isDownloaded = song.has_file || song.state === 'OWNED';
+
+              return (
+                <tr
+                  key={song.id}
+                  style={{
+                    backgroundColor: currentSong?.id === song.id ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                  }}
+                >
+                  {/* Track Number */}
+                  <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
+                    {index + 1}
+                  </td>
+
+                  {/* Play Button */}
+                  <td>
+                    <button
+                      onClick={() => playSong(song, songs)}
+                      className="btn-icon"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        color: isCurrentlyPlaying ? 'var(--accent-primary)' : 'var(--text-primary)',
+                      }}
+                      title={isCurrentlyPlaying ? 'Pause' : 'Play track'}
+                    >
+                      {isCurrentlyPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                    </button>
+                  </td>
+
+                  {/* 40x40 Artwork Thumbnail */}
+                  <td>
+                    <img
+                      src={api.getArtworkUrl('song', song.id, 80, 80)}
+                      alt={song.title}
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: 'var(--radius-sm)',
+                        objectFit: 'cover',
+                        backgroundColor: '#1e293b',
+                      }}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%231e293b"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
+                      }}
+                    />
+                  </td>
+
+                  {/* Title */}
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {song.title}
+                  </td>
+
+                  {/* Album */}
+                  <td style={{ color: 'var(--text-secondary)' }}>
+                    {song.album || 'Soundtrack'}
+                  </td>
+
+                  {/* Duration */}
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                    {formatDuration(song.duration_sec)}
+                  </td>
+
+                  {/* Quality Badge */}
+                  <td>
+                    <QualityBadge quality={song.quality} isDownloaded={isDownloaded} />
+                  </td>
+
+                  {/* Download State Badge */}
+                  <td>
+                    <StateBadge state={song.state} downloadState={song.download_state} canUpgrade={song.can_upgrade} />
+                  </td>
+
+                  {/* Action */}
+                  <td style={{ textAlign: 'right' }}>
+                    {!isDownloaded ? (
+                      <button
+                        onClick={() => handleDownloadSong(song.id, song.title)}
+                        className="btn-icon"
+                        style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
+                        title="Download track"
+                      >
+                        <Download size={14} />
+                      </button>
+                    ) : (
+                      <span style={{ color: 'var(--color-success)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                        <CheckCircle2 size={13} /> Ready
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

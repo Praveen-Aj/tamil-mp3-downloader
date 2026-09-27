@@ -10,8 +10,9 @@ import {
   Play,
   FolderOpen,
   Sparkles,
-  AlertTriangle,
   Download,
+  ChevronRight,
+  Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../common/Card';
@@ -29,16 +30,18 @@ export const DashboardView: React.FC = () => {
   const [downloadedSongs, setDownloadedSongs] = useState<Song[]>([]);
   const [missingSongs, setMissingSongs] = useState<Song[]>([]);
   const [featuredMovies, setFeaturedMovies] = useState<Movie[]>([]);
+  const [topArtists, setTopArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [queuingMissing, setQueuingMissing] = useState(false);
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [downloadedRes, missingRes, moviesRes] = await Promise.all([
+        const [downloadedRes, missingRes, moviesRes, artistsRes] = await Promise.all([
           songsApi.getSongs({ state: 'OWNED', page_size: 6, sort_by: 'id', sort_order: 'desc' }),
           songsApi.getSongs({ state: 'NEW', page_size: 6, sort_by: 'id', sort_order: 'desc' }),
-          moviesApi.getMovies({ page_size: 4, sort_by: 'id', sort_order: 'desc' }),
+          moviesApi.getMovies({ page_size: 5, sort_by: 'track_count', sort_order: 'desc' }),
+          artistsApi.getArtists({ page_size: 6 }),
         ]);
 
         if (downloadedRes.success && downloadedRes.data) {
@@ -47,8 +50,11 @@ export const DashboardView: React.FC = () => {
         if (missingRes.success && missingRes.data) {
           setMissingSongs(missingRes.data.items || []);
         }
-        if (featuredMovies.length === 0 && moviesRes.success && moviesRes.data) {
+        if (moviesRes.success && moviesRes.data) {
           setFeaturedMovies(moviesRes.data.items || []);
+        }
+        if (artistsRes.success && artistsRes.data) {
+          setTopArtists(artistsRes.data.items || []);
         }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
@@ -69,7 +75,6 @@ export const DashboardView: React.FC = () => {
           'success'
         );
         refreshStats();
-        // Refresh missing list
         const missingRes = await songsApi.getSongs({ state: 'NEW', page_size: 6 });
         if (missingRes.success && missingRes.data) {
           setMissingSongs(missingRes.data.items || []);
@@ -94,14 +99,6 @@ export const DashboardView: React.FC = () => {
     }
   };
 
-  const handleOpenFolder = async (songId: number) => {
-    try {
-      await songsApi.openFolder(songId);
-    } catch (err: any) {
-      showToast(err.message || 'Failed to open file folder', 'error');
-    }
-  };
-
   const formatBytes = (bytes?: number) => {
     if (!bytes) return '0 MB';
     const mb = bytes / (1024 * 1024);
@@ -112,404 +109,408 @@ export const DashboardView: React.FC = () => {
   const missingCount = Math.max(0, (stats?.total_songs ?? 0) - (stats?.total_owned ?? 0));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      {/* 1. Hero Listening & Discovery Banner */}
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '36px' }}>
+      {/* 1. Hero / Library Identity */}
       <div
         className="glass-panel"
         style={{
-          padding: '32px',
-          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)',
+          padding: '32px 36px',
+          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.85) 100%)',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '24px',
           position: 'relative',
           overflow: 'hidden',
+          borderRadius: 'var(--radius-xl)',
         }}
       >
         <div style={{ zIndex: 2, maxWidth: '640px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            <Sparkles size={14} /> Personal Music Studio
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+            <Sparkles size={14} /> Personal Music Vault
           </div>
-          <h2 className="title-display text-gradient" style={{ fontSize: '28px', fontWeight: 800, margin: 0 }}>
-            Your Tamil Soundtrack Library
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px', lineHeight: 1.5 }}>
-            High-fidelity canonical music library with verified physical storage, automatic multi-source deduplication, and lossless ID3 tag preservation.
+          <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+            Tamil MP3 Downloader & Studio
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px', lineHeight: 1.5, marginBottom: '20px' }}>
+            High-fidelity Tamil soundtracks, lossless ID3 tag preservation, and automated multi-source audio acquisition.
           </p>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+
+          {/* Minimalist Stats Chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)', fontWeight: 600 }}>
+              <CheckCircle2 size={15} /> {stats?.total_owned ?? 0} Downloaded
+            </span>
+            <span>•</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+              <Music size={14} color="var(--accent-primary)" /> {stats?.total_songs ?? 0} Catalog Songs
+            </span>
+            <span>•</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+              <Film size={14} color="var(--accent-secondary)" /> {stats?.total_movies ?? 0} Soundtracks
+            </span>
+            <span>•</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+              <HardDrive size={14} color="#f59e0b" /> {formatBytes(stats?.total_storage_bytes)}
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Hero Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 2 }}>
+          {missingCount > 0 && (
             <Button
               variant="primary"
-              onClick={() => {
-                if (downloadedSongs.length > 0) {
-                  playSong(downloadedSongs[0], downloadedSongs);
-                } else {
-                  navigateTo('songs');
-                }
-              }}
-              aria-label="Quick Play Library"
+              onClick={handleDownloadAllMissing}
+              disabled={queuingMissing}
+              style={{ padding: '12px 24px', gap: '8px', fontSize: '13px', fontWeight: 600 }}
             >
-              <Play size={16} fill="currentColor" /> Quick Listening
+              <Download size={16} /> Download Missing ({missingCount})
             </Button>
-            <Button variant="secondary" onClick={() => navigateTo('songs')} aria-label="Browse All Songs">
-              <Music size={16} /> Browse Songs
-            </Button>
-            {missingCount > 0 && (
-              <Button
-                variant="secondary"
-                onClick={handleDownloadAllMissing}
-                loading={queuingMissing}
-                aria-label="Download All Missing Tracks"
-                style={{ borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
-              >
-                <Download size={16} /> Download Missing ({missingCount})
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Picks Mini-Cards */}
-        {downloadedSongs.length > 0 && (
-          <div
-            style={{
-              zIndex: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              width: '280px',
-              backgroundColor: 'rgba(0, 0, 0, 0.25)',
-              padding: '12px',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-subtle)',
-            }}
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => navigateTo('movies')}
+            style={{ padding: '10px 20px', gap: '8px', fontSize: '13px' }}
           >
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Quick Picks • Ready to Play
-            </div>
-            {downloadedSongs.slice(0, 3).map((song) => (
-              <div
-                key={song.id}
-                onClick={() => playSong(song, downloadedSongs)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '6px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  cursor: 'pointer',
-                  transition: 'background var(--transition-fast)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)')}
-              >
-                <img
-                  src={api.getArtworkUrl('song', song.id, 40, 40)}
-                  alt={song.title}
-                  style={{ width: '34px', height: '34px', borderRadius: '4px', objectFit: 'cover' }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="%231e293b"><rect width="34" height="34"/></svg>';
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {song.title}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {song.artist || song.album || 'Unknown'}
-                  </div>
-                </div>
-                <Play size={13} color="var(--accent-primary)" fill="currentColor" />
-              </div>
-            ))}
-          </div>
-        )}
+            <Film size={15} /> Browse All Soundtracks
+          </Button>
+        </div>
       </div>
 
-      {/* 2. Key Metrics Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-        <Card onClick={() => navigateTo('songs')}>
+      {/* 2. Recently Downloaded Shelf */}
+      {downloadedSongs.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Total Songs</span>
-            <Music size={18} color="var(--accent-primary)" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px' }}>
-            {stats?.total_songs ?? 0}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Canonical tracks cataloged
-          </div>
-        </Card>
-
-        <Card onClick={() => navigateTo('songs')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Downloaded</span>
-            <CheckCircle2 size={18} color="var(--color-success)" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px', color: 'var(--color-success)' }}>
-            {stats?.total_owned ?? 0}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Available offline on disk
-          </div>
-        </Card>
-
-        <Card onClick={() => navigateTo('songs')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Missing Tracks</span>
-            <AlertTriangle size={18} color="var(--color-warning)" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px', color: missingCount > 0 ? 'var(--color-warning)' : 'var(--text-primary)' }}>
-            {missingCount}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Ready to be queued
-          </div>
-        </Card>
-
-        <Card onClick={() => navigateTo('movies')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Soundtracks</span>
-            <Film size={18} color="var(--accent-secondary)" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px' }}>
-            {stats?.total_movies ?? 0}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Movie albums cataloged
-          </div>
-        </Card>
-
-        <Card onClick={() => navigateTo('artists')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Artists</span>
-            <Users size={18} color="#f59e0b" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px' }}>
-            {stats?.total_artists ?? 0}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Singers, lyricists, composers
-          </div>
-        </Card>
-
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Storage</span>
-            <HardDrive size={18} color="#10b981" />
-          </div>
-          <div className="title-display" style={{ fontSize: '28px', marginTop: '10px' }}>
-            {formatBytes(stats?.total_storage_bytes)}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Verified audio size
-          </div>
-        </Card>
-      </div>
-
-      {/* 3. Two Columns: Recently Downloaded Songs & Missing Tracks */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Recently Downloaded Songs */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <CheckCircle2 size={18} color="var(--color-success)" />
-              <h3 className="title-display" style={{ fontSize: '16px' }}>Recently Downloaded</h3>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Recently Downloaded
+              </h2>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigateTo('songs')}>
-              View All
-            </Button>
+            <button
+              onClick={() => navigateTo('songs')}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            >
+              View All Songs <ChevronRight size={14} />
+            </button>
           </div>
 
-          {downloadedSongs.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', padding: '32px 0', textAlign: 'center', fontSize: '13px' }}>
-              No downloaded songs yet. Queue a song or movie to start downloading!
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {downloadedSongs.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-subtle)',
-                    transition: 'all var(--transition-fast)',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                    <button
-                      onClick={() => playSong(s, downloadedSongs)}
-                      className="btn-icon"
-                      style={{ width: '32px', height: '32px', flexShrink: 0, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
-                      title="Play track"
-                      aria-label={`Play ${s.title}`}
-                    >
-                      <Play size={13} fill="currentColor" />
-                    </button>
-                    <img
-                      src={api.getArtworkUrl('song', s.id, 40, 40)}
-                      alt={s.title}
-                      style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%231e293b"><rect width="32" height="32"/></svg>';
-                      }}
-                    />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {s.title}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {s.artist || s.album || 'Unknown'} {s.year ? `• ${s.year}` : ''}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <QualityBadge quality={s.quality} />
-                    <button
-                      onClick={() => handleOpenFolder(s.id)}
-                      className="btn-icon"
-                      style={{ width: '28px', height: '28px', color: 'var(--color-success)' }}
-                      title="Reveal in Explorer"
-                      aria-label="Open folder"
-                    >
-                      <FolderOpen size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Missing Tracks in Collection */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ArrowDownCircle size={18} color="var(--accent-primary)" />
-              <h3 className="title-display" style={{ fontSize: '16px', margin: 0 }}>Missing in Library</h3>
-            </div>
-            {missingCount > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDownloadAllMissing}
-                loading={queuingMissing}
-                aria-label="Download All Missing"
-              >
-                <Download size={13} /> Download All ({missingCount})
-              </Button>
-            )}
-          </div>
-
-          {missingSongs.length === 0 ? (
-            <div style={{ color: 'var(--color-success)', padding: '32px 0', textAlign: 'center', fontSize: '13px' }}>
-              ✓ All cataloged songs are downloaded to your physical library!
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {missingSongs.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                    <img
-                      src={api.getArtworkUrl('song', s.id, 40, 40)}
-                      alt={s.title}
-                      style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%231e293b"><rect width="32" height="32"/></svg>';
-                      }}
-                    />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {s.title}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {s.artist || s.album || 'Unknown'} {s.year ? `• ${s.year}` : ''}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <DownloadStateBadge state={s.download_state || 'NOT_DOWNLOADED'} />
-                    <button
-                      onClick={() => handleDownloadSingle(s.id, s.title)}
-                      className="btn-icon"
-                      style={{ width: '28px', height: '28px', color: 'var(--accent-primary)' }}
-                      title="Download song"
-                      aria-label={`Download ${s.title}`}
-                    >
-                      <Download size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Featured Soundtrack Albums */}
-      {featuredMovies.length > 0 && (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Film size={18} color="var(--accent-secondary)" />
-              <h3 className="title-display" style={{ fontSize: '18px' }}>Soundtrack Collections</h3>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => navigateTo('movies')}>
-              Explore All Movies
-            </Button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-            {featuredMovies.map((movie) => (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {downloadedSongs.map((song) => (
               <Card
-                key={movie.id}
-                onClick={() => navigateTo('movie_detail', movie.id)}
+                key={song.id}
+                onClick={() => playSong(song, downloadedSongs)}
                 className="glass-card"
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px' }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '12px',
+                  borderRadius: 'var(--radius-lg)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
               >
-                <img
-                  src={api.getArtworkUrl('movie', movie.id, 80, 80)}
-                  alt={movie.title || movie.name}
-                  style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%231e1b4b"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23fff" font-size="18">🎬</text></svg>';
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    backgroundColor: '#1e293b',
+                    marginBottom: '10px',
                   }}
-                />
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {movie.title || movie.name}
+                >
+                  <img
+                    src={api.getArtworkUrl('song', song.id, 240, 240)}
+                    alt={song.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%231e293b"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="24">🎵</text></svg>';
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '8px',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--accent-primary)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    <Play size={14} fill="currentColor" />
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {movie.year || 'OST'} • {movie.total_songs ?? 0} tracks
-                  </div>
+                </div>
+
+                <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {song.title}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                  {song.artist || song.album || 'Tamil Track'}
                 </div>
               </Card>
             ))}
           </div>
-        </div>
+        </section>
+      )}
+
+      {/* 3. Featured Soundtracks */}
+      {featuredMovies.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Film size={18} color="var(--accent-secondary)" />
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Featured Soundtracks
+              </h2>
+            </div>
+            <button
+              onClick={() => navigateTo('movies')}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            >
+              All Soundtracks <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '20px',
+            }}
+          >
+            {featuredMovies.map((movie) => {
+              const trackCount = movie.track_count || movie.total_songs || 0;
+              const downloadedCount = movie.downloaded_count ?? 0;
+
+              return (
+                <Card
+                  key={movie.id}
+                  onClick={() => navigateTo('movie_detail', movie.id)}
+                  className="glass-card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-lg)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      aspectRatio: '2 / 3',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      backgroundColor: '#0f172a',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    <img
+                      src={api.getArtworkUrl('movie', movie.id, 400, 600)}
+                      alt={movie.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%230f172a"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%236366f1" font-size="36">🎬</text></svg>';
+                      }}
+                    />
+                    {movie.year && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                          color: '#f8fafc',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: 'var(--radius-xs)',
+                        }}
+                      >
+                        {movie.year}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {movie.title}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {trackCount} songs {downloadedCount > 0 ? `· ${downloadedCount} ready` : ''}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 4. Top Artists & Composers Row */}
+      {topArtists.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={18} color="#f59e0b" />
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Top Artists & Composers
+              </h2>
+            </div>
+            <button
+              onClick={() => navigateTo('artists')}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            >
+              All Artists <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {topArtists.map((artist) => (
+              <Card
+                key={artist.id}
+                onClick={() => navigateTo('artist_detail', artist.id)}
+                className="glass-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  padding: '20px 14px',
+                  borderRadius: 'var(--radius-xl)',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    width: '96px',
+                    height: '96px',
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    backgroundColor: '#0f172a',
+                    marginBottom: '12px',
+                    border: '2px solid var(--border-medium)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+                  }}
+                >
+                  <img
+                    src={api.getArtworkUrl('artist', artist.id, 200, 200)}
+                    alt={artist.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%230f172a"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23a5b4fc" font-size="28">👤</text></svg>';
+                    }}
+                  />
+                </div>
+
+                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                  {artist.name}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'capitalize' }}>
+                  {artist.role ? artist.role.replace('_', ' ') : 'Artist'}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 5. Missing Tracks from Library (Quick Discovery) */}
+      {missingSongs.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Download size={18} color="var(--accent-primary)" />
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Missing in Library ({missingCount} Available)
+              </h2>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={handleDownloadAllMissing}
+              disabled={queuingMissing}
+              style={{ fontSize: '12px', padding: '6px 14px' }}
+            >
+              <Download size={13} /> Download All Missing
+            </Button>
+          </div>
+
+          <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '48px' }}>Art</th>
+                  <th>Title</th>
+                  <th>Artist</th>
+                  <th>Soundtrack</th>
+                  <th>Quality</th>
+                  <th style={{ textAlign: 'right', width: '100px' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {missingSongs.map((song) => (
+                  <tr key={song.id}>
+                    <td>
+                      <img
+                        src={api.getArtworkUrl('song', song.id, 80, 80)}
+                        alt={song.title}
+                        style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', objectFit: 'cover', backgroundColor: '#1e293b' }}
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%231e293b"><rect width="36" height="36"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="12">🎵</text></svg>';
+                        }}
+                      />
+                    </td>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{song.title}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{song.artist || '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{song.album || '—'}</td>
+                    <td>
+                      <QualityBadge quality={song.quality} isDownloaded={false} />
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        onClick={() => handleDownloadSingle(song.id, song.title)}
+                        className="btn-icon"
+                        style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
+                        title="Download track"
+                      >
+                        <Download size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );

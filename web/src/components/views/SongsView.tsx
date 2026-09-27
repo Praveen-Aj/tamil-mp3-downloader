@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   X,
   ArrowUpCircle,
+  Heart,
 } from 'lucide-react';
 import { songsApi, downloadsApi } from '../../api/endpoints';
 import { Song } from '../../api/types';
@@ -153,6 +154,26 @@ export const SongsView: React.FC = () => {
     }
   };
 
+  const handleToggleFavorite = async (song: Song, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextFav = !song.is_favorite;
+    setSongs(prev => prev.map(s => s.id === song.id ? { ...s, is_favorite: nextFav } : s));
+    try {
+      await songsApi.toggleFavorite(song.id, nextFav);
+      showToast(nextFav ? `Added "${song.title}" to Favorites` : `Removed "${song.title}" from Favorites`, 'success');
+    } catch (err: any) {
+      setSongs(prev => prev.map(s => s.id === song.id ? { ...s, is_favorite: !nextFav } : s));
+      showToast('Failed to update favorite', 'error');
+    }
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '—';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   // Select all toggles on current page
   const allCurrentPageSelected = useMemo(() => {
     return songs.length > 0 && songs.every((s) => selectedIds.has(s.id));
@@ -235,7 +256,7 @@ export const SongsView: React.FC = () => {
                 style={{ padding: '6px 12px', fontSize: '12px' }}
                 aria-label={`Filter by ${st}`}
               >
-                {st === 'ALL' ? 'All Songs' : st === 'OWNED' ? 'Downloaded' : 'Missing'}
+                {st === 'ALL' ? 'All Tracks' : st === 'OWNED' ? 'Downloaded' : 'Not Downloaded'}
               </button>
             ))}
           </div>
@@ -317,33 +338,32 @@ export const SongsView: React.FC = () => {
                   )}
                 </button>
               </th>
-              <th style={{ width: '50px' }}>Play</th>
-              <th style={{ width: '50px' }}>Art</th>
-              <th>Canonical Title</th>
-              <th>Artist</th>
-              <th>Album / Movie</th>
-              <th>Year</th>
-              <th>Quality</th>
-              <th>Download State</th>
-              <th style={{ textAlign: 'right', width: '130px' }}>Actions</th>
+              <th style={{ width: '44px' }}>Play</th>
+              <th style={{ width: '56px' }}>Art</th>
+              <th>Track Title & Artist / Soundtrack</th>
+              <th style={{ width: '75px' }}>Duration</th>
+              <th style={{ width: '130px' }}>Quality</th>
+              <th style={{ width: '135px' }}>Status</th>
+              <th style={{ textAlign: 'right', width: '135px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   Loading library tracks...
                 </td>
               </tr>
             ) : songs.length === 0 ? (
               <tr>
-                <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No songs matching criteria found.
                 </td>
               </tr>
             ) : (
               songs.map((song) => {
                 const isSelected = selectedIds.has(song.id);
+                const isDownloaded = song.has_file || song.state === 'OWNED';
                 return (
                   <tr
                     key={song.id}
@@ -374,48 +394,45 @@ export const SongsView: React.FC = () => {
                       </button>
                     </td>
 
-                    {/* Artwork thumbnail */}
+                    {/* Artwork thumbnail 44x44 */}
                     <td>
                       <img
-                        src={api.getArtworkUrl('song', song.id, 40, 40)}
+                        src={api.getArtworkUrl('song', song.id, 88, 88)}
                         alt={song.title}
                         style={{
-                          width: '36px',
-                          height: '36px',
+                          width: '42px',
+                          height: '42px',
                           borderRadius: 'var(--radius-sm)',
                           objectFit: 'cover',
-                          backgroundColor: 'var(--bg-surface-active)',
-                          border: '1px solid var(--border-subtle)',
+                          backgroundColor: '#1e293b',
+                          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
                         }}
                         loading="lazy"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%231e293b"><rect width="36" height="36"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="12">🎵</text></svg>';
+                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%231e293b"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
                         }}
                       />
                     </td>
 
-                    {/* Title */}
-                    <td style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {song.title}
+                    {/* Primary Title + Secondary Artist • Soundtrack */}
+                    <td style={{ minWidth: '220px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {song.title}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                        {song.artist || 'Unknown'} {song.album ? `• ${song.album}` : ''} {song.year ? `(${song.year})` : ''}
+                      </div>
                     </td>
 
-                    {/* Artist */}
-                    <td style={{ color: 'var(--text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {song.artist || '—'}
+                    {/* Duration */}
+                    <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {formatDuration(song.duration_sec)}
                     </td>
-
-                    {/* Album */}
-                    <td style={{ color: 'var(--text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {song.album || '—'}
-                    </td>
-
-                    {/* Year */}
-                    <td style={{ color: 'var(--text-muted)' }}>{song.year || '—'}</td>
 
                     {/* Quality */}
                     <td>
-                      <QualityBadge quality={song.quality} />
+                      <QualityBadge quality={song.quality} isDownloaded={isDownloaded} />
                     </td>
 
                     {/* Download State */}
@@ -439,7 +456,21 @@ export const SongsView: React.FC = () => {
                     {/* Actions */}
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '4px' }}>
-                        {song.download_state !== 'DOWNLOADED' ? (
+                        {/* Favorite toggle button */}
+                        <button
+                          onClick={(e) => handleToggleFavorite(song, e)}
+                          className="btn-icon"
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            color: song.is_favorite ? 'var(--color-error)' : 'var(--text-muted)',
+                          }}
+                          title={song.is_favorite ? 'Starred' : 'Add to Favorites'}
+                        >
+                          <Heart size={14} fill={song.is_favorite ? 'currentColor' : 'none'} />
+                        </button>
+
+                        {!isDownloaded ? (
                           <button
                             onClick={() => handleDownload(song.id, song.title)}
                             className="btn-icon"

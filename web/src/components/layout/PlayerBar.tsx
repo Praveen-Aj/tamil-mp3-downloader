@@ -12,11 +12,14 @@ import {
   ListMusic,
   X,
   Trash2,
+  Download,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
+import { useApp } from '../../context/AppContext';
 import { api } from '../../api/client';
 import { QualityBadge } from '../common/Badge';
-import { songsApi } from '../../api/endpoints';
+import { songsApi, downloadsApi } from '../../api/endpoints';
 
 export const PlayerBar: React.FC = () => {
   const {
@@ -39,6 +42,7 @@ export const PlayerBar: React.FC = () => {
     clearQueue,
   } = useAudioPlayer();
 
+  const { showToast, refreshStats } = useApp();
   const [isFav, setIsFav] = useState(false);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
 
@@ -57,6 +61,19 @@ export const PlayerBar: React.FC = () => {
       await songsApi.toggleFavorite(currentSong.id, nextFav);
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
+    }
+  };
+
+  const handleDownloadCurrentSong = async () => {
+    if (!currentSong) return;
+    try {
+      const res = await downloadsApi.queueSongs([currentSong.id]);
+      if (res.success) {
+        showToast(`Queued "${currentSong.title}" for download`, 'success');
+        refreshStats();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to download song', 'error');
     }
   };
 
@@ -118,53 +135,58 @@ export const PlayerBar: React.FC = () => {
         }}
       >
         {/* 1. Left: Track Metadata & Artwork */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '30%', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '32%', minWidth: 0 }}>
           <img
-            src={api.getArtworkUrl('song', currentSong.id, 96, 96)}
+            src={api.getArtworkUrl('song', currentSong.id, 120, 120)}
             alt={currentSong.title}
             style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: 'var(--radius-sm)',
+              width: '56px',
+              height: '56px',
+              borderRadius: 'var(--radius-md)',
               objectFit: 'cover',
-              backgroundColor: 'var(--bg-surface)',
+              backgroundColor: '#1e293b',
               border: '1px solid var(--border-subtle)',
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
               flexShrink: 0,
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" fill="%231e293b"><rect width="52" height="52"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="16">🎵</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%231e293b"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="16">🎵</text></svg>';
             }}
           />
           <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
             <div
               style={{
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: '14px',
                 color: 'var(--text-primary)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
+              title={currentSong.title}
             >
               {currentSong.title}
             </div>
             <div
               style={{
                 fontSize: '12px',
-                color: 'var(--text-muted)',
+                color: 'var(--text-secondary)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 marginTop: '2px',
               }}
+              title={`${currentSong.artist || 'Unknown'} • ${currentSong.album || 'Soundtrack'}`}
             >
-              {currentSong.artist || currentSong.album || 'Tamil MP3 Studio'}
+              {currentSong.artist || 'Unknown'} {currentSong.album ? `• ${currentSong.album}` : ''}
             </div>
           </div>
 
-          <QualityBadge quality={currentSong.quality} />
+          <QualityBadge
+            quality={currentSong.quality}
+            isDownloaded={currentSong.has_file || currentSong.state === 'OWNED'}
+          />
 
           <button
             onClick={handleToggleFavorite}
@@ -181,6 +203,25 @@ export const PlayerBar: React.FC = () => {
           >
             <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
           </button>
+
+          {!(currentSong.has_file || currentSong.state === 'OWNED') ? (
+            <button
+              onClick={handleDownloadCurrentSong}
+              className="btn-icon"
+              style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
+              title="Download track to local library"
+              aria-label="Download track"
+            >
+              <Download size={15} />
+            </button>
+          ) : (
+            <span
+              style={{ color: 'var(--color-success)', display: 'inline-flex', padding: '4px' }}
+              title="Track is downloaded in local library"
+            >
+              <CheckCircle2 size={16} />
+            </span>
+          )}
         </div>
 
         {/* 2. Middle: Transport Controls & Scrubber */}

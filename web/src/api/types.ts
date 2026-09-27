@@ -49,6 +49,7 @@ export interface Movie {
   local_poster_path?: string;
   total_songs?: number;
   total_tracks?: number;
+  track_count?: number;
   downloaded_count?: number;
   missing_count?: number;
 }

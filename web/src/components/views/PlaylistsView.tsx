@@ -299,7 +299,7 @@ export const PlaylistsView: React.FC = () => {
                         />
                       </td>
                       <td>
-                        <QualityBadge quality={song.quality} />
+                        <QualityBadge quality={song.quality} isDownloaded={isOwned} />
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
