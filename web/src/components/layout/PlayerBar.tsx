@@ -118,6 +118,7 @@ export const PlayerBar: React.FC = () => {
   return (
     <>
       <footer
+        className="player-bar-container"
         style={{
           height: 'var(--player-height)',
           backgroundColor: 'var(--bg-player)',
@@ -131,7 +132,6 @@ export const PlayerBar: React.FC = () => {
           zIndex: 100,
           userSelect: 'none',
           position: 'relative',
-          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4)',
         }}
       >
         {/* 1. Left: Track Metadata & Artwork */}

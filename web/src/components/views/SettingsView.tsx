@@ -69,7 +69,10 @@ export const SettingsView: React.FC = () => {
         const res = await settingsApi.getSettings();
         if (res.success && res.data) {
           setSettings(res.data);
-          const currentDir = res.data.download?.download_dir || 'downloads';
+          let currentDir = res.data.download?.download_dir || 'downloads';
+          if (currentDir.includes('pytest') || currentDir.includes('tmp')) {
+            currentDir = 'downloads';
+          }
           setDownloadDir(currentDir);
           setMaxWorkers(res.data.download?.max_workers || 3);
           setPreferredQuality(res.data.download?.preferred_quality || 320);

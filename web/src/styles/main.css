@@ -278,4 +278,110 @@ input[type="checkbox"] {
   }
 }
 
+/* --- Responsive Layout & Mobile Adjustments --- */
 
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.main-layout {
+  display: flex;
+  flex: 1;
+  height: calc(100% - var(--player-height));
+  overflow: hidden;
+  position: relative;
+}
+
+.content-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.main-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 96px; /* Extra padding for floating action bars or mobile player */
+}
+
+/* Sidebar Responsive */
+.sidebar-container {
+  width: var(--sidebar-width);
+  height: 100%;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  user-select: none;
+  z-index: 50;
+  transition: transform var(--transition-normal);
+}
+
+.mobile-nav-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-container {
+    position: absolute;
+    transform: translateX(-100%);
+    width: 260px;
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .sidebar-container.open {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-bar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: fixed;
+    bottom: var(--player-height);
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: var(--bg-sidebar);
+    border-top: 1px solid var(--border-subtle);
+    z-index: 90;
+    padding: 0 16px;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .mobile-nav-item.active {
+    color: var(--accent-primary);
+  }
+
+  .main-scrollable {
+    padding-bottom: 156px; /* 96 + 60 for mobile nav */
+  }
+
+  .header-container {
+    padding: 0 16px !important;
+  }
+  
+  .player-bar-container {
+    padding: 0 12px !important;
+  }
+
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+}

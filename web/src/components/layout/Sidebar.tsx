@@ -63,19 +63,9 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside
-      style={{
-        width: 'var(--sidebar-width)',
-        height: '100%',
-        backgroundColor: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        userSelect: 'none',
-      }}
-    >
-      {/* Brand Header */}
+    <>
+      <aside className="sidebar-container">
+        {/* Brand Header */}
       <div
         style={{
           padding: '24px 20px 20px',
@@ -193,5 +183,28 @@ export const Sidebar: React.FC = () => {
       </nav>
 
     </aside>
+
+    {/* Mobile Navigation Bar */}
+    <nav className="mobile-nav-bar">
+      {[
+        { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={20} /> },
+        { id: 'movies', label: 'Movies', icon: <Film size={20} /> },
+        { id: 'songs', label: 'Library', icon: <Music size={20} /> },
+        { id: 'downloads', label: 'Downloads', icon: <ArrowDownCircle size={20} /> },
+      ].map((item) => {
+        const isActive = currentView === item.id;
+        return (
+          <button
+            key={item.id}
+            className={`mobile-nav-item ${isActive ? 'active' : ''}`}
+            onClick={() => navigateTo(item.id as ViewType)}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+    </>
   );
 };

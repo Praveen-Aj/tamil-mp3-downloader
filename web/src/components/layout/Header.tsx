@@ -102,6 +102,7 @@ export const Header: React.FC = () => {
 
   return (
     <header
+      className="header-container"
       style={{
         height: 'var(--header-height)',
         backgroundColor: 'var(--bg-header)',

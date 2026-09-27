@@ -58,21 +58,12 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        width: '100%',
-        overflow: 'hidden',
-        backgroundColor: 'var(--bg-app)',
-      }}
-    >
-      <div style={{ display: 'flex', flex: 1, height: 'calc(100% - var(--player-height))', overflow: 'hidden' }}>
+    <div className="app-container">
+      <div className="main-layout">
         <Sidebar />
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div className="content-area">
           <Header />
-          <main style={{ flex: 1, overflowY: 'auto', paddingBottom: '96px' }}>
+          <main className="main-scrollable">
             {renderView()}
           </main>
         </div>

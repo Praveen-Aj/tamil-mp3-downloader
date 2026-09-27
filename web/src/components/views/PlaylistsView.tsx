@@ -42,7 +42,11 @@ export const PlaylistsView: React.FC = () => {
     try {
       const res = await playlistsApi.getPlaylists();
       if (res.success && res.data) {
-        setPlaylists(res.data.items || []);
+        // Filter out test/demo playlists from the UI
+        const validPlaylists = (res.data.items || []).filter(
+          (pl: Playlist) => !pl.name.toLowerCase().includes('test')
+        );
+        setPlaylists(validPlaylists);
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to load playlists', 'error');

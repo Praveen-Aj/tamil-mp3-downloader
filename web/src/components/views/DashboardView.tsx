@@ -134,7 +134,7 @@ export const DashboardView: React.FC = () => {
             Tamil MP3 Library
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px', lineHeight: 1.5, marginBottom: '20px' }}>
-            High-fidelity Tamil soundtracks, lossless metadata preservation, and automated audio acquisition.
+            Discover, organize and download Tamil music in high quality.
           </p>
 
           {/* Minimalist Stats Chips */}
@@ -198,6 +198,7 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div
+            className="grid-responsive"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
@@ -290,6 +291,7 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div
+            className="grid-responsive"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -385,6 +387,7 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div
+            className="grid-responsive"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',

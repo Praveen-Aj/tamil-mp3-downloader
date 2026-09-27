@@ -153,8 +153,19 @@ export const ChartsView: React.FC = () => {
             Loading chart entries...
           </div>
         ) : entries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
-            No entries found in this chart.
+          <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'var(--bg-surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Flame size={32} color="var(--text-muted)" />
+            </div>
+            <div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: 'var(--text-primary)' }}>Charts aren't available yet</h3>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '320px' }}>
+                We couldn't fetch the latest chart data. Please try refreshing to load the latest trending tracks.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={handleRefreshChart} loading={refreshing} style={{ marginTop: '8px' }}>
+              <RefreshCw size={15} /> Refresh Charts
+            </Button>
           </div>
         ) : (
           <table className="data-table">
