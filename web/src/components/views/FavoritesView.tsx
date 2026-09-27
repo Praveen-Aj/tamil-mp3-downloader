@@ -127,8 +127,8 @@ export const FavoritesView: React.FC = () => {
         )}
       </div>
 
-      {/* Favorites Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
+      {/* Favorites — Desktop table */}
+      <div className="glass-panel desktop-only-table" style={{ overflow: 'hidden' }}>
         <table className="data-table">
           <thead>
             <tr>
@@ -282,6 +282,61 @@ export const FavoritesView: React.FC = () => {
               </Button>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Favorites — Mobile card list (hidden on desktop, shown on mobile via CSS) */}
+      <div className="glass-panel mobile-cards-container" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
+        ) : songs.length === 0 ? null : (
+          songs.map((song) => (
+            <div key={`m-${song.id}`} className="mobile-track-card">
+              <img
+                src={`/api/artwork/song/${song.id}?w=44&h=44`}
+                alt={song.title}
+                className="mobile-track-card__art"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%231e293b"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">♪</text></svg>';
+                }}
+              />
+              <div className="mobile-track-card__info">
+                <div className="mobile-track-card__title">{song.title}</div>
+                <div className="mobile-track-card__meta">
+                  {[song.artist, song.album].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <div className="mobile-track-card__actions">
+                <button
+                  onClick={() => playSong(song, songs)}
+                  className="btn-icon"
+                  aria-label={`Play ${song.title}`}
+                  style={{ width: '36px', height: '36px' }}
+                >
+                  <Play size={14} fill="currentColor" />
+                </button>
+                {song.download_state !== 'DOWNLOADED' ? (
+                  <button
+                    onClick={() => handleDownload(song.id, song.title)}
+                    className="btn-icon"
+                    aria-label={`Download ${song.title}`}
+                    style={{ width: '36px', height: '36px', color: 'var(--accent-primary)' }}
+                  >
+                    <Download size={14} />
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => handleRemoveFavorite(song.id, song.title)}
+                  className="btn-icon"
+                  aria-label={`Remove ${song.title} from favorites`}
+                  style={{ width: '36px', height: '36px', color: 'var(--color-error)' }}
+                >
+                  <Heart size={14} fill="currentColor" />
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

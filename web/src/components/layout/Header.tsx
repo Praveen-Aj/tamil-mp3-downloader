@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, HardDrive, Music, Film, Users, Play, X } from 'lucide-react';
+import { Search, RefreshCw, HardDrive, Music, Film, Users, Play, X, Menu } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { searchApi } from '../../api/endpoints';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { Song, Movie, Artist } from '../../api/types';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { currentView, stats, refreshStats, navigateTo, setGlobalSearchQuery } = useApp();
   const { playSong } = useAudioPlayer();
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,15 +118,26 @@ export const Header: React.FC = () => {
         padding: '0 28px',
         position: 'relative',
         zIndex: 50,
+        gap: '12px',
       }}
     >
-      {/* Title */}
-      <h1 className="title-display" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
+      {/* Hamburger (mobile only) */}
+      <button
+        className="btn-icon header-hamburger"
+        onClick={onMenuClick}
+        aria-label="Open menu"
+        style={{ width: '36px', height: '36px', flexShrink: 0 }}
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Page Title */}
+      <h1 className="title-display" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>
         {getPageTitle()}
       </h1>
 
-      {/* Global Search Bar */}
-      <div ref={dropdownRef} style={{ position: 'relative', width: '380px' }}>
+      {/* Global Search Bar — hidden on mobile, shown on desktop */}
+      <div ref={dropdownRef} style={{ position: 'relative', flex: 1, maxWidth: '380px' }} className="header-search-full">
         <form
           onSubmit={handleSearchSubmit}
           style={{
@@ -365,10 +380,11 @@ export const Header: React.FC = () => {
         )}
       </div>
 
-      {/* Action Controls & Diagnostics */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      {/* Right side: storage info + refresh — hidden on mobile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {/* Storage Badge */}
         <div
+          className="header-stats-badge"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -376,21 +392,22 @@ export const Header: React.FC = () => {
             fontSize: '12px',
             color: 'var(--text-secondary)',
             backgroundColor: 'var(--bg-surface)',
-            padding: '6px 12px',
+            padding: '5px 10px',
             borderRadius: 'var(--radius-pill)',
             border: '1px solid var(--border-subtle)',
           }}
         >
-          <HardDrive size={14} color="var(--accent-secondary)" />
+          <HardDrive size={13} color="var(--text-muted)" />
           <span>{formatStorage(stats?.total_storage_bytes)}</span>
         </div>
 
         {/* Refresh Button */}
         <button
           onClick={() => refreshStats()}
-          title="Refresh library metrics"
+          title="Refresh library"
           className="btn-icon"
           style={{ width: '32px', height: '32px' }}
+          aria-label="Refresh library"
         >
           <RefreshCw size={15} />
         </button>

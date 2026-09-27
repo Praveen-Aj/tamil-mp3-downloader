@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AudioPlayerProvider } from './context/AudioPlayerContext';
 import { WebSocketProvider } from './context/WebSocketContext';
@@ -23,6 +23,14 @@ import { ArtistDetailView } from './components/views/ArtistDetailView';
 
 const MainContent: React.FC = () => {
   const { currentView } = useApp();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Listen for the custom "open-sidebar" event from the mobile More button
+  useEffect(() => {
+    const handler = () => setSidebarOpen(true);
+    document.addEventListener('open-sidebar', handler);
+    return () => document.removeEventListener('open-sidebar', handler);
+  }, []);
 
   const renderView = () => {
     switch (currentView) {
@@ -60,9 +68,9 @@ const MainContent: React.FC = () => {
   return (
     <div className="app-container">
       <div className="main-layout">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="content-area">
-          <Header />
+          <Header onMenuClick={() => setSidebarOpen(true)} />
           <main className="main-scrollable">
             {renderView()}
           </main>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   LayoutDashboard,
   Music,
@@ -11,6 +11,8 @@ import {
   Link2,
   Settings,
   Radio,
+  X,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useApp, ViewType } from '../../context/AppContext';
 
@@ -26,17 +28,22 @@ interface NavSection {
   items: NavItem[];
 }
 
-export const Sidebar: React.FC = () => {
-  const { currentView, navigateTo, stats, isBackendHealthy } = useApp();
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const { currentView, navigateTo, stats } = useApp();
 
   const sections: NavSection[] = [
     {
       title: 'Discover',
       items: [
-        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={18} /> },
         { id: 'charts', label: 'Top Charts', icon: <Flame size={18} /> },
-        { id: 'movies', label: 'Soundtracks & Movies', icon: <Film size={18} />, badge: stats?.total_movies },
-        { id: 'artists', label: 'Artists & Composers', icon: <Users size={18} />, badge: stats?.total_artists },
+        { id: 'movies', label: 'Movies', icon: <Film size={18} />, badge: stats?.total_movies },
+        { id: 'artists', label: 'Artists', icon: <Users size={18} />, badge: stats?.total_artists },
       ],
     },
     {
@@ -62,149 +69,216 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
+  // Close sidebar on ESC key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
+  const handleNavClick = (id: ViewType) => {
+    navigateTo(id);
+    onClose(); // close on mobile after navigation
+  };
+
   return (
     <>
-      <aside className="sidebar-container">
+      {/* Sidebar backdrop (mobile only) */}
+      {isOpen && (
+        <div
+          className="sidebar-backdrop open"
+          onClick={onClose}
+          aria-label="Close menu"
+        />
+      )}
+
+      <aside className={`sidebar-container${isOpen ? ' open' : ''}`}>
         {/* Brand Header */}
-      <div
-        style={{
-          padding: '24px 20px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          borderBottom: '1px solid var(--border-subtle)',
-          cursor: 'pointer',
-        }}
-        onClick={() => navigateTo('dashboard')}
-      >
         <div
           style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+            padding: '20px 20px 16px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          <Radio size={20} color="#ffffff" />
-        </div>
-        <div>
-          <div
-            className="title-display"
-            style={{ fontSize: '16px', fontWeight: 800, lineHeight: 1.1, color: 'var(--text-primary)' }}
+          <button
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            onClick={() => handleNavClick('dashboard')}
+            aria-label="Go to home"
           >
-            TAMIL MP3
-          </div>
-        </div>
-      </div>
-
-      {/* Grouped Navigation Sections */}
-      <nav style={{ padding: '16px 12px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {sections.map((section) => (
-          <div key={section.title}>
             <div
               style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-muted)',
-                padding: '0 12px 6px',
+                width: '34px',
+                height: '34px',
+                borderRadius: '9px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                /* No box-shadow glow */
               }}
             >
-              {section.title}
+              <Radio size={18} color="#ffffff" />
             </div>
-            <ul style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: 0, padding: 0, listStyle: 'none' }}>
-              {section.items.map((item) => {
-                const isActive = currentView === item.id;
-                return (
-                  <li key={item.id}>
-                    <button
-                      onClick={() => navigateTo(item.id)}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '9px 12px',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: isActive ? 'var(--accent-primary)' : 'transparent',
-                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                        fontWeight: isActive ? 600 : 500,
-                        fontSize: '13px',
-                        boxShadow: isActive ? '0 4px 12px var(--accent-primary-glow)' : 'none',
-                        transition: 'all var(--transition-fast)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
-                          e.currentTarget.style.color = 'var(--text-primary)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.color = 'var(--text-secondary)';
-                        }
-                      }}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </div>
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <span
-                          style={{
-                            padding: '1px 7px',
-                            borderRadius: 'var(--radius-pill)',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            backgroundColor: isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                            color: isActive ? '#ffffff' : 'var(--text-muted)',
-                          }}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-
-    </aside>
-
-    {/* Mobile Navigation Bar */}
-    <nav className="mobile-nav-bar">
-      {[
-        { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={20} /> },
-        { id: 'movies', label: 'Movies', icon: <Film size={20} /> },
-        { id: 'songs', label: 'Library', icon: <Music size={20} /> },
-        { id: 'downloads', label: 'Downloads', icon: <ArrowDownCircle size={20} /> },
-      ].map((item) => {
-        const isActive = currentView === item.id;
-        return (
-          <button
-            key={item.id}
-            className={`mobile-nav-item ${isActive ? 'active' : ''}`}
-            onClick={() => navigateTo(item.id as ViewType)}
-          >
-            {item.icon}
-            <span>{item.label}</span>
+            <div
+              className="title-display"
+              style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.1, color: 'var(--text-primary)' }}
+            >
+              TAMIL MP3
+            </div>
           </button>
-        );
-      })}
-    </nav>
+
+          {/* Close button — visible on mobile */}
+          <button
+            className="btn-icon header-hamburger"
+            onClick={onClose}
+            aria-label="Close sidebar"
+            style={{ width: '32px', height: '32px' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Grouped Navigation Sections */}
+        <nav
+          style={{
+            padding: '12px 12px',
+            flex: 1,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+          }}
+        >
+          {sections.map((section) => (
+            <div key={section.title}>
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--text-muted)',
+                  padding: '0 10px 5px',
+                }}
+              >
+                {section.title}
+              </div>
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: 0, padding: 0, listStyle: 'none' }}>
+                {section.items.map((item) => {
+                  const isActive = currentView === item.id ||
+                    (currentView === 'movie_detail' && item.id === 'movies') ||
+                    (currentView === 'artist_detail' && item.id === 'artists');
+                  return (
+                    <li key={item.id}>
+                      <button
+                        onClick={() => handleNavClick(item.id)}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '9px 10px',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                          color: isActive ? '#a5b4fc' : 'var(--text-secondary)',
+                          fontWeight: isActive ? 600 : 500,
+                          fontSize: '13px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all var(--transition-fast)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                            e.currentTarget.style.color = 'var(--text-primary)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                          }
+                        }}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span
+                            style={{
+                              padding: '1px 6px',
+                              borderRadius: 'var(--radius-pill)',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            {item.badge > 9999 ? `${Math.round(item.badge / 1000)}k` : item.badge}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Mobile Bottom Navigation Bar — 4 primary destinations */}
+      <nav className="mobile-nav-bar" aria-label="Main navigation">
+        {[
+          { id: 'dashboard' as ViewType, label: 'Home', icon: <LayoutDashboard size={20} /> },
+          { id: 'movies' as ViewType, label: 'Movies', icon: <Film size={20} /> },
+          { id: 'songs' as ViewType, label: 'Library', icon: <Music size={20} /> },
+          { id: 'downloads' as ViewType, label: 'Downloads', icon: <ArrowDownCircle size={20} /> },
+          { id: 'settings' as ViewType, label: 'More', icon: <MoreHorizontal size={20} />, openSidebar: true },
+        ].map((item: any) => {
+          const isActive = currentView === item.id ||
+            (item.id === 'movies' && currentView === 'movie_detail') ||
+            (item.id === 'songs' && currentView === 'artist_detail');
+          return (
+            <button
+              key={item.id}
+              className={`mobile-nav-item${isActive ? ' active' : ''}`}
+              onClick={() => {
+                if (item.openSidebar) {
+                  onClose(); // toggle — handled by parent
+                  // We want to open, not close, so we call a different handler:
+                  // The parent manages sidebarOpen state
+                  // We trigger via a custom event
+                  document.dispatchEvent(new CustomEvent('open-sidebar'));
+                } else {
+                  navigateTo(item.id as ViewType);
+                }
+              }}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </>
   );
 };

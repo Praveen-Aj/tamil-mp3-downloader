@@ -117,7 +117,7 @@ export const ChartsView: React.FC = () => {
               {activeChart?.title || 'Trending Charts'}
             </h2>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Provider: {activeChart?.provider_name || 'Regional'} • {entries.length} tracks
+              {activeChart?.provider_name ? `${activeChart.provider_name} · ` : ''}{entries.length} tracks
             </div>
           </div>
         </div>
@@ -126,9 +126,11 @@ export const ChartsView: React.FC = () => {
           <Button variant="secondary" onClick={handleRefreshChart} loading={refreshing}>
             <RefreshCw size={15} /> Refresh
           </Button>
-          <Button variant="primary" onClick={handleDownloadChart}>
-            <Download size={15} /> Download All
-          </Button>
+          {entries.length > 0 && (
+            <Button variant="primary" onClick={handleDownloadChart}>
+              <Download size={15} /> Download All
+            </Button>
+          )}
         </div>
       </div>
 

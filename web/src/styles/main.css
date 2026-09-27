@@ -10,11 +10,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Surface & Elevation Utilities (Restrained & Functional) */
@@ -115,7 +115,8 @@
 }
 .btn-primary:hover {
   background: var(--accent-primary-hover);
-  box-shadow: 0 4px 12px var(--accent-primary-glow);
+  /* Reduced glow — was 0 4px 12px rgba(99,102,241,0.35) */
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18);
 }
 
 .btn-secondary {
@@ -155,7 +156,8 @@
 .btn-icon-primary {
   background: var(--accent-primary);
   color: #ffffff;
-  box-shadow: 0 2px 8px var(--accent-primary-glow);
+  /* Reduced glow */
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
 }
 .btn-icon-primary:hover {
   background: var(--accent-primary-hover);
@@ -278,7 +280,15 @@ input[type="checkbox"] {
   }
 }
 
-/* --- Responsive Layout & Mobile Adjustments --- */
+/* ==========================================================================
+   Responsive Layout Foundation
+   ========================================================================== */
+
+/* CSS custom properties for mobile layout math */
+:root {
+  --mobile-nav-height: 60px;
+  --mobile-bottom-clearance: calc(var(--player-height) + var(--mobile-nav-height));
+}
 
 .app-container {
   display: flex;
@@ -308,10 +318,11 @@ input[type="checkbox"] {
 .main-scrollable {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 96px; /* Extra padding for floating action bars or mobile player */
+  /* Desktop — extra bottom padding for floating action bars */
+  padding-bottom: 32px;
 }
 
-/* Sidebar Responsive */
+/* Sidebar */
 .sidebar-container {
   width: var(--sidebar-width);
   height: 100%;
@@ -325,22 +336,51 @@ input[type="checkbox"] {
   transition: transform var(--transition-normal);
 }
 
+/* Mobile Bottom Nav — hidden on desktop */
 .mobile-nav-bar {
   display: none;
 }
 
+/* Mobile Nav Backdrop */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 49;
+}
+.sidebar-backdrop.open {
+  display: block;
+}
+
+/* Grid utility */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+/* ==========================================================================
+   Mobile Responsive — ≤ 768px
+   ========================================================================== */
 @media (max-width: 768px) {
+  /* Slide sidebar off-canvas */
   .sidebar-container {
-    position: absolute;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
     transform: translateX(-100%);
-    width: 260px;
+    width: 280px;
     box-shadow: var(--shadow-lg);
+    z-index: 50;
   }
-  
+
   .sidebar-container.open {
     transform: translateX(0);
   }
 
+  /* Mobile Bottom Nav */
   .mobile-nav-bar {
     display: flex;
     justify-content: space-around;
@@ -349,39 +389,188 @@ input[type="checkbox"] {
     bottom: var(--player-height);
     left: 0;
     right: 0;
-    height: 60px;
+    height: var(--mobile-nav-height);
     background-color: var(--bg-sidebar);
     border-top: 1px solid var(--border-subtle);
     z-index: 90;
-    padding: 0 16px;
+    padding: 0 8px;
+    /* No glow — just a clean separator */
   }
 
   .mobile-nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
+    padding: 8px 12px;
     color: var(--text-secondary);
     font-size: 10px;
     font-weight: 600;
+    border-radius: var(--radius-md);
+    transition: color var(--transition-fast), background var(--transition-fast);
+    /* min touch target ~44px */
+    min-height: 44px;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
   }
   .mobile-nav-item.active {
     color: var(--accent-primary);
   }
-
-  .main-scrollable {
-    padding-bottom: 156px; /* 96 + 60 for mobile nav */
+  .mobile-nav-item:not(.active):hover {
+    background: rgba(255, 255, 255, 0.05);
   }
 
+  /* Content bottom padding = player + mobile nav + safe buffer */
+  .main-scrollable {
+    padding-bottom: var(--mobile-bottom-clearance);
+  }
+
+  /* Header adjustments */
   .header-container {
     padding: 0 16px !important;
   }
-  
+
+  /* Hamburger button — only on mobile */
+  .header-hamburger {
+    display: flex !important;
+  }
+
+  /* Search — collapse on narrow */
+  .header-search-full {
+    display: none !important;
+  }
+
+  /* Player compact */
   .player-bar-container {
     padding: 0 12px !important;
   }
 
+  /* Desktop-only header elements */
+  .header-stats-badge {
+    display: none !important;
+  }
+
+  /* Reduce grid columns on mobile */
   .grid-responsive {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
   }
+
+  /* Data tables — horizontal scroll container */
+  .data-table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ==========================================================================
+   Mobile Card List — replaces tables on narrow screens
+   ========================================================================== */
+
+/* .mobile-track-list: used by FavoritesView and SongsView on mobile */
+.mobile-track-card {
+  display: none; /* hidden on desktop */
+}
+
+/* Mobile-only card container — hide on desktop */
+.mobile-cards-container {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Hide desktop table, show mobile cards */
+  .desktop-only-table {
+    display: none !important;
+  }
+
+  .mobile-cards-container {
+    display: block !important;
+  }
+
+  .mobile-track-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background var(--transition-fast);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .mobile-track-card:last-child {
+    border-bottom: none;
+  }
+  .mobile-track-card:hover {
+    background: var(--bg-surface-hover);
+  }
+
+  .mobile-track-card__art {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--bg-surface-active);
+  }
+
+  .mobile-track-card__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-track-card__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-track-card__meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .mobile-track-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .mobile-track-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Compact view padding on mobile */
+  .view-padding-mobile {
+    padding: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   Desktop-only helpers
+   ========================================================================== */
+.header-hamburger {
+  display: none; /* Only shown on mobile via media query above */
+}
+
+/* ==========================================================================
+   Player Bar — no blue ambient glow
+   ========================================================================== */
+.player-bar-wrapper {
+  /* Restrained elevation — no blue glow */
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-player);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
