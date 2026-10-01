@@ -368,7 +368,7 @@ export const SongsView: React.FC = () => {
                   <tr
                     key={song.id}
                     style={{
-                      backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                      backgroundColor: isSelected ? 'rgba(139, 124, 248, 0.08)' : undefined,
                     }}
                   >
                     {/* Checkbox */}

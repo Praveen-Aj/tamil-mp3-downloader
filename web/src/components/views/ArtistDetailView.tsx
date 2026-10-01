@@ -172,7 +172,7 @@ export const ArtistDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%230f172a"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23a5b4fc" font-size="48">👤</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231A1A1F"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="48">👤</text></svg>';
             }}
           />
         </div>
@@ -251,7 +251,7 @@ export const ArtistDetailView: React.FC = () => {
                 <tr
                   key={song.id}
                   style={{
-                    backgroundColor: currentSong?.id === song.id ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                    backgroundColor: currentSong?.id === song.id ? 'rgba(139, 124, 248, 0.08)' : undefined,
                   }}
                 >
                   {/* Track Number */}

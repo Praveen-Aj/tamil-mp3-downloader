@@ -66,8 +66,8 @@
 }
 
 .badge-primary {
-  background: rgba(99, 102, 241, 0.12);
-  color: #a5b4fc;
+  background: rgba(139, 124, 248, 0.10);
+  color: #BAB0FB;
 }
 
 .badge-success {
@@ -116,7 +116,7 @@
 .btn-primary:hover {
   background: var(--accent-primary-hover);
   /* Reduced glow — was 0 4px 12px rgba(99,102,241,0.35) */
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18);
+  box-shadow: 0 2px 8px rgba(139, 124, 248, 0.15);
 }
 
 .btn-secondary {
@@ -157,7 +157,7 @@
   background: var(--accent-primary);
   color: #ffffff;
   /* Reduced glow */
-  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 2px 6px rgba(139, 124, 248, 0.15);
 }
 .btn-icon-primary:hover {
   background: var(--accent-primary-hover);

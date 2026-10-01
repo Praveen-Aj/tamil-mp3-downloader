@@ -1,58 +1,61 @@
+/* Design Tokens for V6 web UI */
 :root {
-  /* Surface & Background Palettes */
-  --bg-app: #080c14;
-  --bg-sidebar: #0d121f;
-  --bg-header: #0d121f;
-  --bg-player: rgba(13, 18, 31, 0.96);
-  --bg-surface: #121929;
-  --bg-surface-hover: #182238;
-  --bg-surface-active: #1e2c48;
-  --bg-inset: #0a0f1a;
-  --bg-glass: rgba(18, 25, 41, 0.85);
-  --bg-glass-hover: rgba(24, 34, 56, 0.9);
-  --bg-modal: #121929;
-  --bg-tooltip: #1e293b;
+  /* === SURFACE & BACKGROUND — Graphite/Charcoal (No blue tint) === */
+  --bg-app: #0B0B0D;
+  --bg-sidebar: #0F0F12;
+  --bg-header: #0F0F12;
+  --bg-player: rgba(11, 11, 13, 0.97);
+  --bg-surface: #1A1A1F;
+  --bg-surface-hover: #202028;
+  --bg-surface-active: #26262F;
+  --bg-inset: #080809;
+  --bg-glass: rgba(26, 26, 31, 0.88);
+  --bg-glass-hover: rgba(32, 32, 40, 0.92);
+  --bg-modal: #1A1A1F;
+  --bg-tooltip: #222228;
 
-  /* Accent & Brand Colors */
-  --accent-primary: #6366f1;
-  --accent-primary-hover: #4f46e5;
-  --accent-primary-glow: rgba(99, 102, 241, 0.12);
-  --accent-secondary: #06b6d4;
-  --accent-secondary-hover: #0891b2;
-  --accent-secondary-glow: rgba(6, 182, 212, 0.12);
+  /* === ACCENT — Single restrained violet === */
+  --accent-primary: #8B7CF8;
+  --accent-primary-hover: #7A6BE8;
+  --accent-primary-glow: rgba(139, 124, 248, 0.10);
   
-  /* Status Colors (Subtle Text & Soft Container Tints) */
-  --color-success: #10b981;
-  --color-success-bg: rgba(16, 185, 129, 0.1);
-  --color-warning: #f59e0b;
-  --color-warning-bg: rgba(245, 158, 11, 0.1);
-  --color-error: #ef4444;
-  --color-error-bg: rgba(239, 68, 68, 0.1);
-  --color-info: #3b82f6;
-  --color-info-bg: rgba(59, 130, 246, 0.1);
+  /* NO CYAN - Secondary accent mapped to primary to prevent overrides */
+  --accent-secondary: #8B7CF8;
+  --accent-secondary-hover: #7A6BE8;
+  --accent-secondary-glow: rgba(139, 124, 248, 0.08);
 
-  /* Typography Stacks */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
+  /* === STATUS COLORS (Semantic only) === */
+  --color-success: #22C55E;
+  --color-success-bg: rgba(34, 197, 94, 0.10);
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.10);
+  --color-error: #F87171;
+  --color-error-bg: rgba(248, 113, 113, 0.10);
+  --color-info: #8B7CF8;
+  --color-info-bg: rgba(139, 124, 248, 0.10);
+
+  /* === TYPOGRAPHY === */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Text Colors */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-inverse: #020617;
+  /* === TEXT COLORS — Graphite-neutral, no blue cast === */
+  --text-primary: #F4F4F6;
+  --text-secondary: #8A8A96;
+  --text-muted: #56565E;
+  --text-inverse: #0B0B0D;
 
-  /* Borders & Dividers */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-medium: rgba(255, 255, 255, 0.09);
-  --border-focus: #6366f1;
+  /* === BORDERS — Neutral white opacity, no blue tint === */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-medium: rgba(255, 255, 255, 0.08);
+  --border-focus: #8B7CF8;
 
-  /* Elevation Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* === SHADOWS — Minimal, tinted to graphite hue, reduced glow === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
 
-  /* Border Radii */
+  /* === BORDER RADII === */
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -60,15 +63,14 @@
   --radius-xl: 20px;
   --radius-pill: 9999px;
 
-  /* Dimensions */
+  /* === DIMENSIONS === */
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 72px;
   --header-height: 64px;
   --player-height: 84px;
 
-  /* Transitions & Motion */
+  /* === TRANSITIONS === */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-

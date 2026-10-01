@@ -246,7 +246,7 @@ export const MoviesView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%230f172a"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%236366f1" font-size="36">🎬</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%231A1A1F"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
                     }}
                   />
 
@@ -300,7 +300,7 @@ export const MoviesView: React.FC = () => {
                         position: 'absolute',
                         top: '8px',
                         left: '8px',
-                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                        backgroundColor: 'rgba(139, 124, 248, 0.85)',
                         color: '#ffffff',
                         fontSize: '10px',
                         fontWeight: 700,
@@ -345,7 +345,7 @@ export const MoviesView: React.FC = () => {
                             fontSize: '12px',
                             fontWeight: 600,
                             cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
+                            boxShadow: '0 4px 12px rgba(139, 124, 248, 0.25)',
                           }}
                         >
                           <Play size={13} fill="currentColor" /> Play Soundtrack

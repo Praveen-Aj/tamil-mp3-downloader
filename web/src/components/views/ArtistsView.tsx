@@ -97,9 +97,9 @@ export const ArtistsView: React.FC = () => {
     switch (role?.toLowerCase()) {
       case 'music_director':
       case 'composer':
-        return { bg: 'rgba(99, 102, 241, 0.15)', text: '#a5b4fc', border: 'rgba(99, 102, 241, 0.3)' };
+        return { bg: 'rgba(139, 124, 248, 0.12)', text: '#BAB0FB', border: 'rgba(139, 124, 248, 0.22)' };
       case 'singer':
-        return { bg: 'rgba(6, 182, 212, 0.15)', text: '#67e8f9', border: 'rgba(6, 182, 212, 0.3)' };
+        return { bg: 'rgba(34, 197, 94, 0.12)', text: '#86EFAC', border: 'rgba(34, 197, 94, 0.22)' };
       case 'lyricist':
         return { bg: 'rgba(245, 158, 11, 0.15)', text: '#fcd34d', border: 'rgba(245, 158, 11, 0.3)' };
       default:
@@ -262,7 +262,7 @@ export const ArtistsView: React.FC = () => {
                     marginBottom: '16px',
                     position: 'relative',
                     border: `3px solid ${isHovered ? 'var(--accent-primary)' : 'var(--border-medium)'}`,
-                    boxShadow: isHovered ? '0 0 20px rgba(99, 102, 241, 0.4)' : '0 4px 14px rgba(0, 0, 0, 0.4)',
+                    boxShadow: isHovered ? '0 0 16px rgba(139, 124, 248, 0.20)' : '0 4px 12px rgba(0, 0, 0, 0.4)',
                     transition: 'all 250ms ease',
                   }}
                 >
@@ -279,7 +279,7 @@ export const ArtistsView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%230f172a"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23a5b4fc" font-size="32">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%231A1A1F"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="32">👤</text></svg>';
                     }}
                   />
                 </div>

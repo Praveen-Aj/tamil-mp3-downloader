@@ -157,7 +157,7 @@ export const MovieDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%230f172a"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%236366f1" font-size="36">🎬</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%231A1A1F"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
             }}
           />
         </div>
@@ -238,7 +238,7 @@ export const MovieDetailView: React.FC = () => {
                 <tr
                   key={song.id}
                   style={{
-                    backgroundColor: currentSong?.id === song.id ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                    backgroundColor: currentSong?.id === song.id ? 'rgba(139, 124, 248, 0.08)' : undefined,
                   }}
                 >
                   {/* Track Number */}

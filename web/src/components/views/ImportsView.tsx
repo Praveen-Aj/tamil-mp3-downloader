@@ -48,7 +48,7 @@ export const ImportsView: React.FC = () => {
             width: '56px',
             height: '56px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+            background: 'linear-gradient(135deg, #10b981 0%, #22C55E 100%)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',

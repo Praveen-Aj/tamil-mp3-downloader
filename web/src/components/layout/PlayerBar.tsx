@@ -354,7 +354,7 @@ export const PlayerBar: React.FC = () => {
             style={{
               width: '34px',
               height: '34px',
-              backgroundColor: isQueueOpen ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+              backgroundColor: isQueueOpen ? 'rgba(139, 124, 248, 0.15)' : 'transparent',
               color: isQueueOpen ? 'var(--accent-primary)' : 'var(--text-secondary)',
               position: 'relative',
             }}
@@ -460,8 +460,8 @@ export const PlayerBar: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
+                backgroundColor: 'rgba(139, 124, 248, 0.10)',
+                border: '1px solid rgba(139, 124, 248, 0.18)',
                 marginBottom: '10px',
               }}
             >

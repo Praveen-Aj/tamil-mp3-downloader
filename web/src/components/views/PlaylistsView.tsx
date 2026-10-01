@@ -393,7 +393,7 @@ export const PlaylistsView: React.FC = () => {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              backgroundColor: 'rgba(99, 102, 241, 0.15)',
+              backgroundColor: 'rgba(139, 124, 248, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
