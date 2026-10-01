@@ -109,83 +109,79 @@ export const DashboardView: React.FC = () => {
   const missingCount = Math.max(0, (stats?.total_songs ?? 0) - (stats?.total_owned ?? 0));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '36px' }}>
-      {/* 1. Hero / Library Identity */}
+    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* 1. Music Library Hero Header */}
       <div
         className="glass-panel"
         style={{
-          padding: '16px 24px',
+          padding: '24px 28px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '24px',
-          position: 'relative',
-          overflow: 'hidden',
+          gap: '20px',
           borderRadius: 'var(--radius-xl)',
-          backgroundColor: 'transparent',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
         }}
       >
-        <div style={{ zIndex: 2, maxWidth: '640px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-            <Sparkles size={14} /> Personal Music Vault
-          </div>
-          <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
-            Tamil MP3 Library
+        <div style={{ maxWidth: '640px' }}>
+          <h1 className="title-display" style={{ fontSize: '28px', fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+            Tamil Music Library
           </h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px', lineHeight: 1.5, marginBottom: '20px' }}>
-            Discover, organize and download Tamil music in high quality.
+          <p style={{ color: 'var(--text-secondary)', marginTop: '6px', fontSize: '13.5px', marginBottom: '16px' }}>
+            Personal collection of Tamil soundtracks, high-fidelity lossless & 320 kbps MP3s.
           </p>
 
-          {/* Minimalist Stats Chips */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--text-muted)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)', fontWeight: 600 }}>
-              <CheckCircle2 size={15} /> {stats?.total_owned ?? 0} Downloaded
+          {/* Minimalist Library Stats Row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontWeight: 600 }}>
+              <CheckCircle2 size={14} /> {stats?.total_owned ?? 0} Downloaded
             </span>
-            <span>•</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
-              <Music size={14} color="var(--accent-primary)" /> {stats?.total_songs ?? 0} Catalog Songs
-            </span>
-            <span>•</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+            <span>·</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
               <Film size={14} color="var(--accent-secondary)" /> {stats?.total_movies ?? 0} Soundtracks
             </span>
-            <span>•</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
-              <HardDrive size={14} color="#f59e0b" /> {formatBytes(stats?.total_storage_bytes)}
+            <span>·</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
+              <Music size={14} color="var(--accent-primary)" /> {stats?.total_songs ?? 0} Tracks
+            </span>
+            <span>·</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
+              <HardDrive size={13} color="#f59e0b" /> {formatBytes(stats?.total_storage_bytes)}
             </span>
           </div>
         </div>
 
-        {/* Quick Hero Actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 2 }}>
+        {/* Quick Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {missingCount > 0 && (
             <Button
               variant="primary"
               onClick={handleDownloadAllMissing}
               disabled={queuingMissing}
-              style={{ padding: '12px 24px', gap: '8px', fontSize: '13px', fontWeight: 600 }}
+              style={{ padding: '10px 20px', gap: '8px', fontSize: '13px', fontWeight: 600 }}
             >
-              <Download size={16} /> Download Missing ({missingCount})
+              <Download size={15} /> Download Missing ({missingCount})
             </Button>
           )}
           <Button
             variant="secondary"
             onClick={() => navigateTo('movies')}
-            style={{ padding: '10px 20px', gap: '8px', fontSize: '13px' }}
+            style={{ padding: '10px 18px', gap: '8px', fontSize: '13px' }}
           >
-            <Film size={15} /> Browse All Soundtracks
+            <Film size={14} /> Browse Soundtracks
           </Button>
         </div>
       </div>
 
       {/* 2. Recently Downloaded Shelf */}
       {downloadedSongs.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle2 size={18} color="var(--color-success)" />
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+              <CheckCircle2 size={17} color="var(--color-success)" />
+              <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 Recently Downloaded
               </h2>
             </div>
@@ -193,7 +189,7 @@ export const DashboardView: React.FC = () => {
               onClick={() => navigateTo('songs')}
               style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
             >
-              View All Songs <ChevronRight size={14} />
+              All Songs <ChevronRight size={14} />
             </button>
           </div>
 
@@ -217,6 +213,9 @@ export const DashboardView: React.FC = () => {
                   borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   position: 'relative',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  transition: 'transform var(--transition-fast), border-color var(--transition-fast)',
                 }}
               >
                 <div
@@ -226,7 +225,7 @@ export const DashboardView: React.FC = () => {
                     borderRadius: 'var(--radius-md)',
                     overflow: 'hidden',
                     position: 'relative',
-                    backgroundColor: '#1e293b',
+                    backgroundColor: '#16161a',
                     marginBottom: '10px',
                   }}
                 >
@@ -237,7 +236,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%231e293b"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="24">🎵</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2316161a"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="24">🎵</text></svg>';
                     }}
                   />
                   <div
@@ -245,25 +244,25 @@ export const DashboardView: React.FC = () => {
                       position: 'absolute',
                       bottom: '8px',
                       right: '8px',
-                      width: '32px',
-                      height: '32px',
+                      width: '34px',
+                      height: '34px',
                       borderRadius: '50%',
                       backgroundColor: 'var(--accent-primary)',
                       color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                     }}
                   >
-                    <Play size={14} fill="currentColor" />
+                    <Play size={15} fill="currentColor" />
                   </div>
                 </div>
 
-                <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {song.title}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
                   {song.artist || song.album || 'Tamil Track'}
                 </div>
               </Card>
@@ -274,12 +273,12 @@ export const DashboardView: React.FC = () => {
 
       {/* 3. Featured Soundtracks */}
       {featuredMovies.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Film size={18} color="var(--accent-secondary)" />
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Featured Soundtracks
+              <Film size={17} color="var(--accent-secondary)" />
+              <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Soundtracks & Albums
               </h2>
             </div>
             <button
@@ -294,8 +293,8 @@ export const DashboardView: React.FC = () => {
             className="grid-responsive"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '20px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+              gap: '18px',
             }}
           >
             {featuredMovies.map((movie) => {
@@ -313,6 +312,8 @@ export const DashboardView: React.FC = () => {
                     padding: '12px',
                     borderRadius: 'var(--radius-lg)',
                     cursor: 'pointer',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
                   <div
@@ -322,7 +323,7 @@ export const DashboardView: React.FC = () => {
                       borderRadius: 'var(--radius-md)',
                       overflow: 'hidden',
                       position: 'relative',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: '#16161a',
                       marginBottom: '10px',
                     }}
                   >
@@ -333,7 +334,7 @@ export const DashboardView: React.FC = () => {
                       loading="lazy"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%231A1A1F"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2316161a"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
                       }}
                     />
                     {movie.year && (
@@ -342,12 +343,14 @@ export const DashboardView: React.FC = () => {
                           position: 'absolute',
                           top: '8px',
                           right: '8px',
-                          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                          backgroundColor: 'rgba(11, 11, 13, 0.85)',
+                          backdropFilter: 'blur(8px)',
                           color: '#f8fafc',
                           fontSize: '11px',
                           fontWeight: 700,
                           padding: '2px 7px',
                           borderRadius: 'var(--radius-xs)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
                         }}
                       >
                         {movie.year}
@@ -368,14 +371,14 @@ export const DashboardView: React.FC = () => {
         </section>
       )}
 
-      {/* 4. Top Artists & Composers Row */}
+      {/* 4. Top Artists & Composers */}
       {topArtists.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={18} color="#f59e0b" />
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Top Artists & Composers
+              <Users size={17} color="#f59e0b" />
+              <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Artists & Composers
               </h2>
             </div>
             <button
@@ -390,7 +393,7 @@ export const DashboardView: React.FC = () => {
             className="grid-responsive"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
               gap: '16px',
             }}
           >
@@ -404,21 +407,22 @@ export const DashboardView: React.FC = () => {
                   flexDirection: 'column',
                   alignItems: 'center',
                   textAlign: 'center',
-                  padding: '20px 14px',
+                  padding: '18px 12px',
                   borderRadius: 'var(--radius-xl)',
                   cursor: 'pointer',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
                   style={{
-                    width: '96px',
-                    height: '96px',
+                    width: '92px',
+                    height: '92px',
                     borderRadius: '50%',
                     overflow: 'hidden',
-                    backgroundColor: '#0f172a',
-                    marginBottom: '12px',
+                    backgroundColor: '#16161a',
+                    marginBottom: '10px',
                     border: '2px solid var(--border-medium)',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                   }}
                 >
                   <img
@@ -428,7 +432,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%231A1A1F"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="28">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2316161a"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="28">👤</text></svg>';
                     }}
                   />
                 </div>
@@ -445,14 +449,14 @@ export const DashboardView: React.FC = () => {
         </section>
       )}
 
-      {/* 5. Missing Tracks from Library (Quick Discovery) */}
+      {/* 5. Discover & Add Tracks */}
       {missingSongs.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Download size={18} color="var(--accent-primary)" />
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Missing in Library ({missingCount} Available)
+              <Download size={17} color="var(--accent-primary)" />
+              <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Discover & Download ({missingCount} Available)
               </h2>
             </div>
             <Button
@@ -465,53 +469,68 @@ export const DashboardView: React.FC = () => {
             </Button>
           </div>
 
-          <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '48px' }}>Art</th>
-                  <th>Title</th>
-                  <th>Artist</th>
-                  <th>Soundtrack</th>
-                  <th>Quality</th>
-                  <th style={{ textAlign: 'right', width: '100px' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {missingSongs.map((song) => (
-                  <tr key={song.id}>
-                    <td>
-                      <img
-                        src={api.getArtworkUrl('song', song.id, 80, 80)}
-                        alt={song.title}
-                        style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', objectFit: 'cover', backgroundColor: '#1e293b' }}
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%231e293b"><rect width="36" height="36"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="12">🎵</text></svg>';
-                        }}
-                      />
-                    </td>
-                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{song.title}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{song.artist || '—'}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{song.album || '—'}</td>
-                    <td>
-                      <QualityBadge quality={song.quality} isDownloaded={false} />
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        onClick={() => handleDownloadSingle(song.id, song.title)}
-                        className="btn-icon"
-                        style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
-                        title="Download track"
-                      >
-                        <Download size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {missingSongs.map((song) => (
+              <div
+                key={song.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-lg)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                  <img
+                    src={api.getArtworkUrl('song', song.id, 96, 96)}
+                    alt={song.title}
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: 'var(--radius-sm)',
+                      objectFit: 'cover',
+                      backgroundColor: '#16161a',
+                      flexShrink: 0,
+                    }}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%2316161a"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="16">🎵</text></svg>';
+                    }}
+                  />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {song.title}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                      {song.artist || 'Unknown'} {song.album ? `• ${song.album}` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <QualityBadge quality={song.quality} isDownloaded={false} />
+                  <button
+                    onClick={() => handleDownloadSingle(song.id, song.title)}
+                    className="btn-icon"
+                    style={{ width: '32px', height: '32px', color: 'var(--accent-primary)', backgroundColor: 'rgba(139, 124, 248, 0.1)' }}
+                    title="Download track"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

@@ -45,6 +45,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [queue, setQueue] = useState<Song[]>([]);
   const previousVolumeRef = useRef(0.85);
 
+  // Verification helper hook for UI visual validation
+  useEffect(() => {
+    (window as any).__SET_PLAYER_STATE__ = (song: any, playing = true, prog = 45, dur = 210) => {
+      setCurrentSong(song);
+      setIsPlaying(playing);
+      setProgress(prog);
+      setDuration(dur);
+    };
+  }, []);
+
   // Initialize Audio element once
   useEffect(() => {
     const audio = new Audio();

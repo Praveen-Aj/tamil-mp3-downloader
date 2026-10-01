@@ -321,11 +321,11 @@ export const SongsView: React.FC = () => {
       </div>
 
       {/* Songs Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
+      <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: '40px', textAlign: 'center' }}>
+              <th style={{ width: '38px', textAlign: 'center' }}>
                 <button
                   onClick={toggleSelectAll}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -338,25 +338,24 @@ export const SongsView: React.FC = () => {
                   )}
                 </button>
               </th>
-              <th style={{ width: '44px' }}>Play</th>
-              <th style={{ width: '56px' }}>Art</th>
-              <th>Track Title & Artist / Soundtrack</th>
-              <th style={{ width: '75px' }}>Duration</th>
-              <th style={{ width: '130px' }}>Quality</th>
-              <th style={{ width: '135px' }}>Status</th>
-              <th style={{ textAlign: 'right', width: '135px' }}>Actions</th>
+              <th>Track</th>
+              <th>Soundtrack / Album</th>
+              <th style={{ width: '70px' }}>Duration</th>
+              <th style={{ width: '85px' }}>Quality</th>
+              <th style={{ width: '115px' }}>Status</th>
+              <th style={{ textAlign: 'right', width: '120px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   Loading library tracks...
                 </td>
               </tr>
             ) : songs.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No songs matching criteria found.
                 </td>
               </tr>
@@ -381,52 +380,97 @@ export const SongsView: React.FC = () => {
                       />
                     </td>
 
-                    {/* Play button */}
-                    <td>
-                      <button
-                        onClick={() => playSong(song, songs)}
-                        className="btn-icon"
-                        style={{ width: '32px', height: '32px' }}
-                        title="Play audio stream"
-                        aria-label={`Play ${song.title}`}
-                      >
-                        <Play size={13} fill="currentColor" />
-                      </button>
+                    {/* Primary: Artwork + Song Title + Artist */}
+                    <td style={{ minWidth: '240px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Artwork with play overlay */}
+                        <div
+                          onClick={() => playSong(song, songs)}
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: 'var(--radius-sm)',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            backgroundColor: '#16161a',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                          }}
+                          className="track-art-wrap"
+                          title={`Play ${song.title}`}
+                        >
+                          <img
+                            src={api.getArtworkUrl('song', song.id, 88, 88)}
+                            alt={song.title}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              opacity: 0,
+                              transition: 'opacity 150ms ease',
+                            }}
+                            className="play-overlay"
+                          >
+                            <Play size={14} fill="currentColor" />
+                          </div>
+                        </div>
+
+                        {/* Title and Artist */}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            onClick={() => playSong(song, songs)}
+                            style={{
+                              fontWeight: 600,
+                              color: '#f8fafc',
+                              fontSize: '13.5px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              cursor: 'pointer',
+                            }}
+                            title={song.title}
+                          >
+                            {song.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11.5px',
+                              color: 'var(--text-secondary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginTop: '2px',
+                            }}
+                          >
+                            {song.artist || 'Unknown Artist'}
+                          </div>
+                        </div>
+                      </div>
                     </td>
 
-                    {/* Artwork thumbnail 44x44 */}
-                    <td>
-                      <img
-                        src={api.getArtworkUrl('song', song.id, 88, 88)}
-                        alt={song.title}
-                        style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: 'var(--radius-sm)',
-                          objectFit: 'cover',
-                          backgroundColor: '#1e293b',
-                          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
-                        }}
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%231e293b"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
-                        }}
-                      />
-                    </td>
-
-                    {/* Primary Title + Secondary Artist • Soundtrack */}
-                    <td style={{ minWidth: '220px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {song.title}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {song.artist || 'Unknown'} {song.album ? `• ${song.album}` : ''} {song.year ? `(${song.year})` : ''}
-                      </div>
+                    {/* Secondary: Soundtrack / Album & Year */}
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {song.album || '—'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
                     </td>
 
                     {/* Duration */}
-                    <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
                       {formatDuration(song.duration_sec)}
                     </td>
 
@@ -443,7 +487,7 @@ export const SongsView: React.FC = () => {
                           <button
                             onClick={() => handleDownload(song.id, song.title)}
                             className="badge badge-primary"
-                            style={{ cursor: 'pointer', border: 'none' }}
+                            style={{ cursor: 'pointer', border: 'none', fontSize: '10px', padding: '1px 5px' }}
                             title="Upgrade track quality to 320 kbps"
                             aria-label={`Upgrade ${song.title} to 320 kbps`}
                           >
@@ -455,14 +499,14 @@ export const SongsView: React.FC = () => {
 
                     {/* Actions */}
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '4px' }}>
+                      <div style={{ display: 'inline-flex', gap: '3px' }}>
                         {/* Favorite toggle button */}
                         <button
                           onClick={(e) => handleToggleFavorite(song, e)}
                           className="btn-icon"
                           style={{
-                            width: '30px',
-                            height: '30px',
+                            width: '28px',
+                            height: '28px',
                             color: song.is_favorite ? 'var(--color-error)' : 'var(--text-muted)',
                           }}
                           title={song.is_favorite ? 'Starred' : 'Add to Favorites'}
@@ -474,7 +518,7 @@ export const SongsView: React.FC = () => {
                           <button
                             onClick={() => handleDownload(song.id, song.title)}
                             className="btn-icon"
-                            style={{ width: '30px', height: '30px', color: 'var(--accent-primary)' }}
+                            style={{ width: '28px', height: '28px', color: 'var(--accent-primary)' }}
                             title="Download track"
                             aria-label={`Download ${song.title}`}
                           >
@@ -484,7 +528,7 @@ export const SongsView: React.FC = () => {
                           <button
                             onClick={() => handleOpenFolder(song.id)}
                             className="btn-icon"
-                            style={{ width: '30px', height: '30px', color: 'var(--color-success)' }}
+                            style={{ width: '28px', height: '28px', color: 'var(--color-success)' }}
                             title="Reveal in Explorer"
                             aria-label="Reveal file in Explorer"
                           >
@@ -495,11 +539,11 @@ export const SongsView: React.FC = () => {
                         <button
                           onClick={() => setDeleteModalSong(song)}
                           className="btn-icon"
-                          style={{ width: '30px', height: '30px', color: 'var(--color-error)' }}
+                          style={{ width: '28px', height: '28px', color: 'var(--text-muted)' }}
                           title="Delete / Remove song"
                           aria-label={`Delete ${song.title}`}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>

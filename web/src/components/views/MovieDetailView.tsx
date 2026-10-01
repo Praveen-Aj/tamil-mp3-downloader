@@ -118,23 +118,22 @@ export const MovieDetailView: React.FC = () => {
   const isComplete = songs.length > 0 && downloadedCount >= songs.length;
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      <Button variant="ghost" onClick={() => navigateTo('movies')} style={{ alignSelf: 'flex-start' }}>
-        <ArrowLeft size={16} /> Back to Soundtracks & Movies
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <Button variant="ghost" onClick={() => navigateTo('movies')} style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: '13px' }}>
+        <ArrowLeft size={15} /> Movies
       </Button>
 
       {/* 1. Cinematic Hero Banner */}
       <div
         className="glass-panel"
         style={{
-          padding: '36px',
+          padding: '28px 32px',
           display: 'flex',
-          gap: '32px',
+          gap: '28px',
           alignItems: 'center',
           flexWrap: 'wrap',
-          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%)',
-          position: 'relative',
-          overflow: 'hidden',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
         }}
       >
@@ -145,10 +144,10 @@ export const MovieDetailView: React.FC = () => {
             aspectRatio: '2 / 3',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
-            boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65)',
-            backgroundColor: '#0f172a',
+            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.55)',
+            backgroundColor: '#16161a',
             flexShrink: 0,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid var(--border-subtle)',
           }}
         >
           <img
@@ -157,48 +156,48 @@ export const MovieDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%231A1A1F"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2316161a"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
             }}
           />
         </div>
 
         {/* Hero Metadata & Actions */}
         <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--accent-secondary)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <Film size={15} /> ORIGINAL MOTION PICTURE SOUNDTRACK
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-secondary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Film size={14} /> Original Motion Picture Soundtrack
           </div>
 
-          <h1 className="title-display" style={{ fontSize: '36px', fontWeight: 800, marginTop: '8px', marginBottom: '8px', color: '#f8fafc' }}>
+          <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, marginTop: '6px', marginBottom: '8px', color: '#f8fafc', letterSpacing: '-0.02em' }}>
             {movie?.title}
           </h1>
 
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginTop: '4px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '2px', marginBottom: '20px' }}>
             {movie?.year && (
               <span style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', color: '#f8fafc', fontWeight: 600 }}>
                 {movie.year}
               </span>
             )}
             <span>{songs.length} Tracks</span>
-            <span>•</span>
+            <span>·</span>
             <span style={{ color: isComplete ? 'var(--color-success)' : 'var(--text-secondary)' }}>
               {downloadedCount} Downloaded {isComplete ? '(Complete Album)' : `(${missingCount} Missing)`}
             </span>
           </div>
 
           {/* Action Bar */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <Button variant="primary" onClick={handlePlayAll} style={{ padding: '10px 20px', gap: '8px' }}>
-              <Play size={16} fill="currentColor" /> Play Soundtrack
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Button variant="primary" onClick={handlePlayAll} style={{ padding: '9px 18px', gap: '8px', fontSize: '13px' }}>
+              <Play size={15} fill="currentColor" /> Play Soundtrack
             </Button>
 
             {missingCount > 0 && (
-              <Button variant="secondary" onClick={handleDownloadMissing} style={{ padding: '10px 20px', gap: '8px' }}>
-                <Download size={16} color="var(--accent-primary)" /> Download Missing ({missingCount})
+              <Button variant="secondary" onClick={handleDownloadMissing} style={{ padding: '9px 18px', gap: '8px', fontSize: '13px' }}>
+                <Download size={15} color="var(--accent-primary)" /> Download Missing ({missingCount})
               </Button>
             )}
 
-            <Button variant="ghost" onClick={handleDownloadAll} style={{ padding: '10px 18px', gap: '8px' }}>
-              <Download size={15} /> Download All Tracks
+            <Button variant="ghost" onClick={handleDownloadAll} style={{ padding: '9px 16px', gap: '8px', fontSize: '13px' }}>
+              <Download size={14} /> Download All
             </Button>
           </div>
         </div>
@@ -206,27 +205,24 @@ export const MovieDetailView: React.FC = () => {
 
       {/* 2. Tracklist Section */}
       <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            Tracklist ({songs.length} Songs)
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Soundtrack Tracks ({songs.length})
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            High-fidelity 320 kbps stream & download
+            320 kbps high-fidelity stream & download
           </span>
         </div>
 
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: '48px', textAlign: 'center' }}>#</th>
-              <th style={{ width: '48px' }}>Play</th>
-              <th style={{ width: '56px' }}>Art</th>
-              <th>Track Title</th>
-              <th>Artists</th>
-              <th style={{ width: '80px' }}>Duration</th>
-              <th>Quality</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right', width: '120px' }}>Action</th>
+              <th style={{ width: '44px', textAlign: 'center' }}>#</th>
+              <th>Track</th>
+              <th style={{ width: '75px' }}>Duration</th>
+              <th style={{ width: '90px' }}>Quality</th>
+              <th style={{ width: '115px' }}>Status</th>
+              <th style={{ textAlign: 'right', width: '100px' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -246,54 +242,81 @@ export const MovieDetailView: React.FC = () => {
                     {index + 1}
                   </td>
 
-                  {/* Play Button */}
-                  <td>
-                    <button
-                      onClick={() => playSong(song, songs)}
-                      className="btn-icon"
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        color: isCurrentlyPlaying ? 'var(--accent-primary)' : 'var(--text-primary)',
-                      }}
-                      title={isCurrentlyPlaying ? 'Pause' : 'Play track'}
-                    >
-                      {isCurrentlyPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-                    </button>
-                  </td>
+                  {/* Track: Artwork with play overlay + Title + Artist */}
+                  <td style={{ minWidth: '220px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        onClick={() => playSong(song, songs)}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: 'var(--radius-sm)',
+                          overflow: 'hidden',
+                          position: 'relative',
+                          backgroundColor: '#16161a',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        className="track-art-wrap"
+                        title={`Play ${song.title}`}
+                      >
+                        <img
+                          src={api.getArtworkUrl('song', song.id, 80, 80)}
+                          alt={song.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            opacity: isCurrentlyPlaying ? 1 : 0,
+                            transition: 'opacity 150ms ease',
+                          }}
+                          className="play-overlay"
+                        >
+                          {isCurrentlyPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                        </div>
+                      </div>
 
-                  {/* 40x40 Artwork Thumbnail */}
-                  <td>
-                    <img
-                      src={api.getArtworkUrl('song', song.id, 80, 80)}
-                      alt={song.title}
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: 'var(--radius-sm)',
-                        objectFit: 'cover',
-                        backgroundColor: '#1e293b',
-                      }}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%231e293b"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
-                      }}
-                    />
-                  </td>
-
-                  {/* Title */}
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {song.title}
-                  </td>
-
-                  {/* Artists */}
-                  <td style={{ color: 'var(--text-secondary)' }}>
-                    {song.artist || '—'}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          onClick={() => playSong(song, songs)}
+                          style={{
+                            fontWeight: 600,
+                            color: '#f8fafc',
+                            fontSize: '13.5px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            cursor: 'pointer',
+                          }}
+                          title={song.title}
+                        >
+                          {song.title}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          {song.artist || 'Unknown Artist'}
+                        </div>
+                      </div>
+                    </div>
                   </td>
 
                   {/* Duration */}
-                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
                     {formatDuration(song.duration_sec)}
                   </td>
 
@@ -313,7 +336,7 @@ export const MovieDetailView: React.FC = () => {
                       <button
                         onClick={() => handleDownloadSong(song.id, song.title)}
                         className="btn-icon"
-                        style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
+                        style={{ width: '30px', height: '30px', color: 'var(--accent-primary)' }}
                         title="Download track"
                       >
                         <Download size={14} />

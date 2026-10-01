@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { searchApi } from '../../api/endpoints';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { Song, Movie, Artist } from '../../api/types';
+import { api } from '../../api/client';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -90,6 +91,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         return 'Import';
       case 'settings':
         return 'Settings';
+      case 'movie_detail':
+        return 'Soundtrack Detail';
+      case 'artist_detail':
+        return 'Artist Discography';
       default:
         return 'Music';
     }
@@ -264,8 +269,22 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <Music size={14} color="var(--accent-primary)" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <img
+                            src={api.getArtworkUrl('song', s.id, 56, 56)}
+                            alt={s.title}
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '4px',
+                              objectFit: 'cover',
+                              flexShrink: 0,
+                              backgroundColor: 'var(--bg-surface-active)',
+                            }}
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
                           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             <span style={{ fontWeight: 500, fontSize: '13px' }}>{s.title}</span>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>
@@ -273,7 +292,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                             </span>
                           </div>
                         </div>
-                        <Play size={12} color="var(--text-muted)" />
+                        <Play size={12} color="var(--text-muted)" style={{ flexShrink: 0, marginLeft: '8px' }} />
                       </div>
                     ))}
                   </div>
@@ -303,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
+                          gap: '10px',
                           padding: '6px 8px',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
@@ -311,11 +330,27 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
-                        <Film size={14} color="var(--accent-secondary)" />
-                        <span style={{ fontWeight: 500, fontSize: '13px' }}>{m.title || m.name}</span>
-                        {m.year && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({m.year})</span>
-                        )}
+                        <img
+                          src={api.getArtworkUrl('movie', m.id, 60, 60)}
+                          alt={m.title || m.name}
+                          style={{
+                            width: '24px',
+                            height: '32px',
+                            borderRadius: '3px',
+                            objectFit: 'cover',
+                            flexShrink: 0,
+                            backgroundColor: 'var(--bg-surface-active)',
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontWeight: 500, fontSize: '13px' }}>{m.title || m.name}</span>
+                          {m.year && (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>({m.year})</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -345,7 +380,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
+                          gap: '10px',
                           padding: '6px 8px',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
@@ -353,7 +388,21 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
-                        <Users size={14} color="#f59e0b" />
+                        <img
+                          src={api.getArtworkUrl('artist', a.id, 56, 56)}
+                          alt={a.name}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            flexShrink: 0,
+                            backgroundColor: 'var(--bg-surface-active)',
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
                         <span style={{ fontWeight: 500, fontSize: '13px' }}>{a.name}</span>
                       </div>
                     ))}

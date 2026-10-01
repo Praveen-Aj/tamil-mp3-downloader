@@ -149,24 +149,26 @@ export const ChartsView: React.FC = () => {
       </div>
 
       {/* Chart Entries List */}
-      <div className="glass-panel" style={{ padding: '8px 0', overflow: 'hidden' }}>
+      <div className="glass-panel" style={{ padding: '8px 0', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
-            Loading chart entries...
+            Loading chart rankings...
           </div>
         ) : entries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'var(--bg-surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Flame size={32} color="var(--text-muted)" />
+          <div style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(139, 124, 248, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Flame size={28} color="var(--accent-primary)" />
             </div>
             <div>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: 'var(--text-primary)' }}>Charts aren't available yet</h3>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '320px' }}>
-                We couldn't fetch the latest chart data. Please try refreshing to load the latest trending tracks.
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Tamil Top Charts & Trends
+              </h3>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '13.5px', maxWidth: '420px', lineHeight: 1.5 }}>
+                Charts compile the most popular Tamil cinema songs and weekly viral streams. Connect provider feeds or refresh to fetch the latest ranking snapshot.
               </p>
             </div>
-            <Button variant="secondary" onClick={handleRefreshChart} loading={refreshing} style={{ marginTop: '8px' }}>
-              <RefreshCw size={15} /> Refresh Charts
+            <Button variant="secondary" onClick={handleRefreshChart} loading={refreshing} style={{ marginTop: '6px', fontSize: '13px' }}>
+              <RefreshCw size={14} /> Fetch Latest Charts
             </Button>
           </div>
         ) : (
@@ -181,7 +183,7 @@ export const ChartsView: React.FC = () => {
             <tbody>
               {entries.map((item) => (
                 <tr key={`${item.chart_id}-${item.rank}`}>
-                  <td style={{ textAlign: 'center', fontWeight: 800, fontSize: '15px' }}>
+                  <td style={{ textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>
                     <span
                       style={{
                         color:

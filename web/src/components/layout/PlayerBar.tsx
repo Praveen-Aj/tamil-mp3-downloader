@@ -88,6 +88,7 @@ export const PlayerBar: React.FC = () => {
   if (!currentSong) {
     return (
       <footer
+        className="player-bar-idle"
         style={{
           height: '48px',
           backgroundColor: 'var(--bg-player)',
@@ -135,7 +136,7 @@ export const PlayerBar: React.FC = () => {
         }}
       >
         {/* 1. Left: Track Metadata & Artwork */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '32%', minWidth: 0 }}>
+        <div className="player-track-info" style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '32%', minWidth: 0 }}>
           <img
             src={api.getArtworkUrl('song', currentSong.id, 120, 120)}
             alt={currentSong.title}
@@ -144,14 +145,14 @@ export const PlayerBar: React.FC = () => {
               height: '56px',
               borderRadius: 'var(--radius-md)',
               objectFit: 'cover',
-              backgroundColor: '#1e293b',
+              backgroundColor: 'var(--bg-surface-active)',
               border: '1px solid var(--border-subtle)',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
               flexShrink: 0,
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%231e293b"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="16">🎵</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%231a1a1f"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238b7cf8" font-size="16">🎵</text></svg>';
             }}
           />
           <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
@@ -226,6 +227,7 @@ export const PlayerBar: React.FC = () => {
 
         {/* 2. Middle: Transport Controls & Scrubber */}
         <div
+          className="player-controls-wrap"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -283,7 +285,7 @@ export const PlayerBar: React.FC = () => {
           </div>
 
           {/* Progress Bar & Timestamps */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+          <div className="player-progress-desktop" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '36px', textAlign: 'right' }}>
               {formatTime(progress)}
             </span>
@@ -327,6 +329,7 @@ export const PlayerBar: React.FC = () => {
 
         {/* 3. Right: Volume, Queue Drawer Toggle & Equalizer */}
         <div
+          className="player-volume-wrap"
           style={{
             display: 'flex',
             alignItems: 'center',

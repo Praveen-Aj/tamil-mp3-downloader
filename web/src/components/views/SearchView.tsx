@@ -159,10 +159,10 @@ export const SearchView: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           {/* Songs Section */}
           {(activeTab === 'all' || activeTab === 'songs') && songs.length > 0 && (
-            <div className="glass-panel" style={{ padding: '24px' }}>
+            <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Music size={18} color="var(--accent-primary)" />
-                <h3 className="title-display" style={{ fontSize: '16px', margin: 0 }}>
+                <h3 className="title-display" style={{ fontSize: '16px', margin: 0, color: 'var(--text-primary)' }}>
                   Matching Songs ({songs.length})
                 </h3>
               </div>
@@ -185,28 +185,31 @@ export const SearchView: React.FC = () => {
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)')}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                      <button
+                      <div
+                        className="track-art-wrap"
+                        style={{ width: '40px', height: '40px' }}
                         onClick={() => playSong(song, songs)}
-                        className="btn-icon"
-                        style={{ width: '32px', height: '32px' }}
-                        title="Play stream"
+                        title={`Play "${song.title}"`}
                       >
-                        <Play size={13} fill="currentColor" />
-                      </button>
-                      <img
-                        src={api.getArtworkUrl('song', song.id, 40, 40)}
-                        alt={song.title}
-                        style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover' }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%231e293b"><rect width="32" height="32"/></svg>';
-                        }}
-                      />
+                        <img
+                          src={api.getArtworkUrl('song', song.id, 80, 80)}
+                          alt={song.title}
+                          className="track-thumb"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%231a1a1f"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238b7cf8" font-size="12">🎵</text></svg>';
+                          }}
+                        />
+                        <div className="play-overlay">
+                          <Play size={15} fill="currentColor" />
+                        </div>
+                      </div>
+
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {song.title}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
                           {song.artist || song.album || 'Unknown'} {song.year ? `• ${song.year}` : ''}
                         </div>
                       </div>
@@ -249,32 +252,32 @@ export const SearchView: React.FC = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Film size={18} color="var(--accent-secondary)" />
-                <h3 className="title-display" style={{ fontSize: '16px', margin: 0 }}>
+                <h3 className="title-display" style={{ fontSize: '16px', margin: 0, color: 'var(--text-primary)' }}>
                   Soundtrack Albums ({movies.length})
                 </h3>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
                 {movies.map((movie) => (
                   <Card
                     key={movie.id}
                     onClick={() => navigateTo('movie_detail', movie.id)}
                     className="glass-card"
-                    style={{ display: 'flex', flexDirection: 'column', padding: '12px' }}
+                    style={{ display: 'flex', flexDirection: 'column', padding: '12px', border: '1px solid var(--border-subtle)' }}
                   >
                     <img
-                      src={api.getArtworkUrl('movie', movie.id, 200, 200)}
+                      src={api.getArtworkUrl('movie', movie.id, 240, 360)}
                       alt={movie.title || movie.name}
-                      style={{ width: '100%', aspectRatio: '1', borderRadius: '8px', objectFit: 'cover', marginBottom: '10px' }}
+                      style={{ width: '100%', aspectRatio: '2/3', borderRadius: 'var(--radius-sm)', objectFit: 'cover', marginBottom: '10px', backgroundColor: 'var(--bg-surface-active)' }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%231e1b4b"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23fff" font-size="24">🎬</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" fill="%231a1a1f"><rect width="240" height="360"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="28">🎬</text></svg>';
                       }}
                     />
-                    <div style={{ fontWeight: 700, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {movie.title || movie.name}
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       {movie.year || 'Soundtrack'} • {movie.total_songs ?? 0} tracks
                     </div>
                     <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -300,32 +303,32 @@ export const SearchView: React.FC = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Users size={18} color="#f59e0b" />
-                <h3 className="title-display" style={{ fontSize: '16px', margin: 0 }}>
+                <h3 className="title-display" style={{ fontSize: '16px', margin: 0, color: 'var(--text-primary)' }}>
                   Artists & Composers ({artists.length})
                 </h3>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
                 {artists.map((artist) => (
                   <Card
                     key={artist.id}
                     onClick={() => navigateTo('artist_detail', artist.id)}
                     className="glass-card"
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '16px' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '16px', border: '1px solid var(--border-subtle)' }}
                   >
                     <img
-                      src={api.getArtworkUrl('artist', artist.id, 100, 100)}
+                      src={api.getArtworkUrl('artist', artist.id, 120, 120)}
                       alt={artist.name}
-                      style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px' }}
+                      style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', backgroundColor: 'var(--bg-surface-active)' }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="%230f172a"><rect width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23fff" font-size="20">👤</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="%231a1a1f"><rect width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f59e0b" font-size="20">👤</text></svg>';
                       }}
                     />
-                    <div style={{ fontWeight: 700, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
                       {artist.name}
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       {(artist.total_songs ?? artist.total_tracks) ?? 0} tracks
                     </div>
                     <div style={{ marginTop: '10px', width: '100%' }}>

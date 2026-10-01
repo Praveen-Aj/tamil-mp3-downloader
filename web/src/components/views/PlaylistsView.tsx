@@ -179,28 +179,29 @@ export const PlaylistsView: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <Button variant="ghost" onClick={() => setSelectedPlaylist(null)} aria-label="Back to playlists">
-              <ArrowLeft size={16} /> Back
+            <Button variant="ghost" onClick={() => setSelectedPlaylist(null)} aria-label="Back to playlists" style={{ padding: '6px 12px', fontSize: '13px' }}>
+              <ArrowLeft size={15} /> Playlists
             </Button>
             <div
               style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+                width: '44px',
+                height: '44px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(139, 124, 248, 0.12)',
+                border: '1px solid rgba(139, 124, 248, 0.2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Music size={24} color="var(--accent-primary)" />
+              <Music size={22} color="var(--accent-primary)" />
             </div>
             <div>
-              <h2 className="title-display" style={{ fontSize: '22px', margin: 0 }}>
+              <h2 className="title-display" style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
                 {selectedPlaylist.name}
               </h2>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {selectedPlaylist.description || 'Custom User Playlist'} • {playlistSongs.length} {playlistSongs.length === 1 ? 'song' : 'songs'}
+              <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {selectedPlaylist.description || 'Custom Playlist'} · {playlistSongs.length} {playlistSongs.length === 1 ? 'song' : 'songs'}
               </div>
             </div>
           </div>
@@ -249,14 +250,11 @@ export const PlaylistsView: React.FC = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px' }}>Play</th>
-                  <th style={{ width: '50px' }}>Art</th>
-                  <th>Title</th>
-                  <th>Artist</th>
-                  <th>Album / Movie</th>
-                  <th>Status</th>
-                  <th>Quality</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>Track</th>
+                  <th>Soundtrack / Album</th>
+                  <th style={{ width: '115px' }}>Status</th>
+                  <th style={{ width: '85px' }}>Quality</th>
+                  <th style={{ textAlign: 'right', width: '90px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,31 +269,77 @@ export const PlaylistsView: React.FC = () => {
 
                   return (
                     <tr key={sId}>
-                      <td>
-                        <button
-                          onClick={() => playSong(song, playlistSongs)}
-                          className="btn-icon"
-                          style={{ width: '32px', height: '32px' }}
-                          title={`Play ${song.title}`}
-                          aria-label={`Play ${song.title}`}
-                        >
-                          <Play size={13} fill="currentColor" />
-                        </button>
+                      {/* Track: Art with play overlay + Title + Artist */}
+                      <td style={{ minWidth: '220px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div
+                            onClick={() => playSong(song, playlistSongs)}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: 'var(--radius-sm)',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              backgroundColor: '#16161a',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                            className="track-art-wrap"
+                            title={`Play ${song.title}`}
+                          >
+                            <img
+                              src={api.getArtworkUrl('song', sId, 80, 80)}
+                              alt={song.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                              }}
+                            />
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#ffffff',
+                                opacity: 0,
+                                transition: 'opacity 150ms ease',
+                              }}
+                              className="play-overlay"
+                            >
+                              <Play size={14} fill="currentColor" />
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              onClick={() => playSong(song, playlistSongs)}
+                              style={{
+                                fontWeight: 600,
+                                color: '#f8fafc',
+                                fontSize: '13.5px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                cursor: 'pointer',
+                              }}
+                              title={song.title}
+                            >
+                              {song.title}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                              {song.artist || 'Unknown Artist'}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td>
-                        <img
-                          src={api.getArtworkUrl('song', sId, 40, 40)}
-                          alt={song.title}
-                          style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover' }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%231e293b"><rect width="32" height="32"/></svg>';
-                          }}
-                        />
+
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
+                        {song.album || '—'}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{song.title}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{song.artist || '—'}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{song.album || '—'}</td>
                       <td>
                         <DownloadStateBadge
                           state={song.state}
@@ -306,7 +350,7 @@ export const PlaylistsView: React.FC = () => {
                         <QualityBadge quality={song.quality} isDownloaded={isOwned} />
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           {isOwned ? (
                             <button
                               onClick={() => handleOpenFolder(sId)}
@@ -318,14 +362,21 @@ export const PlaylistsView: React.FC = () => {
                               <FolderOpen size={14} />
                             </button>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => handleQueueSingle(sId, song.title)}
-                              aria-label={`Download ${song.title}`}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadsApi.queueSongs([sId]).then(() => {
+                                  showToast(`Queued "${song.title}" for download`, 'success');
+                                  refreshStats();
+                                });
+                              }}
+                              className="btn-icon"
+                              style={{ width: '28px', height: '28px', color: 'var(--accent-primary)' }}
+                              title="Download track"
+                              aria-label="Download track"
                             >
-                              <Download size={13} />
-                            </Button>
+                              <Download size={14} />
+                            </button>
                           )}
                           <button
                             onClick={() => handleRemoveSong(sId, song.title)}

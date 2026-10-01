@@ -4,6 +4,7 @@ import { downloadsApi } from '../../api/endpoints';
 import { DownloadTask } from '../../api/types';
 import { Button } from '../common/Button';
 import { QualityBadge } from '../common/Badge';
+import { api } from '../../api/client';
 import { useApp } from '../../context/AppContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 
@@ -101,53 +102,67 @@ export const DownloadsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* 1. Header */}
       <div
         className="glass-panel"
         style={{
-          padding: '16px 20px',
+          padding: '18px 24px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          justifyContent: 'space-between',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-xl)',
         }}
       >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            backgroundColor: 'rgba(6, 182, 212, 0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ArrowDownCircle size={20} color="var(--accent-secondary)" />
-        </div>
-        <div>
-          <h2 className="title-display" style={{ fontSize: '18px', margin: 0 }}>Downloads</h2>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            {active.length > 0
-              ? `${active.length} currently downloading${queue.length > 0 ? ` · ${queue.length} queued` : ''}`
-              : queue.length > 0
-              ? `${queue.length} queued`
-              : 'No active downloads'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'rgba(139, 124, 248, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--accent-primary)',
+            }}
+          >
+            <ArrowDownCircle size={22} />
+          </div>
+          <div>
+            <h1 className="title-display" style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>Downloads</h1>
+            <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {active.length > 0
+                ? `${active.length} active download${active.length > 1 ? 's' : ''}${queue.length > 0 ? ` · ${queue.length} in queue` : ''}`
+                : queue.length > 0
+                ? `${queue.length} track${queue.length > 1 ? 's' : ''} in queue`
+                : 'No active downloads in queue'}
+            </div>
           </div>
         </div>
       </div>
 
       {/* 2. Currently Downloading */}
       <div>
-        <h3 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-          Currently downloading
-        </h3>
+        <h2 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+          Active Downloads
+        </h2>
         {active.length === 0 ? (
           <div
             className="glass-panel"
-            style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}
+            style={{
+              padding: '32px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '13.5px',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-lg)',
+            }}
           >
-            No active downloads. Select tracks or albums to start.
+            Queue is empty. Select tracks or albums to download high-fidelity MP3s.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -159,26 +174,43 @@ export const DownloadsView: React.FC = () => {
                   padding: '14px 18px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px',
+                  gap: '10px',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-lg)',
+                  backgroundColor: 'var(--bg-surface)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                      {task.title}
-                    </div>
-                    {task.artist && (
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {task.artist}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                    <img
+                      src={api.getArtworkUrl('song', task.song_id, 80, 80)}
+                      alt={task.title}
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: 'var(--radius-sm)',
+                        objectFit: 'cover',
+                        backgroundColor: '#16161a',
+                        flexShrink: 0,
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="16">🎵</text></svg>';
+                      }}
+                    />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '14px', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {task.title}
                       </div>
-                    )}
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                        {task.artist || 'Tamil Track'} {task.album ? `· ${task.album}` : ''}
+                      </div>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     <QualityBadge quality={task.quality} />
-                    <Button variant="ghost" size="sm" onClick={() => handleCancel(task.id)} aria-label="Cancel download">
+                    <Button variant="ghost" size="sm" onClick={() => handleCancel(task.id)} aria-label="Cancel download" style={{ padding: '6px 10px', fontSize: '12px' }}>
                       <XCircle size={14} color="var(--color-error)" /> Cancel
                     </Button>
                   </div>
@@ -187,8 +219,8 @@ export const DownloadsView: React.FC = () => {
                 {/* Progress Bar */}
                 <div
                   style={{
-                    height: '6px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    height: '5px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
                     borderRadius: 'var(--radius-pill)',
                     overflow: 'hidden',
                   }}
@@ -197,23 +229,23 @@ export const DownloadsView: React.FC = () => {
                     style={{
                       height: '100%',
                       width: `${task.progress || 0}%`,
-                      backgroundColor: 'var(--accent-secondary)',
+                      backgroundColor: 'var(--accent-primary)',
                       transition: 'width 200ms ease',
                     }}
                   />
                 </div>
 
                 {/* Speed & ETA */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Zap size={11} color="var(--accent-secondary)" /> {task.speed_str || 'Connecting...'}
+                      <Zap size={12} color="var(--accent-primary)" /> {task.speed_str || 'Connecting...'}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={11} /> {task.eta_str || 'Calculating...'}
+                      <Clock size={12} /> {task.eta_str || 'Calculating...'}
                     </span>
                   </div>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                     {Math.round(task.progress || 0)}%
                   </span>
                 </div>
@@ -223,96 +255,96 @@ export const DownloadsView: React.FC = () => {
         )}
       </div>
 
-      {/* 3. Recently downloaded — mobile card / desktop table */}
+      {/* 3. Recently Downloaded History */}
       <div>
-        <h3 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-          Recently downloaded
-        </h3>
+        <h2 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+          Download History
+        </h2>
         {history.length === 0 ? (
-          <div className="glass-panel" style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-            No download history yet.
+          <div
+            className="glass-panel"
+            style={{
+              padding: '32px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '13.5px',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-lg)',
+            }}
+          >
+            No download history recorded.
           </div>
         ) : (
-          <>
-            {/* Desktop table */}
-            <div className="glass-panel desktop-only-table" style={{ overflow: 'hidden' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '110px' }}>Status</th>
-                    <th>Track</th>
-                    <th>Artist</th>
-                    <th style={{ width: '90px' }}>Quality</th>
-                    <th style={{ textAlign: 'right', width: '80px' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.slice(0, 20).map((task) => (
-                    <tr key={task.id}>
-                      <td>
-                        {task.status === 'completed' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)', fontSize: '12px' }}>
-                            <CheckCircle2 size={14} /> Downloaded
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-error)', fontSize: '12px' }}>
-                            <AlertCircle size={14} /> Failed
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{task.title}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{task.artist || '—'}</td>
-                      <td><QualityBadge quality={task.quality} /></td>
-                      <td style={{ textAlign: 'right' }}>
-                        {task.status === 'failed' && (
-                          <Button size="sm" variant="secondary" onClick={() => handleRetry(task.id)}>
-                            <RotateCcw size={12} /> Retry
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile card list */}
-            <div className="glass-panel mobile-cards-container" style={{ overflow: 'hidden' }}>
-              {history.slice(0, 20).map((task) => (
-                <div key={task.id} className="mobile-track-card">
-                  <div className="mobile-track-card__info">
-                    <div className="mobile-track-card__title">{task.title}</div>
-                    <div className="mobile-track-card__meta">
-                      {task.artist ? `${task.artist} · ` : ''}{task.quality ? `${task.quality} kbps` : ''}
-                    </div>
-                    <div className="mobile-track-card__badges">
+          <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '120px' }}>Status</th>
+                  <th>Track</th>
+                  <th>Soundtrack / Album</th>
+                  <th style={{ width: '85px' }}>Quality</th>
+                  <th style={{ textAlign: 'right', width: '90px' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 20).map((task) => (
+                  <tr key={task.id}>
+                    <td>
                       {task.status === 'completed' ? (
-                        <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                          <CheckCircle2 size={10} /> Downloaded
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontSize: '12px', fontWeight: 600 }}>
+                          <CheckCircle2 size={14} /> Downloaded
+                        </div>
                       ) : (
-                        <span className="badge badge-error" style={{ fontSize: '10px' }}>
-                          <AlertCircle size={10} /> Failed
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-error)', fontSize: '12px', fontWeight: 600 }}>
+                          <AlertCircle size={14} /> Failed
+                        </div>
                       )}
-                    </div>
-                  </div>
-                  <div className="mobile-track-card__actions">
-                    {task.status === 'failed' && (
-                      <button
-                        className="btn-icon"
-                        onClick={() => handleRetry(task.id)}
-                        aria-label={`Retry ${task.title}`}
-                        style={{ width: '36px', height: '36px', color: 'var(--accent-primary)' }}
-                      >
-                        <RotateCcw size={15} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img
+                          src={api.getArtworkUrl('song', task.song_id, 80, 80)}
+                          alt={task.title}
+                          style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: 'var(--radius-sm)',
+                            objectFit: 'cover',
+                            backgroundColor: '#16161a',
+                            flexShrink: 0,
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%2316161a"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                          }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {task.title}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                            {task.artist || 'Unknown Artist'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
+                      {task.album || '—'}
+                    </td>
+                    <td><QualityBadge quality={task.quality} /></td>
+                    <td style={{ textAlign: 'right' }}>
+                      {task.status === 'failed' && (
+                        <Button size="sm" variant="secondary" onClick={() => handleRetry(task.id)} style={{ padding: '4px 10px', fontSize: '12px' }}>
+                          <RotateCcw size={12} /> Retry
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

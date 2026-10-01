@@ -1,17 +1,48 @@
 """
-Artwork Delivery and Fallback Generator Router for V6 Web API.
+Artwork Delivery and Resolution Router for V6 Web API.
+Serves high-resolution artwork or procedural aesthetic fallback for any library entity.
 """
 
 import io
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from api.deps import get_artwork_manager, get_service
-from library.artwork import ArtworkManager
+from library.artwork import ArtworkManager, ArtworkState
 from library.service import LibraryService
 
 router = APIRouter(prefix="/artwork", tags=["Artwork"])
+
+
+@router.get("/system/stats")
+def get_artwork_stats(
+    artwork_mgr: ArtworkManager = Depends(get_artwork_manager),
+) -> Dict[str, Any]:
+    """Return memory and disk cache performance statistics."""
+    return artwork_mgr.get_stats()
+
+
+@router.get("/{category}/{entity_id}/status")
+def get_artwork_status(
+    category: str,
+    entity_id: str,
+    artwork_mgr: ArtworkManager = Depends(get_artwork_manager),
+) -> Dict[str, Any]:
+    """
+    Check current resolution state of an entity's artwork (FOUND, PENDING, NOT_FOUND, FAILED).
+    """
+    cat = category.lower()
+    state = artwork_mgr.resolver.get_state(cat, entity_id)
+    cache_key = f"{cat}:{entity_id}"
+    has_disk_cached = artwork_mgr.disk_cache.has(cache_key)
+
+    return {
+        "category": cat,
+        "entity_id": entity_id,
+        "state": state.value.lower(),
+        "cached": has_disk_cached,
+    }
 
 
 @router.get("/{category}/{entity_id}")
@@ -28,108 +59,43 @@ def get_artwork(
     Categories: song, movie, artist, chart, playlist.
     """
     valid_categories = {"song", "movie", "artist", "chart", "playlist"}
-    if category.lower() not in valid_categories:
+    cat = category.lower()
+    if cat not in valid_categories:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid category: {category}. Valid: {valid_categories}",
         )
 
-    cat = category.lower()
-    title = f"{cat.capitalize()} #{entity_id}"
-    subtitle: Optional[str] = None
-    remote_key: Optional[str] = None
-    local_path: Optional[str] = None
-
-    from library.canonical import clean_song_title
-
-    if cat == "movie":
-        try:
-            movie = service.db.get_movie(int(entity_id))
-            if movie:
-                title = getattr(movie, "title", getattr(movie, "name", "Movie"))
-                subtitle = str(movie.year) if movie.year else None
-                remote_key = movie.poster_url
-                local_path = getattr(movie, "local_poster_path", None)
-                if not remote_key and (not local_path or not Path(local_path).is_file()):
-                    movie_songs = service.db.get_movie_songs(int(entity_id))
-                    for ms in movie_songs:
-                        if ms.file_path and Path(ms.file_path).is_file():
-                            local_path = ms.file_path
-                            break
-        except (ValueError, TypeError):
-            pass
-
-    elif cat == "artist":
-        try:
-            artist = service.db.get_artist(int(entity_id))
-            if artist:
-                title = artist.name
-                remote_key = getattr(artist, "photo_url", getattr(artist, "image_url", None))
-                local_path = getattr(artist, "local_photo_path", None)
-                if not remote_key and (not local_path or not Path(local_path).is_file()):
-                    artist_songs = service.db.get_artist_songs_detailed(int(entity_id))
-                    for asong in artist_songs:
-                        fp = asong.get("file_path")
-                        if fp and Path(fp).is_file():
-                            local_path = fp
-                            break
-        except (ValueError, TypeError):
-            pass
-
-    elif cat == "chart":
-        chart = service.db.get_chart(str(entity_id))
-        if chart:
-            title = getattr(chart, "title", getattr(chart, "name", "Chart"))
-            subtitle = getattr(chart, "frequency", "CHART").upper()
-            remote_key = getattr(chart, "source_url", None)
-
-    elif cat == "playlist":
-        try:
-            playlist = service.db.get_playlist(int(entity_id))
-            if playlist:
-                title = playlist.name
-                subtitle = "Playlist"
-        except (ValueError, TypeError):
-            pass
-
-    elif cat == "song":
-        try:
-            song = service.db.get_song(int(entity_id))
-            if song:
-                title = clean_song_title(song.title)
-                subtitle = song.artist
-                local_path = song.file_path
-                if not local_path or not Path(local_path).is_file():
-                    song_movies = service.db.get_movies_for_song(int(entity_id))
-                    for sm in song_movies:
-                        if sm.poster_url:
-                            remote_key = sm.poster_url
-                            break
-                        if getattr(sm, "local_poster_path", None) and Path(sm.local_poster_path).is_file():
-                            local_path = sm.local_poster_path
-                            break
-        except (ValueError, TypeError):
-            pass
-
-    # Use ArtworkManager to resolve image (local embedded > cached disk > remote > generated fallback)
-    pil_image = artwork_mgr.get_artwork(
-        source=remote_key or local_path,
+    # Use centralized ArtworkResolver
+    result = artwork_mgr.resolver.resolve(
+        category=cat,
+        entity_id=entity_id,
+        service=service,
         size=(width, height),
-        entity_type=cat,
-        fallback_text=title,
+        allow_async_enrich=True,
     )
 
+    pil_image = result.image
     buf = io.BytesIO()
     if pil_image.mode in ("RGBA", "P", "LA"):
         pil_image = pil_image.convert("RGB")
-    pil_image.save(buf, format="JPEG", quality=85)
+    pil_image.save(buf, format="JPEG", quality=88, optimize=True)
     image_bytes = buf.getvalue()
+
+    cache_control = (
+        "public, max-age=86400, immutable"
+        if result.state == ArtworkState.FOUND
+        else "public, max-age=60"
+    )
 
     return Response(
         content=image_bytes,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=86400, immutable",
+            "Cache-Control": cache_control,
             "Content-Length": str(len(image_bytes)),
+            "X-Artwork-State": result.state.value,
+            "X-Artwork-Source": result.source_type,
+            "X-Artwork-Confidence": f"{result.confidence:.2f}",
         },
     )

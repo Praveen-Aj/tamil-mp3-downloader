@@ -198,6 +198,7 @@ class YouTubeProvider(AudioProvider):
             "outtmpl": target_template,
             "quiet": True,
             "no_warnings": True,
+            "noprogress": True,
             "progress_hooks": [_hook],
             "format": "bestaudio/best",
         }

@@ -133,36 +133,35 @@ export const ArtistDetailView: React.FC = () => {
   const isComplete = songs.length > 0 && downloadedCount >= songs.length;
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      <Button variant="ghost" onClick={() => navigateTo('artists')} style={{ alignSelf: 'flex-start' }}>
-        <ArrowLeft size={16} /> Back to Artists & Composers
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <Button variant="ghost" onClick={() => navigateTo('artists')} style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: '13px' }}>
+        <ArrowLeft size={15} /> Artists
       </Button>
 
       {/* 1. Artist Hero Banner */}
       <div
         className="glass-panel"
         style={{
-          padding: '36px',
+          padding: '28px 32px',
           display: 'flex',
-          gap: '32px',
+          gap: '28px',
           alignItems: 'center',
           flexWrap: 'wrap',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 27, 75, 0.9) 100%)',
-          position: 'relative',
-          overflow: 'hidden',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
         }}
       >
-        {/* Large Circular Portrait with Glow */}
+        {/* Large Circular Portrait */}
         <div
           style={{
-            width: '150px',
-            height: '150px',
+            width: '140px',
+            height: '140px',
             borderRadius: '50%',
             overflow: 'hidden',
-            backgroundColor: '#0f172a',
-            border: '3px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+            backgroundColor: '#16161a',
+            border: '2px solid var(--border-medium)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
             flexShrink: 0,
           }}
         >
@@ -172,46 +171,46 @@ export const ArtistDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231A1A1F"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="48">👤</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%2316161a"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="48">👤</text></svg>';
             }}
           />
         </div>
 
         {/* Hero Metadata & Actions */}
         <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <Users size={15} /> {formatRoleName(artist?.role)}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f59e0b', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Users size={14} /> {formatRoleName(artist?.role)}
           </div>
 
-          <h1 className="title-display" style={{ fontSize: '36px', fontWeight: 800, marginTop: '8px', marginBottom: '8px', color: '#f8fafc' }}>
+          <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, marginTop: '6px', marginBottom: '8px', color: '#f8fafc', letterSpacing: '-0.02em' }}>
             {artist?.name}
           </h1>
 
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginTop: '4px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '2px', marginBottom: '20px' }}>
             <span style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', color: '#f8fafc', fontWeight: 600 }}>
               {artist?.role ? artist.role.replace('_', ' ').toUpperCase() : 'ARTIST'}
             </span>
             <span>{songs.length} Tracks in Catalog</span>
-            <span>•</span>
+            <span>·</span>
             <span style={{ color: isComplete ? 'var(--color-success)' : 'var(--text-secondary)' }}>
               {downloadedCount} Ready {isComplete ? '(All Downloaded)' : `(${missingCount} Missing)`}
             </span>
           </div>
 
           {/* Action Bar */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <Button variant="primary" onClick={handlePlayAll} style={{ padding: '10px 20px', gap: '8px' }}>
-              <Play size={16} fill="currentColor" /> Play Artist Tracks
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Button variant="primary" onClick={handlePlayAll} style={{ padding: '9px 18px', gap: '8px', fontSize: '13px' }}>
+              <Play size={15} fill="currentColor" /> Play All Tracks
             </Button>
 
             {missingCount > 0 && (
-              <Button variant="secondary" onClick={handleDownloadMissing} style={{ padding: '10px 20px', gap: '8px' }}>
-                <Download size={16} color="var(--accent-primary)" /> Download Missing ({missingCount})
+              <Button variant="secondary" onClick={handleDownloadMissing} style={{ padding: '9px 18px', gap: '8px', fontSize: '13px' }}>
+                <Download size={15} color="var(--accent-primary)" /> Download Missing ({missingCount})
               </Button>
             )}
 
-            <Button variant="ghost" onClick={handleDownloadAll} style={{ padding: '10px 18px', gap: '8px' }}>
-              <Download size={15} /> Download All Tracks
+            <Button variant="ghost" onClick={handleDownloadAll} style={{ padding: '9px 16px', gap: '8px', fontSize: '13px' }}>
+              <Download size={14} /> Download All
             </Button>
           </div>
         </div>
@@ -219,27 +218,25 @@ export const ArtistDetailView: React.FC = () => {
 
       {/* 2. Tracklist Section */}
       <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            Discography & Tracks ({songs.length} Songs)
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Discography & Tracks ({songs.length})
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            High-fidelity 320 kbps stream & download
+            320 kbps high-fidelity stream & download
           </span>
         </div>
 
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: '48px', textAlign: 'center' }}>#</th>
-              <th style={{ width: '48px' }}>Play</th>
-              <th style={{ width: '56px' }}>Art</th>
-              <th>Track Title</th>
+              <th style={{ width: '44px', textAlign: 'center' }}>#</th>
+              <th>Track</th>
               <th>Soundtrack / Album</th>
-              <th style={{ width: '80px' }}>Duration</th>
-              <th>Quality</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right', width: '120px' }}>Action</th>
+              <th style={{ width: '75px' }}>Duration</th>
+              <th style={{ width: '90px' }}>Quality</th>
+              <th style={{ width: '115px' }}>Status</th>
+              <th style={{ textAlign: 'right', width: '100px' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -259,54 +256,86 @@ export const ArtistDetailView: React.FC = () => {
                     {index + 1}
                   </td>
 
-                  {/* Play Button */}
-                  <td>
-                    <button
-                      onClick={() => playSong(song, songs)}
-                      className="btn-icon"
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        color: isCurrentlyPlaying ? 'var(--accent-primary)' : 'var(--text-primary)',
-                      }}
-                      title={isCurrentlyPlaying ? 'Pause' : 'Play track'}
-                    >
-                      {isCurrentlyPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-                    </button>
-                  </td>
+                  {/* Track: Artwork with play overlay + Title + Artist */}
+                  <td style={{ minWidth: '220px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        onClick={() => playSong(song, songs)}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: 'var(--radius-sm)',
+                          overflow: 'hidden',
+                          position: 'relative',
+                          backgroundColor: '#16161a',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        className="track-art-wrap"
+                        title={`Play ${song.title}`}
+                      >
+                        <img
+                          src={api.getArtworkUrl('song', song.id, 80, 80)}
+                          alt={song.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            opacity: isCurrentlyPlaying ? 1 : 0,
+                            transition: 'opacity 150ms ease',
+                          }}
+                          className="play-overlay"
+                        >
+                          {isCurrentlyPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                        </div>
+                      </div>
 
-                  {/* 40x40 Artwork Thumbnail */}
-                  <td>
-                    <img
-                      src={api.getArtworkUrl('song', song.id, 80, 80)}
-                      alt={song.title}
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: 'var(--radius-sm)',
-                        objectFit: 'cover',
-                        backgroundColor: '#1e293b',
-                      }}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%231e293b"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
-                      }}
-                    />
-                  </td>
-
-                  {/* Title */}
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {song.title}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          onClick={() => playSong(song, songs)}
+                          style={{
+                            fontWeight: 600,
+                            color: '#f8fafc',
+                            fontSize: '13.5px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            cursor: 'pointer',
+                          }}
+                          title={song.title}
+                        >
+                          {song.title}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          {song.artist || 'Unknown Artist'}
+                        </div>
+                      </div>
+                    </div>
                   </td>
 
                   {/* Album */}
-                  <td style={{ color: 'var(--text-secondary)' }}>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
                     {song.album || 'Soundtrack'}
                   </td>
 
                   {/* Duration */}
-                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
                     {formatDuration(song.duration_sec)}
                   </td>
 
@@ -326,7 +355,7 @@ export const ArtistDetailView: React.FC = () => {
                       <button
                         onClick={() => handleDownloadSong(song.id, song.title)}
                         className="btn-icon"
-                        style={{ width: '32px', height: '32px', color: 'var(--accent-primary)' }}
+                        style={{ width: '30px', height: '30px', color: 'var(--accent-primary)' }}
                         title="Download track"
                       >
                         <Download size={14} />

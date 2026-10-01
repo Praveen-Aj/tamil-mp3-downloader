@@ -2524,6 +2524,9 @@ class SQLiteDatabase:
             """, (song_id,))
             return [Movie.from_row(r) for r in cursor.fetchall()]
 
+    get_movies_for_song = get_song_movies
+    get_artists_for_song = get_song_artists
+
     def get_movie_songs(self, movie_id: int) -> List[LibrarySong]:
         """Get all canonical songs belonging to a movie ordered by track number."""
         with self._lock:
