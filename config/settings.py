@@ -96,7 +96,8 @@ class Settings:
     }
 
     def __init__(self, config_file: Optional[Path] = None) -> None:
-        self.config_file = config_file or Path("config/settings.json")
+        project_root = Path(__file__).resolve().parent.parent
+        self.config_file = config_file or (project_root / "config" / "settings.json")
         self._config: Dict[str, Any] = copy.deepcopy(self.DEFAULT_CONFIG)
         self.load()
         if not self.config_file.exists():

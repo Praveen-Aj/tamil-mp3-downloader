@@ -41,7 +41,8 @@ def get_system_stats(
     except Exception:
         stats["total_movies"] = 0
     try:
-        stats["total_artists"] = len(service.db.list_artists(limit=10000))
+        _, total_art = service.get_artists_page(page=1, page_size=1)
+        stats["total_artists"] = total_art
     except Exception:
         stats["total_artists"] = 0
     try:

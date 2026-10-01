@@ -15,11 +15,13 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'subtle', clas
   );
 };
 
-export const QualityBadge: React.FC<{ quality?: number | null; isDownloaded?: boolean }> = ({ quality, isDownloaded }) => {
+export const QualityBadge: React.FC<{ quality?: number | string | null; isDownloaded?: boolean }> = ({ quality, isDownloaded }) => {
   if (isDownloaded === false || !quality) return <Badge variant="subtle">Target 320 kbps</Badge>;
-  if (quality >= 320) return <Badge variant="success">320 kbps • High Quality</Badge>;
-  if (quality >= 192) return <Badge variant="primary">{quality} kbps</Badge>;
-  return <Badge variant="subtle">{quality} kbps • Standard</Badge>;
+  const numQuality = typeof quality === 'number' ? quality : parseInt(String(quality).replace(/\D/g, ''), 10) || 0;
+  if (numQuality >= 320) return <Badge variant="success">320 kbps • High Quality</Badge>;
+  if (numQuality >= 192) return <Badge variant="primary">{numQuality} kbps</Badge>;
+  if (numQuality > 0) return <Badge variant="subtle">{numQuality} kbps • Standard</Badge>;
+  return <Badge variant="subtle">{String(quality)}</Badge>;
 };
 
 export const StateBadge: React.FC<{

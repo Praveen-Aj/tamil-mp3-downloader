@@ -439,6 +439,14 @@ class ImportJob:
     def track_count(self) -> int:
         return self.total_tracks
 
+    @property
+    def total_items(self) -> int:
+        return self.total_tracks
+
+    @property
+    def processed_items(self) -> int:
+        return getattr(self, "_processed_items", 0)
+
 
 @dataclass
 class ImportJobItem:
@@ -481,6 +489,10 @@ class ImportJobItem:
             download_id=row['download_id'],
             canonical_song_id=row['canonical_song_id'] if 'canonical_song_id' in row.keys() else None,
         )
+
+    @property
+    def matched_song_id(self) -> Optional[int]:
+        return self.canonical_song_id
 
 
 # ==============================================================================

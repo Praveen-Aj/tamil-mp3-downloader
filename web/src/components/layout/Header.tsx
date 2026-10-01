@@ -60,6 +60,15 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Clear global header search bar when navigating to non-search views
+  useEffect(() => {
+    if (currentView !== 'search') {
+      setSearchQuery('');
+      setResults(null);
+      setIsDropdownOpen(false);
+    }
+  }, [currentView]);
+
   const formatStorage = (bytes?: number) => {
     if (!bytes) return '0 MB';
     const mb = bytes / (1024 * 1024);
