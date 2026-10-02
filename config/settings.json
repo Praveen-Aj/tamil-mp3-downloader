@@ -43,7 +43,7 @@
     }
   },
   "download": {
-    "output_dir": "downloads",
+    "output_dir": "C:\\Users\\Praveen\\Downloads\\Songs New",
     "chunk_size": 65536,
     "timeout": 90,
     "concurrent_enabled": true,
@@ -57,8 +57,8 @@
       "queue_mode": true,
       "max_concurrent": 3
     },
-    "auto_upgrade": true,
-    "download_dir": "downloads"
+    "download_dir": "C:\\Users\\Praveen\\Downloads\\Songs New",
+    "auto_upgrade": true
   },
   "ui": {
     "page_size": 10,

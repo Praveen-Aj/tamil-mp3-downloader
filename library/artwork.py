@@ -954,6 +954,21 @@ class ArtworkManager:
         self.memory_cache.put(key, w, h, fallback)
         return fallback
 
+    def load_artwork_async(
+        self,
+        source: Optional[str],
+        size: Tuple[int, int] = (64, 64),
+        entity_type: str = "song",
+        fallback_text: Optional[str] = None,
+        callback: Optional[Callable[[Image.Image], None]] = None,
+    ) -> None:
+        """Asynchronously load artwork and invoke callback with the resulting PIL Image."""
+        def _task():
+            img = self.get_artwork(source=source, size=size, entity_type=entity_type, fallback_text=fallback_text)
+            if callback:
+                callback(img)
+        self.executor.submit(_task)
+
     def _load_from_source(self, source: str) -> Optional[Image.Image]:
         if source.lower().endswith(".mp3") and os.path.exists(source):
             return self.resolver._extract_embedded_apic(source)

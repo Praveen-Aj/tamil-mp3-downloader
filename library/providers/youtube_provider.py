@@ -22,7 +22,25 @@ class YouTubeProvider(AudioProvider):
 
     def __init__(self):
         self._yt_dlp_available = self._check_yt_dlp()
-        self._ffmpeg_available = shutil.which("ffmpeg") is not None
+        self._ffmpeg_path = self._find_ffmpeg()
+        self._ffmpeg_available = self._ffmpeg_path is not None
+
+    def _find_ffmpeg(self) -> Optional[str]:
+        """Locate ffmpeg binary via PATH, imageio-ffmpeg package, or local project bin."""
+        p = shutil.which("ffmpeg")
+        if p:
+            return p
+        try:
+            import imageio_ffmpeg
+            exe = imageio_ffmpeg.get_ffmpeg_exe()
+            if exe and os.path.exists(exe):
+                return exe
+        except Exception:
+            pass
+        project_bin = Path(__file__).resolve().parent.parent.parent / "bin" / "ffmpeg.exe"
+        if project_bin.exists():
+            return str(project_bin)
+        return None
 
     def _check_yt_dlp(self) -> bool:
         try:
@@ -44,7 +62,9 @@ class YouTubeProvider(AudioProvider):
 
     def get_capabilities(self) -> ProviderCapabilities:
         notes = "Ready" if self._yt_dlp_available else "yt-dlp package missing"
-        if self._yt_dlp_available and not self._ffmpeg_available:
+        if self._yt_dlp_available and self._ffmpeg_available:
+            notes += " (FFmpeg detected; 320 kbps MP3 conversion active)"
+        elif self._yt_dlp_available and not self._ffmpeg_available:
             notes += " (FFmpeg not detected; native container audio will be downloaded)"
         return ProviderCapabilities(
             name=self.name,
@@ -203,7 +223,8 @@ class YouTubeProvider(AudioProvider):
             "format": "bestaudio/best",
         }
 
-        if self._ffmpeg_available:
+        if self._ffmpeg_available and self._ffmpeg_path:
+            ydl_opts["ffmpeg_location"] = self._ffmpeg_path
             ydl_opts["postprocessors"] = [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",

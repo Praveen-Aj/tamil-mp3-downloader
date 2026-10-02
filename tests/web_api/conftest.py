@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.app import app
-from api.deps import get_service, set_service
+from api.deps import get_service, set_service, get_settings
 from library.database import SQLiteDatabase
 from library.models import (
     LibrarySong, SongSource, SongState, Movie, Artist,
@@ -97,8 +97,15 @@ def api_test_env(tmp_path: Path) -> Generator[Dict, None, None]:
     ))
     db.add_playlist_item(playlist_id, s1_id)
 
-    # Override service dependency
+    # Override service and settings dependency
+    test_settings_file = tmp_path / "test_settings.json"
+    from config.settings import Settings
+    test_settings = Settings(config_file=test_settings_file)
+    test_settings.set("download.output_dir", str(dl_dir))
+    test_settings.set("download.download_dir", str(dl_dir))
+
     app.dependency_overrides[get_service] = lambda: service
+    app.dependency_overrides[get_settings] = lambda: test_settings
     set_service(service)
 
     client = TestClient(app)
