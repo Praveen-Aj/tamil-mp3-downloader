@@ -59,6 +59,22 @@ KNOWN_MOVIE_YEARS: Dict[str, int] = {
     "goat": 2024,
     "aavesham": 2024,
     "think indie": 2024,
+    "minnale": 2001,
+    "vaaranam aayiram": 2008,
+    "ghajini": 2005,
+    "avatharam": 1995,
+    "kandukondain kandukondain": 2000,
+    "duet": 1994,
+    "may maadham": 1994,
+    "jeans": 1998,
+    "mudhalvan": 1999,
+    "padayappa": 1999,
+    "muthu": 1995,
+    "kadhal desam": 1996,
+    "indira": 1995,
+    "annamalai": 1992,
+    "autograph": 2004,
+    "chinna thambi": 1991,
 }
 
 KNOWN_RECORD_LABELS: set = {
@@ -401,24 +417,30 @@ class ChartDiscoveryService:
         # 4. Also register movie and artist links where available
         if song_id:
             if movie and movie.lower() != "single":
-                # Look up existing movie or known release year or extract 4-digit year from title
-                known_year = KNOWN_MOVIE_YEARS.get(norm_album)
-                if not known_year:
-                    m_existing = self.db.get_movie_by_title(movie)
-                    if m_existing and m_existing.year:
-                        known_year = m_existing.year
-                if not known_year:
-                    m_match = re.search(r"\b(19\d{2}|20\d{2})\b", movie)
-                    if m_match:
-                        known_year = int(m_match.group(1))
+                # Ensure compilation, single, ep, or non-movie entities are not created as movies
+                is_non_movie = any(term in norm_album for term in [
+                    "single", " ep", "- ep", "hits", "grooves", "soundtrack", "collection",
+                    "rewind", "edition", "score", "bgm", "top 100", "top 60", "remix", "deluxe"
+                ])
+                if not is_non_movie:
+                    # Look up existing movie or known release year or extract 4-digit year from title
+                    known_year = KNOWN_MOVIE_YEARS.get(norm_album)
+                    if not known_year:
+                        m_existing = self.db.get_movie_by_title(movie)
+                        if m_existing and m_existing.year:
+                            known_year = m_existing.year
+                    if not known_year:
+                        m_match = re.search(r"\b(19\d{2}|20\d{2})\b", movie)
+                        if m_match:
+                            known_year = int(m_match.group(1))
 
-                mov_id = self.db.add_movie(Movie(
-                    title=movie,
-                    title_normalized=norm_album,
-                    year=known_year,
-                ))
-                if mov_id:
-                    self.db.add_song_movie(song_id=song_id, movie_id=mov_id)
+                    mov_id = self.db.add_movie(Movie(
+                        title=movie,
+                        title_normalized=norm_album,
+                        year=known_year,
+                    ))
+                    if mov_id:
+                        self.db.add_song_movie(song_id=song_id, movie_id=mov_id)
 
             if artist:
                 for a_name in [a.strip() for a in re.split(r"[,&/]", artist) if a.strip()]:
@@ -504,6 +526,36 @@ class ChartDiscoveryService:
             {"rank": 18, "title": "Munbe Vaa", "artist": "Naresh Iyer, Shreya Ghoshal", "movie": "Sillunu Oru Kaadhal"},
             {"rank": 19, "title": "New York Nagaram", "artist": "A. R. Rahman", "movie": "Sillunu Oru Kaadhal"},
             {"rank": 20, "title": "Anbil Avan", "artist": "Govind Vasantha, Pradeep Kumar", "movie": "96"},
+            {"rank": 21, "title": "Vaseegara", "artist": "Bombay Jayashri, Harris Jayaraj", "movie": "Minnale"},
+            {"rank": 22, "title": "Venmathi Venmathiye", "artist": "Roop Kumar Rathod, Tipu, Harris Jayaraj", "movie": "Minnale"},
+            {"rank": 23, "title": "Nenjukkul Peidhidum", "artist": "Hariharan, Harris Jayaraj", "movie": "Vaaranam Aayiram"},
+            {"rank": 24, "title": "Mundhinam Parthene", "artist": "Naresh Iyer, Prashanthini, Harris Jayaraj", "movie": "Vaaranam Aayiram"},
+            {"rank": 25, "title": "Oru Maalai", "artist": "Karthik, Harris Jayaraj", "movie": "Ghajini"},
+            {"rank": 26, "title": "Suttum Vizhi", "artist": "Hariharan, Bombay Jayashri, Harris Jayaraj", "movie": "Ghajini"},
+            {"rank": 27, "title": "Thendral Vandhu Theendumbodhu", "artist": "Ilaiyaraaja, S. Janaki", "movie": "Avatharam"},
+            {"rank": 28, "title": "Enna Solla Pogirai", "artist": "Shankar Mahadevan, A. R. Rahman", "movie": "Kandukondain Kandukondain"},
+            {"rank": 29, "title": "Kandukondain Kandukondain", "artist": "Hariharan, Mahalakshmi Iyer, A. R. Rahman", "movie": "Kandukondain Kandukondain"},
+            {"rank": 30, "title": "Kannamoochchi Yaenada", "artist": "K. S. Chithra, K. J. Yesudas, A. R. Rahman", "movie": "Kandukondain Kandukondain"},
+            {"rank": 31, "title": "Anjali Anjali Pushpanjali", "artist": "S. P. Balasubrahmanyam, K. S. Chithra, A. R. Rahman", "movie": "Duet"},
+            {"rank": 32, "title": "En Mel Vizhundha Mazhai Thuli", "artist": "P. Jayachandran, K. S. Chithra, A. R. Rahman", "movie": "May Maadham"},
+            {"rank": 33, "title": "Margazhi Poove", "artist": "Shobha Shankar, A. R. Rahman", "movie": "May Maadham"},
+            {"rank": 34, "title": "Poovukkul Olindhirukkum", "artist": "P. Unnikrishnan, Sujatha Mohan, A. R. Rahman", "movie": "Jeans"},
+            {"rank": 35, "title": "Kannodu Kaanbadhellam", "artist": "Nithyashree Mahadevan, A. R. Rahman", "movie": "Jeans"},
+            {"rank": 36, "title": "Columbus Columbus", "artist": "A. R. Rahman", "movie": "Jeans"},
+            {"rank": 37, "title": "Mudhalvane", "artist": "S. Janaki, Shankar Mahadevan, A. R. Rahman", "movie": "Mudhalvan"},
+            {"rank": 38, "title": "Kurukku Siruthavale", "artist": "Hariharan, Swarnalatha, A. R. Rahman", "movie": "Mudhalvan"},
+            {"rank": 39, "title": "Azhagana Ratchasiye", "artist": "S. P. Balasubrahmanyam, Harini, A. R. Rahman", "movie": "Mudhalvan"},
+            {"rank": 40, "title": "Minsara Poove", "artist": "Hariharan, Srinivas, Nithyashree, A. R. Rahman", "movie": "Padayappa"},
+            {"rank": 41, "title": "Oruvan Oruvan Mudhalali", "artist": "S. P. Balasubrahmanyam, A. R. Rahman", "movie": "Muthu"},
+            {"rank": 42, "title": "Thillana Thillana", "artist": "Mano, Sujatha Mohan, A. R. Rahman", "movie": "Muthu"},
+            {"rank": 43, "title": "Kuluvalile Muthu", "artist": "S. P. Balasubrahmanyam, K. S. Chithra, A. R. Rahman", "movie": "Muthu"},
+            {"rank": 44, "title": "Musthafa Musthafa", "artist": "A. R. Rahman", "movie": "Kadhal Desam"},
+            {"rank": 45, "title": "Hello Doctor", "artist": "A. R. Rahman, Storms", "movie": "Kadhal Desam"},
+            {"rank": 46, "title": "Nila Kaigirathu", "artist": "Harini, A. R. Rahman", "movie": "Indira"},
+            {"rank": 47, "title": "Thoda Thoda Malarndhadhadhenna", "artist": "S. P. Balasubrahmanyam, K. S. Chithra, A. R. Rahman", "movie": "Indira"},
+            {"rank": 48, "title": "Vanthenda Paalkaran", "artist": "S. P. Balasubrahmanyam, Deva", "movie": "Annamalai"},
+            {"rank": 49, "title": "Vettri Nichayam", "artist": "S. P. Balasubrahmanyam, Deva", "movie": "Annamalai"},
+            {"rank": 50, "title": "Povomaa Oorkolam", "artist": "S. P. Balasubrahmanyam, Swarnalatha, Ilaiyaraaja", "movie": "Chinna Thambi"},
         ]
 
     @classmethod

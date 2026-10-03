@@ -513,6 +513,11 @@ class Movie:
     banner_url: Optional[str] = None
     local_poster_path: Optional[str] = None
     track_count: int = 0
+    source: Optional[str] = "tamil_songs_corpus"
+    source_movie_url: Optional[str] = None
+    source_movie_image: Optional[str] = None
+    tamil_title: Optional[str] = None
+    english_title: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -529,6 +534,11 @@ class Movie:
             banner_url=row['banner_url'] if 'banner_url' in keys else None,
             local_poster_path=row['local_poster_path'] if 'local_poster_path' in keys else None,
             track_count=row['track_count'] if 'track_count' in keys else 0,
+            source=row['source'] if 'source' in keys else 'tamil_songs_corpus',
+            source_movie_url=row['source_movie_url'] if 'source_movie_url' in keys else None,
+            source_movie_image=row['source_movie_image'] if 'source_movie_image' in keys else None,
+            tamil_title=row['tamil_title'] if 'tamil_title' in keys else None,
+            english_title=row['english_title'] if 'english_title' in keys else None,
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
         )

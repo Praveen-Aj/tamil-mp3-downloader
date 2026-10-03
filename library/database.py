@@ -1522,8 +1522,10 @@ class SQLiteDatabase:
                 cursor.execute("""
                     INSERT OR IGNORE INTO movies (
                         title, title_normalized, year, director, poster_url,
-                        banner_url, local_poster_path, track_count, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        banner_url, local_poster_path, track_count,
+                        source, source_movie_url, source_movie_image, tamil_title, english_title,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     movie.title,
                     movie.title_normalized,
@@ -1533,6 +1535,11 @@ class SQLiteDatabase:
                     movie.banner_url,
                     movie.local_poster_path,
                     movie.track_count,
+                    getattr(movie, "source", None) or "tamil_songs_corpus",
+                    getattr(movie, "source_movie_url", None),
+                    getattr(movie, "source_movie_image", None),
+                    getattr(movie, "tamil_title", None),
+                    getattr(movie, "english_title", None),
                     (movie.created_at or datetime.now()).isoformat(),
                     (movie.updated_at or datetime.now()).isoformat(),
                 ))
@@ -1575,6 +1582,11 @@ class SQLiteDatabase:
                         banner_url = ?,
                         local_poster_path = ?,
                         track_count = ?,
+                        source = ?,
+                        source_movie_url = ?,
+                        source_movie_image = ?,
+                        tamil_title = ?,
+                        english_title = ?,
                         updated_at = ?
                     WHERE id = ?
                 """, (
@@ -1586,6 +1598,11 @@ class SQLiteDatabase:
                     movie.banner_url,
                     movie.local_poster_path,
                     movie.track_count,
+                    getattr(movie, "source", None) or "tamil_songs_corpus",
+                    getattr(movie, "source_movie_url", None),
+                    getattr(movie, "source_movie_image", None),
+                    getattr(movie, "tamil_title", None),
+                    getattr(movie, "english_title", None),
                     datetime.now().isoformat(),
                     movie.id,
                 ))
@@ -2083,7 +2100,7 @@ class SQLiteDatabase:
             }
             order_by = sort_map.get(sort_by, f"a.name COLLATE NOCASE {direction}")
 
-            # 5. Query Artists with SQL Subquery Aggregation
+            # 5. Query Artists with SQL Subquery Aggregation (Optimized Relational Lookups)
             query_sql = f"""
                 SELECT
                     a.id,
@@ -2094,35 +2111,26 @@ class SQLiteDatabase:
                     a.local_photo_path,
                     a.bio,
                     (
-                        SELECT COUNT(DISTINCT s_sub.id)
-                        FROM songs s_sub
-                        WHERE s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
-                            s_sub.id IN (
-                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
-                                UNION
-                                SELECT sm.song_id FROM movie_composers mc
-                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                                WHERE mc.composer_id = a.id
-                            )
-                            OR s_sub.artist LIKE '%' || a.name || '%'
-                            OR (a.name_normalized != '' AND s_sub.artist_normalized LIKE '%' || a.name_normalized || '%')
+                        SELECT COUNT(DISTINCT song_id)
+                        FROM (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = a.id
                         )
                     ) as total_songs,
                     (
                         SELECT COUNT(DISTINCT s_sub.id)
                         FROM songs s_sub
+                        JOIN (
+                            SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
+                            UNION
+                            SELECT sm.song_id FROM movie_composers mc
+                            JOIN song_movies sm ON mc.movie_id = sm.movie_id
+                            WHERE mc.composer_id = a.id
+                        ) linked ON s_sub.id = linked.song_id
                         WHERE (s_sub.state = 'OWNED' OR (s_sub.file_path IS NOT NULL AND s_sub.file_path != ''))
-                        AND s_sub.title NOT LIKE '%ZIP%' AND s_sub.title NOT LIKE '%.zip%' AND (
-                            s_sub.id IN (
-                                SELECT sa.song_id FROM song_artists sa WHERE sa.artist_id = a.id
-                                UNION
-                                SELECT sm.song_id FROM movie_composers mc
-                                JOIN song_movies sm ON mc.movie_id = sm.movie_id
-                                WHERE mc.composer_id = a.id
-                            )
-                            OR s_sub.artist LIKE '%' || a.name || '%'
-                            OR (a.name_normalized != '' AND s_sub.artist_normalized LIKE '%' || a.name_normalized || '%')
-                        )
                     ) as downloaded_songs,
                     (
                         SELECT COUNT(DISTINCT m_sub_id)

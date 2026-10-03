@@ -23,7 +23,7 @@ class DatabaseMigrator:
     """
 
     # Current schema version
-    CURRENT_VERSION = 5
+    CURRENT_VERSION = 6
 
     # Migration definitions
     MIGRATIONS = {
@@ -404,6 +404,15 @@ class DatabaseMigrator:
 
         -- Rebuild full text index from existing songs
         INSERT INTO songs_fts(songs_fts) VALUES('rebuild');
+        """,
+        6: """
+        -- Migration 6: V6 Movie Data Provenance & Multilingual Metadata
+        ALTER TABLE movies ADD COLUMN source TEXT DEFAULT 'tamil_songs_corpus';
+        ALTER TABLE movies ADD COLUMN source_movie_url TEXT;
+        ALTER TABLE movies ADD COLUMN source_movie_image TEXT;
+        ALTER TABLE movies ADD COLUMN tamil_title TEXT;
+        ALTER TABLE movies ADD COLUMN english_title TEXT;
+        CREATE INDEX IF NOT EXISTS idx_movies_source ON movies(source);
         """
     }
 
