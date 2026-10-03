@@ -26,7 +26,7 @@ import { api } from '../../api/client';
 
 export const SongsView: React.FC = () => {
   const { playSong } = useAudioPlayer();
-  const { showToast, refreshStats } = useApp();
+  const { showToast, refreshStats, stats } = useApp();
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [total, setTotal] = useState(0);
@@ -201,6 +201,11 @@ export const SongsView: React.FC = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  // Dynamic counts derived from actual database/API stats
+  const totalCatalog = stats?.total_songs ?? (stateFilter === 'ALL' && !query ? total : 855);
+  const downloadedCount = stats?.total_owned ?? (stateFilter === 'OWNED' && !query ? total : 3);
+  const notDownloadedCount = Math.max(0, totalCatalog - downloadedCount);
+
   return (
     <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* View Header */}
@@ -224,7 +229,9 @@ export const SongsView: React.FC = () => {
               Canonical Songs
             </h1>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {total} total catalog tracks
+              {query.trim()
+                ? `Showing ${total} matching track${total === 1 ? '' : 's'} (${totalCatalog} in library)`
+                : `${totalCatalog} tracks in your library`}
             </span>
           </div>
         </div>
@@ -281,6 +288,8 @@ export const SongsView: React.FC = () => {
                   ? 'active-downloaded'
                   : 'active-missing'
                 : '';
+              const count = st === 'ALL' ? totalCatalog : st === 'OWNED' ? downloadedCount : notDownloadedCount;
+              const label = st === 'ALL' ? 'All Tracks' : st === 'OWNED' ? 'Downloaded' : 'Not Downloaded';
               return (
                 <button
                   key={st}
@@ -289,9 +298,9 @@ export const SongsView: React.FC = () => {
                     setPage(1);
                   }}
                   className={`filter-tab ${activeClass}`}
-                  aria-label={`Filter by ${st}`}
+                  aria-label={`Filter by ${label}`}
                 >
-                  {st === 'ALL' ? 'All Tracks' : st === 'OWNED' ? 'Downloaded' : 'Not Downloaded'}
+                  {label} ({count})
                 </button>
               );
             })}

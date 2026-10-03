@@ -247,10 +247,10 @@ export const SettingsView: React.FC = () => {
         {/* Preferred Quality */}
         <div>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-            Target Download Quality
+            Preferred Download Quality
           </label>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-            The pipeline always targets high-quality 320 kbps MP3. Lower quality sources will be upgraded automatically if higher bitrates are published.
+            New downloads prefer this quality when available. Existing higher-quality files are never downgraded.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
             {[

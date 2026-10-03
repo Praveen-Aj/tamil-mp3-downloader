@@ -102,12 +102,12 @@ export const DownloadsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '20px 32px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* 1. Header */}
       <div
         className="glass-panel"
         style={{
-          padding: '18px 24px',
+          padding: '14px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -147,17 +147,17 @@ export const DownloadsView: React.FC = () => {
 
       {/* 2. Currently Downloading */}
       <div>
-        <h2 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+        <h2 className="title-display" style={{ fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
           Active Downloads
         </h2>
         {active.length === 0 ? (
           <div
             className="glass-panel"
             style={{
-              padding: '32px',
+              padding: '16px 20px',
               textAlign: 'center',
               color: 'var(--text-muted)',
-              fontSize: '13.5px',
+              fontSize: '13px',
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-lg)',
@@ -258,7 +258,7 @@ export const DownloadsView: React.FC = () => {
 
       {/* 3. Recently Downloaded History */}
       <div>
-        <h2 className="title-display" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+        <h2 className="title-display" style={{ fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
           Download History
         </h2>
         {history.length === 0 ? (
@@ -278,20 +278,20 @@ export const DownloadsView: React.FC = () => {
           </div>
         ) : (
           <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
-            <table className="data-table">
+            <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '120px' }}>Status</th>
+                  <th style={{ width: '125px' }}>Status</th>
                   <th>Track</th>
-                  <th>Soundtrack / Album</th>
-                  <th style={{ width: '85px' }}>Quality</th>
-                  <th style={{ textAlign: 'right', width: '90px' }}>Action</th>
+                  <th style={{ width: '240px' }}>Soundtrack / Album</th>
+                  <th style={{ width: '140px' }}>Quality</th>
+                  <th style={{ textAlign: 'right', width: '105px' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {history.slice(0, 20).map((task) => (
                   <tr key={task.id}>
-                    <td>
+                    <td style={{ width: '125px', whiteSpace: 'nowrap' }}>
                       {task.status === 'completed' ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontSize: '12px', fontWeight: 600 }}>
                           <CheckCircle2 size={14} /> Downloaded
@@ -302,8 +302,8 @@ export const DownloadsView: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <td style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                         <img
                           src={api.getArtworkUrl('song', task.song_id, 80, 80)}
                           alt={task.title}
@@ -320,21 +320,39 @@ export const DownloadsView: React.FC = () => {
                               'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%2316161a"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
                           }}
                         />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{ fontWeight: 600, color: '#f8fafc', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            title={task.title}
+                          >
                             {task.title}
                           </div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          <div
+                            style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}
+                            title={task.artist || undefined}
+                          >
                             {task.artist || 'Unknown Artist'}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
+                    <td
+                      style={{
+                        width: '240px',
+                        color: 'var(--text-secondary)',
+                        fontSize: '12.5px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                      title={task.album || undefined}
+                    >
                       {task.album || '—'}
                     </td>
-                    <td><QualityBadge quality={task.quality} /></td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ width: '140px', whiteSpace: 'nowrap' }}>
+                      <QualityBadge quality={task.quality} isDownloaded={task.status === 'completed'} />
+                    </td>
+                    <td style={{ textAlign: 'right', width: '105px', whiteSpace: 'nowrap' }}>
                       {task.status === 'failed' && (
                         <Button size="sm" variant="secondary" onClick={() => handleRetry(task.id)} style={{ padding: '4px 10px', fontSize: '12px' }}>
                           <RotateCcw size={12} /> Retry

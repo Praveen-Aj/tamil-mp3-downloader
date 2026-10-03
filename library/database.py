@@ -1040,12 +1040,12 @@ class SQLiteDatabase:
         reconciled_count = 0
         with self._lock:
             cursor = self._conn.cursor()
-            cursor.execute("SELECT id, file_path, file_size_bytes FROM songs WHERE state = ?", (SongState.OWNED.value,))
+            cursor.execute("SELECT id, file_path, file_size_bytes, quality_kbps FROM songs WHERE state = ?", (SongState.OWNED.value,))
             rows = cursor.fetchall()
             orphans = []
             updates = []
             for row in rows:
-                song_id, fpath, db_size = row[0], row[1], row[2]
+                song_id, fpath, db_size, db_quality = row[0], row[1], row[2], row[3]
                 target = Path(fpath) if fpath else None
                 if target and not target.is_absolute():
                     if target.exists():
@@ -1066,8 +1066,16 @@ class SQLiteDatabase:
                 else:
                     actual_size = target.stat().st_size
                     norm_path = str(target)
-                    if db_size is None or db_size != actual_size or fpath != norm_path:
-                        updates.append((norm_path, actual_size, song_id))
+                    actual_kbps = db_quality
+                    try:
+                        from mutagen.mp3 import MP3
+                        audio = MP3(norm_path)
+                        if audio.info and audio.info.bitrate:
+                            actual_kbps = round(audio.info.bitrate / 1000)
+                    except Exception:
+                        pass
+                    if db_size is None or db_size != actual_size or fpath != norm_path or db_quality != actual_kbps:
+                        updates.append((norm_path, actual_size, actual_kbps, song_id))
 
             if orphans:
                 with self._conn:
@@ -1083,14 +1091,15 @@ class SQLiteDatabase:
                         reconciled_count += 1
             if updates:
                 with self._conn:
-                    for norm_path, actual_size, song_id in updates:
+                    for norm_path, actual_size, actual_kbps, song_id in updates:
                         cursor.execute("""
                             UPDATE songs SET
                                 file_path = ?,
                                 file_size_bytes = ?,
+                                quality_kbps = ?,
                                 last_seen_at = ?
                             WHERE id = ?
-                        """, (norm_path, actual_size, datetime.now().isoformat(), song_id))
+                        """, (norm_path, actual_size, actual_kbps, datetime.now().isoformat(), song_id))
             if clean_stale_jobs:
                 self.clean_stale_transient_downloads()
         return reconciled_count

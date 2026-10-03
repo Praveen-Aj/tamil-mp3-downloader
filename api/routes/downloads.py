@@ -43,15 +43,33 @@ def format_download_task(d: Download, service: LibraryService) -> Dict[str, Any]
     else:
         status_str = st_norm
 
-    quality = getattr(d, "target_quality", None)
-    if not quality and source and getattr(source, "quality_kbps", None):
-        quality = source.quality_kbps
-    if not quality and song and getattr(song, "quality_kbps", None):
-        quality = song.quality_kbps
-    if not quality and getattr(d, "previous_quality_kbps", None):
-        quality = d.previous_quality_kbps
-    if not quality:
-        quality = 320
+    # For completed downloads or owned songs, the quality MUST be the actual verified physical/song quality
+    is_owned_song = bool(
+        song and (
+            getattr(song, "is_owned", False)
+            or getattr(song, "has_file", False)
+            or (song.state.value if hasattr(song.state, "value") else str(song.state)).upper() == "OWNED"
+        )
+    )
+    if status_str == "completed" or is_owned_song:
+        if song and getattr(song, "quality_kbps", None):
+            quality = song.quality_kbps
+        elif getattr(d, "previous_quality_kbps", None):
+            quality = d.previous_quality_kbps
+        elif getattr(d, "target_quality", None):
+            quality = d.target_quality
+        else:
+            quality = 320
+    else:
+        quality = getattr(d, "target_quality", None)
+        if not quality and getattr(d, "previous_quality_kbps", None):
+            quality = d.previous_quality_kbps
+        if not quality and source and getattr(source, "quality_kbps", None):
+            quality = source.quality_kbps
+        if not quality and song and getattr(song, "quality_kbps", None):
+            quality = song.quality_kbps
+        if not quality:
+            quality = 320
 
     is_complete = status_str == "completed" or (hasattr(d, "is_complete") and d.is_complete)
     file_size = d.file_size_bytes or 0
