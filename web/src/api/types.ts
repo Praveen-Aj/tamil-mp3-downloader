@@ -76,20 +76,36 @@ export interface Artist {
 
 export interface Chart {
   id: string;
+  name?: string;
   title: string;
-  chart_type: string;
-  provider_name: string;
+  chart_type?: string;
+  description?: string;
+  provider_name?: string;
   snapshot_date?: string;
+  last_synced_at?: string;
   total_entries?: number;
+  downloaded_entries?: number;
   frequency?: string;
 }
 
 export interface ChartEntry {
+  entry_id?: number;
   chart_id: string;
   rank: number;
+  previous_rank?: number | null;
+  trend?: 'up' | 'down' | 'same' | 'new';
+  trend_label?: string;
   song_id?: number | null;
+  title?: string;
   raw_title: string;
+  artist?: string;
+  raw_artist?: string;
+  movie?: string;
+  raw_movie?: string;
+  is_downloaded?: boolean;
   is_owned?: boolean;
+  file_path?: string | null;
+  quality_kbps?: number;
 }
 
 export interface Playlist {

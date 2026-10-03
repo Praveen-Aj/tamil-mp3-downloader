@@ -2057,17 +2057,12 @@ class SQLiteDatabase:
                         OR LOWER(a.role) = 'actor'
                     )""")
             else:
-                # Default all-artists view: require actual musical involvement
+                # Default all-artists view: require musical/cinematic involvement or valid artist role
                 conditions.append("""(
                     a.id IN (SELECT artist_id FROM song_artists)
                     OR a.id IN (SELECT composer_id FROM movie_composers)
-                    OR (
-                        LOWER(COALESCE(a.role, '')) IN ('singer', 'vocalist', 'composer', 'music_director', 'lyricist')
-                        AND (
-                            SELECT COUNT(*) FROM songs s_chk
-                            WHERE s_chk.artist LIKE '%' || a.name || '%'
-                        ) > 0
-                    )
+                    OR a.id IN (SELECT actor_id FROM movie_actors)
+                    OR LOWER(COALESCE(a.role, '')) IN ('singer', 'vocalist', 'composer', 'music_director', 'actor', 'lyricist')
                 )""")
 
             where_str = f"WHERE {' AND '.join(conditions)}" if conditions else ""

@@ -116,12 +116,17 @@ export const artistsApi = {
 };
 
 export const chartsApi = {
-  getCharts: () => api.get<{ charts: Chart[] }>('/charts'),
+  getCharts: () => api.get<Chart[]>('/charts'),
 
-  getChart: (chartId: string) =>
-    api.get<{ chart: Chart; entries: ChartEntry[]; total: number }>(`/charts/${chartId}`),
+  getChart: (chartId: string, params?: { query?: string; page?: number; page_size?: number }) =>
+    api.get<{ chart: Chart; stats?: any; entries: ChartEntry[]; total_matching?: number }>(
+      `/charts/${chartId}`,
+      params
+    ),
 
   refreshChart: (chartId: string) => api.post(`/charts/${chartId}/refresh`),
+
+  syncCharts: () => api.post<string[]>('/charts/sync'),
 
   planDownload: (chartId: string, preferredQuality = 320) =>
     api.post<DownloadPlanResult>(`/charts/${chartId}/plan`, { preferred_quality: preferredQuality }),

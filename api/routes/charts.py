@@ -19,19 +19,19 @@ def list_charts(
 ) -> ApiResponse[List[Dict[str, Any]]]:
     """Fetch all music discovery charts with entry counts and download stats."""
     charts = service.db.list_charts()
-    chart_list = [
-        {
+    chart_list = []
+    for c in charts:
+        stats = service.db.get_chart_statistics(c.id)
+        chart_list.append({
             "id": c.id,
             "name": getattr(c, "title", getattr(c, "name", "")),
             "description": getattr(c, "chart_type", getattr(c, "description", None)),
             "source_url": getattr(c, "source_url", None),
             "frequency": getattr(c, "frequency", "weekly"),
-            "total_entries": getattr(c, "total_entries", 0),
-            "downloaded_entries": getattr(c, "downloaded_entries", 0),
+            "total_entries": stats.get("total_songs", 0),
+            "downloaded_entries": stats.get("downloaded_songs", 0),
             "last_synced_at": c.snapshot_date.isoformat() if getattr(c, "snapshot_date", None) else None,
-        }
-        for c in charts
-    ]
+        })
     return ApiResponse(success=True, data=chart_list)
 
 

@@ -404,7 +404,7 @@ class ChartDiscoveryService:
                 # Look up existing movie or known release year or extract 4-digit year from title
                 known_year = KNOWN_MOVIE_YEARS.get(norm_album)
                 if not known_year:
-                    m_existing = self.db.find_movie_by_title(movie)
+                    m_existing = self.db.get_movie_by_title(movie)
                     if m_existing and m_existing.year:
                         known_year = m_existing.year
                 if not known_year:
