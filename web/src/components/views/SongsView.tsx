@@ -203,6 +203,33 @@ export const SongsView: React.FC = () => {
 
   return (
     <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* View Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(139, 124, 248, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Music size={18} color="var(--primary-light)" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+              Canonical Songs
+            </h1>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {total} total catalog tracks
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Controls Bar */}
       <div
         className="glass-panel"
@@ -245,20 +272,29 @@ export const SongsView: React.FC = () => {
 
           {/* State Filter Buttons */}
           <div style={{ display: 'flex', gap: '6px' }}>
-            {(['ALL', 'OWNED', 'NEW'] as const).map((st) => (
-              <button
-                key={st}
-                onClick={() => {
-                  setStateFilter(st);
-                  setPage(1);
-                }}
-                className={`btn ${stateFilter === st ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '6px 12px', fontSize: '12px' }}
-                aria-label={`Filter by ${st}`}
-              >
-                {st === 'ALL' ? 'All Tracks' : st === 'OWNED' ? 'Downloaded' : 'Not Downloaded'}
-              </button>
-            ))}
+            {(['ALL', 'OWNED', 'NEW'] as const).map((st) => {
+              const isActive = stateFilter === st;
+              const activeClass = isActive
+                ? st === 'ALL'
+                  ? 'active-all'
+                  : st === 'OWNED'
+                  ? 'active-downloaded'
+                  : 'active-missing'
+                : '';
+              return (
+                <button
+                  key={st}
+                  onClick={() => {
+                    setStateFilter(st);
+                    setPage(1);
+                  }}
+                  className={`filter-tab ${activeClass}`}
+                  aria-label={`Filter by ${st}`}
+                >
+                  {st === 'ALL' ? 'All Tracks' : st === 'OWNED' ? 'Downloaded' : 'Not Downloaded'}
+                </button>
+              );
+            })}
           </div>
 
           {/* Sort By Dropdown */}

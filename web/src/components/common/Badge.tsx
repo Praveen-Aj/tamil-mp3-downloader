@@ -15,13 +15,37 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'subtle', clas
   );
 };
 
-export const QualityBadge: React.FC<{ quality?: number | string | null; isDownloaded?: boolean }> = ({ quality, isDownloaded }) => {
-  if (isDownloaded === false || !quality) return <Badge variant="subtle">Target 320 kbps</Badge>;
+export const QualityBadge: React.FC<{
+  quality?: number | string | null;
+  isDownloaded?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}> = ({ quality, isDownloaded, className = '', style }) => {
+  if (isDownloaded === false || !quality) {
+    return (
+      <span className={`quality-chip ${className}`} style={style}>
+        320 kbps · Target
+      </span>
+    );
+  }
   const numQuality = typeof quality === 'number' ? quality : parseInt(String(quality).replace(/\D/g, ''), 10) || 0;
-  if (numQuality >= 320) return <Badge variant="success">320 kbps • High Quality</Badge>;
-  if (numQuality >= 192) return <Badge variant="primary">{numQuality} kbps</Badge>;
-  if (numQuality > 0) return <Badge variant="subtle">{numQuality} kbps • Standard</Badge>;
-  return <Badge variant="subtle">{String(quality)}</Badge>;
+
+  let text = '320 kbps · High';
+  if (numQuality >= 320) {
+    text = '320 kbps · High';
+  } else if (numQuality >= 192) {
+    text = `${numQuality} kbps · Medium`;
+  } else if (numQuality > 0) {
+    text = `${numQuality} kbps · Standard`;
+  } else {
+    text = String(quality);
+  }
+
+  return (
+    <span className={`quality-chip ${className}`} style={style}>
+      {text}
+    </span>
+  );
 };
 
 export const StateBadge: React.FC<{

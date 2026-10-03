@@ -83,7 +83,34 @@ export const MoviesView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* View Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Film size={18} color="#FBBF24" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+              Soundtracks & Albums
+            </h1>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {total} Tamil film soundtracks
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Header & Controls */}
       <div
         className="glass-panel"

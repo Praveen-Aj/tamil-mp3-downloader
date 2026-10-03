@@ -119,17 +119,18 @@ export const DownloadsView: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'rgba(139, 124, 248, 0.12)',
+              width: '36px',
+              height: '36px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.22)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--accent-primary)',
+              color: '#10B981',
             }}
           >
-            <ArrowDownCircle size={22} />
+            <ArrowDownCircle size={20} />
           </div>
           <div>
             <h1 className="title-display" style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>Downloads</h1>

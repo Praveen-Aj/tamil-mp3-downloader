@@ -441,16 +441,18 @@ export const PlaylistsView: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              backgroundColor: 'rgba(139, 124, 248, 0.12)',
+              width: '36px',
+              height: '36px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(251, 113, 133, 0.12)',
+              border: '1px solid rgba(251, 113, 133, 0.22)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              color: '#FB7185',
             }}
           >
-            <ListMusic size={22} color="var(--accent-primary)" />
+            <ListMusic size={20} />
           </div>
           <div>
             <h2 className="title-display" style={{ fontSize: '18px' }}>Custom Playlists</h2>

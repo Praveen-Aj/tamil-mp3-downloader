@@ -110,12 +110,39 @@ export const ArtistsView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* View Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(45, 212, 191, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Users size={18} color="#2DD4BF" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+              Artists & Composers
+            </h1>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {total} Tamil composers, playback singers, and lyricists
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Filter Tabs & Search Header */}
       <div
         className="glass-panel"
         style={{
-          padding: '18px 24px',
+          padding: '14px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -123,7 +150,7 @@ export const ArtistsView: React.FC = () => {
           gap: '16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', flex: 1 }}>
           <div
             style={{
               display: 'flex',
@@ -131,13 +158,13 @@ export const ArtistsView: React.FC = () => {
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-medium)',
               borderRadius: 'var(--radius-md)',
-              padding: '8px 14px',
-              gap: '10px',
-              width: '300px',
+              padding: '6px 12px',
+              gap: '8px',
+              width: '280px',
               maxWidth: '100%',
             }}
           >
-            <Search size={16} color="var(--text-muted)" />
+            <Search size={15} color="var(--text-muted)" />
             <input
               type="text"
               placeholder="Search singers, composers..."
@@ -174,28 +201,13 @@ export const ArtistsView: React.FC = () => {
                     setRoleFilter(tab.id as any);
                     setPage(1);
                   }}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 'var(--radius-pill)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 150ms ease',
-                    border: active ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                    backgroundColor: active ? 'var(--accent-primary)' : 'var(--bg-surface)',
-                    color: active ? '#ffffff' : 'var(--text-secondary)',
-                  }}
+                  className={`filter-tab ${active ? 'active-all' : ''}`}
                 >
                   {tab.label}
                 </button>
               );
             })}
           </div>
-        </div>
-
-        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Users size={16} color="var(--accent-primary)" />
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{total}</span> Artists in catalog
         </div>
       </div>
 

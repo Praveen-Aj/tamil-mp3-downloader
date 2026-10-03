@@ -376,7 +376,7 @@ export const DashboardView: React.FC = () => {
         <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={17} color="#f59e0b" />
+              <Users size={17} color="#2DD4BF" />
               <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 Artists & Composers
               </h2>
