@@ -150,19 +150,27 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         {getPageTitle()}
       </h1>
 
-      {/* Global Search Bar — hidden on mobile, shown on desktop */}
+      {/* Global Search Bar - hidden on mobile, shown on desktop */}
       <div ref={dropdownRef} style={{ position: 'relative', flex: 1, maxWidth: '380px' }} className="header-search-full">
         <form
           onSubmit={handleSearchSubmit}
           style={{
             display: 'flex',
             alignItems: 'center',
-            backgroundColor: 'var(--bg-surface)',
+            backgroundColor: 'var(--bg-inset)',
             border: '1px solid var(--border-medium)',
             borderRadius: 'var(--radius-pill)',
-            padding: '8px 14px',
+            padding: '7px 14px',
             gap: '10px',
-            transition: 'border-color var(--transition-fast)',
+            transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(229, 149, 0, 0.14)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-medium)';
+            e.currentTarget.style.boxShadow = 'none';
           }}
         >
           <button
@@ -178,11 +186,11 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               color: 'var(--text-muted)',
             }}
           >
-            <Search size={16} />
+            <Search size={15} />
           </button>
           <input
             type="text"
-            placeholder="Search songs, movies, artists..."
+            placeholder="Search catalog, soundstracks, artists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => {
@@ -190,7 +198,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             }}
             style={{
               flex: 1,
-              fontSize: '13px',
+              fontSize: '12.5px',
               color: 'var(--text-primary)',
               background: 'transparent',
               border: 'none',
@@ -198,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             }}
             aria-label="Global search input"
           />
-          {searchQuery && (
+          {searchQuery ? (
             <button
               type="button"
               onClick={() => {
@@ -217,6 +225,22 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             >
               <X size={14} />
             </button>
+          ) : (
+            <span
+              style={{
+                padding: '2px 5px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-subtle)',
+                fontVariantNumeric: 'tabular-nums',
+                userSelect: 'none',
+              }}
+            >
+              Ctrl K
+            </span>
           )}
         </form>
 
@@ -438,7 +462,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         )}
       </div>
 
-      {/* Right side: storage info + refresh — hidden on mobile */}
+      {/* Right side: storage info + refresh - hidden on mobile */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {/* Storage Badge */}
         <div

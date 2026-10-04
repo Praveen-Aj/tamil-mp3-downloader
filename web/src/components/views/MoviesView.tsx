@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Film, Download, ChevronLeft, ChevronRight, Music, CheckCircle2, Play, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Search, Film, Download, ChevronLeft, ChevronRight, CheckCircle2, Play } from 'lucide-react';
 import { moviesApi } from '../../api/endpoints';
 import { Movie } from '../../api/types';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { Badge } from '../common/Badge';
 import { useApp } from '../../context/AppContext';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { api } from '../../api/client';
@@ -253,7 +252,7 @@ export const MoviesView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%231A1A1F"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="36">🎬</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141C"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="36">🎬</text></svg>';
                     }}
                   />
 
@@ -264,15 +263,16 @@ export const MoviesView: React.FC = () => {
                         position: 'absolute',
                         top: '8px',
                         right: '8px',
-                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        backgroundColor: 'rgba(7, 8, 10, 0.85)',
                         backdropFilter: 'blur(8px)',
-                        color: '#f8fafc',
+                        color: 'var(--text-primary)',
                         fontSize: '11px',
                         fontWeight: 700,
                         padding: '3px 8px',
                         borderRadius: 'var(--radius-xs)',
                         border: '1px solid rgba(255, 255, 255, 0.15)',
                         letterSpacing: '0.03em',
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {movie.year}
@@ -286,7 +286,7 @@ export const MoviesView: React.FC = () => {
                         position: 'absolute',
                         top: '8px',
                         left: '8px',
-                        backgroundColor: 'rgba(16, 185, 129, 0.9)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.9)',
                         color: '#ffffff',
                         fontSize: '10px',
                         fontWeight: 700,
@@ -307,13 +307,14 @@ export const MoviesView: React.FC = () => {
                         position: 'absolute',
                         top: '8px',
                         left: '8px',
-                        backgroundColor: 'rgba(139, 124, 248, 0.85)',
-                        color: '#ffffff',
+                        backgroundColor: 'rgba(229, 149, 0, 0.90)',
+                        color: '#07080A',
                         fontSize: '10px',
                         fontWeight: 700,
                         padding: '3px 7px',
                         borderRadius: 'var(--radius-xs)',
                         textTransform: 'uppercase',
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {downloadedCount}/{trackCount}
@@ -326,7 +327,7 @@ export const MoviesView: React.FC = () => {
                       style={{
                         position: 'absolute',
                         inset: 0,
-                        backgroundColor: 'rgba(8, 12, 20, 0.55)',
+                        backgroundColor: 'rgba(7, 8, 10, 0.65)',
                         backdropFilter: 'blur(3px)',
                         display: 'flex',
                         flexDirection: 'column',
@@ -345,14 +346,14 @@ export const MoviesView: React.FC = () => {
                             alignItems: 'center',
                             gap: '6px',
                             backgroundColor: 'var(--accent-primary)',
-                            color: '#ffffff',
+                            color: '#07080A',
                             border: 'none',
                             borderRadius: 'var(--radius-pill)',
                             padding: '8px 16px',
                             fontSize: '12px',
-                            fontWeight: 600,
+                            fontWeight: 700,
                             cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(139, 124, 248, 0.25)',
+                            boxShadow: '0 4px 12px rgba(229, 149, 0, 0.3)',
                           }}
                         >
                           <Play size={13} fill="currentColor" /> Play Soundtrack

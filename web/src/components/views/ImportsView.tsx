@@ -143,7 +143,7 @@ export const ImportsView: React.FC = () => {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '—';
+    if (!seconds) return '-';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -382,7 +382,7 @@ export const ImportsView: React.FC = () => {
                       <tr
                         key={item.id}
                         style={{
-                          backgroundColor: isSelected ? 'rgba(139, 124, 248, 0.08)' : undefined,
+                          backgroundColor: isSelected ? 'rgba(229, 149, 0, 0.08)' : undefined,
                           opacity: isOwned ? 0.75 : 1,
                         }}
                       >
@@ -502,10 +502,10 @@ export const ImportsView: React.FC = () => {
                         {item.title}
                       </td>
                       <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                        {item.artist || '—'}
+                        {item.artist || '-'}
                       </td>
                       <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                        {item.album || '—'}
+                        {item.album || '-'}
                       </td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '11.5px' }}>
                         No Match Found

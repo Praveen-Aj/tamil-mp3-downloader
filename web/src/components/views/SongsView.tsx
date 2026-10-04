@@ -168,7 +168,7 @@ export const SongsView: React.FC = () => {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '—';
+    if (!seconds) return '-';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -392,7 +392,7 @@ export const SongsView: React.FC = () => {
                   <tr
                     key={song.id}
                     style={{
-                      backgroundColor: isSelected ? 'rgba(139, 124, 248, 0.08)' : undefined,
+                      backgroundColor: isSelected ? 'rgba(229, 149, 0, 0.10)' : undefined,
                     }}
                   >
                     {/* Checkbox */}
@@ -417,7 +417,7 @@ export const SongsView: React.FC = () => {
                             borderRadius: 'var(--radius-sm)',
                             overflow: 'hidden',
                             position: 'relative',
-                            backgroundColor: '#16161a',
+                            backgroundColor: '#11141c',
                             cursor: 'pointer',
                             flexShrink: 0,
                           }}
@@ -435,7 +435,7 @@ export const SongsView: React.FC = () => {
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
-                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
                             }}
                           />
                           <div
@@ -491,7 +491,7 @@ export const SongsView: React.FC = () => {
 
                     {/* Secondary: Soundtrack / Album & Year */}
                     <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {song.album || '—'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
+                      {song.album || 'Soundtrack'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
                     </td>
 
                     {/* Duration */}
@@ -749,6 +749,31 @@ export const SongsView: React.FC = () => {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Action Dock (Taste Skill) */}
+      {selectedIds.size > 0 && (
+        <div className="floating-action-dock" role="region" aria-label="Bulk actions">
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+            {selectedIds.size} track{selectedIds.size === 1 ? '' : 's'} selected
+          </span>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleDownloadSelected}
+            loading={batchActionLoading}
+            style={{ borderRadius: 'var(--radius-pill)', padding: '6px 14px', fontSize: '12px' }}
+          >
+            <Download size={13} /> Download
+          </Button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="btn btn-ghost"
+            style={{ padding: '6px 10px', fontSize: '12px', color: 'var(--text-muted)' }}
+          >
+            Deselect
+          </button>
         </div>
       )}
     </div>

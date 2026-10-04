@@ -253,8 +253,8 @@ export const SettingsView: React.FC = () => {
                   style={{
                     padding: '12px 14px',
                     borderRadius: 'var(--radius-md)',
-                    border: isSelected ? '1px solid var(--primary-light)' : '1px solid var(--border-medium)',
-                    backgroundColor: isSelected ? 'rgba(139, 124, 248, 0.12)' : 'var(--bg-surface)',
+                    border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-medium)',
+                    backgroundColor: isSelected ? 'rgba(229, 149, 0, 0.12)' : 'var(--bg-surface)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'flex-start',
@@ -287,13 +287,13 @@ export const SettingsView: React.FC = () => {
               width: '26px',
               height: '26px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(139, 124, 248, 0.12)',
+              backgroundColor: 'rgba(229, 149, 0, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Volume2 size={14} color="var(--primary-light)" />
+            <Volume2 size={14} color="var(--accent-primary)" />
           </div>
           <div>
             <h2 style={{ fontSize: '14px', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-main)' }}>

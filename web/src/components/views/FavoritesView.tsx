@@ -112,7 +112,7 @@ export const FavoritesView: React.FC = () => {
         )}
       </div>
 
-      {/* Favorites — Desktop table */}
+      {/* Favorites - Desktop table */}
       <div className="table-card">
         <table className="data-table">
           <thead>
@@ -180,7 +180,7 @@ export const FavoritesView: React.FC = () => {
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div
@@ -225,7 +225,7 @@ export const FavoritesView: React.FC = () => {
                   </td>
 
                   <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
-                    {song.album || '—'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
+                    {song.album || '-'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
                   </td>
                   <td>
                     <QualityBadge quality={song.quality} />
@@ -314,7 +314,7 @@ export const FavoritesView: React.FC = () => {
         )}
       </div>
 
-      {/* Favorites — Mobile card list (hidden on desktop, shown on mobile via CSS) */}
+      {/* Favorites - Mobile card list (hidden on desktop, shown on mobile via CSS) */}
       <div className="glass-panel mobile-cards-container" style={{ overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>

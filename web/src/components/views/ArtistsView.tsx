@@ -97,11 +97,11 @@ export const ArtistsView: React.FC = () => {
     switch (role?.toLowerCase()) {
       case 'music_director':
       case 'composer':
-        return { bg: 'rgba(139, 124, 248, 0.12)', text: '#BAB0FB', border: 'rgba(139, 124, 248, 0.22)' };
+        return { bg: 'rgba(229, 149, 0, 0.12)', text: '#FCD34D', border: 'rgba(229, 149, 0, 0.22)' };
       case 'singer':
         return { bg: 'rgba(34, 197, 94, 0.12)', text: '#86EFAC', border: 'rgba(34, 197, 94, 0.22)' };
       case 'lyricist':
-        return { bg: 'rgba(245, 158, 11, 0.15)', text: '#fcd34d', border: 'rgba(245, 158, 11, 0.3)' };
+        return { bg: 'rgba(229, 149, 0, 0.12)', text: '#fcd34d', border: 'rgba(229, 149, 0, 0.25)' };
       default:
         return { bg: 'rgba(148, 163, 184, 0.12)', text: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)' };
     }
@@ -254,7 +254,7 @@ export const ArtistsView: React.FC = () => {
                     marginBottom: '16px',
                     position: 'relative',
                     border: `3px solid ${isHovered ? 'var(--accent-primary)' : 'var(--border-medium)'}`,
-                    boxShadow: isHovered ? '0 0 16px rgba(139, 124, 248, 0.20)' : '0 4px 12px rgba(0, 0, 0, 0.4)',
+                    boxShadow: isHovered ? '0 0 16px rgba(229, 149, 0, 0.20)' : '0 4px 12px rgba(0, 0, 0, 0.4)',
                     transition: 'all 250ms ease',
                   }}
                 >
@@ -271,7 +271,7 @@ export const ArtistsView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%231A1A1F"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="32">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%2311141C"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="32">👤</text></svg>';
                     }}
                   />
                 </div>

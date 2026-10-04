@@ -109,7 +109,7 @@ export const ArtistDetailView: React.FC = () => {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '—';
+    if (!seconds) return '-';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -248,7 +248,7 @@ export const ArtistDetailView: React.FC = () => {
                 <tr
                   key={song.id}
                   style={{
-                    backgroundColor: currentSong?.id === song.id ? 'rgba(139, 124, 248, 0.08)' : undefined,
+                    backgroundColor: currentSong?.id === song.id ? 'rgba(229, 149, 0, 0.10)' : undefined,
                   }}
                 >
                   {/* Track Number */}
@@ -267,7 +267,7 @@ export const ArtistDetailView: React.FC = () => {
                           borderRadius: 'var(--radius-sm)',
                           overflow: 'hidden',
                           position: 'relative',
-                          backgroundColor: '#16161a',
+                          backgroundColor: '#11141c',
                           cursor: 'pointer',
                           flexShrink: 0,
                         }}
@@ -285,7 +285,7 @@ export const ArtistDetailView: React.FC = () => {
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2311141c"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div

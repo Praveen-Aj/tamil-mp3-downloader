@@ -225,10 +225,10 @@ export const DownloadsView: React.FC = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '12px',
-                    border: `1px solid ${isBatchActive ? 'rgba(139, 124, 248, 0.35)' : 'var(--border-subtle)'}`,
+                    border: `1px solid ${isBatchActive ? 'rgba(229, 149, 0, 0.35)' : 'var(--border-subtle)'}`,
                     borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'var(--bg-surface)',
-                    boxShadow: isBatchActive ? '0 4px 20px -2px rgba(139, 124, 248, 0.08)' : 'none',
+                    boxShadow: isBatchActive ? '0 4px 20px -2px rgba(229, 149, 0, 0.08)' : 'none',
                   }}
                 >
                   {/* Top row: Title, Progress count, and Action buttons */}
@@ -256,9 +256,9 @@ export const DownloadsView: React.FC = () => {
                               textTransform: 'uppercase',
                               padding: '2px 8px',
                               borderRadius: 'var(--radius-pill)',
-                              backgroundColor: 'rgba(139, 124, 248, 0.15)',
+                              backgroundColor: 'rgba(229, 149, 0, 0.15)',
                               color: 'var(--accent-primary)',
-                              border: '1px solid rgba(139, 124, 248, 0.3)',
+                              border: '1px solid rgba(229, 149, 0, 0.3)',
                             }}
                           >
                             Active Batch
@@ -407,10 +407,10 @@ export const DownloadsView: React.FC = () => {
                         alignItems: 'center',
                         gap: '6px',
                         color: 'var(--accent-primary)',
-                        backgroundColor: 'rgba(139, 124, 248, 0.08)',
+                        backgroundColor: 'rgba(229, 149, 0, 0.08)',
                         padding: '6px 10px',
                         borderRadius: 'var(--radius-md)',
-                        border: '1px solid rgba(139, 124, 248, 0.15)',
+                        border: '1px solid rgba(229, 149, 0, 0.18)',
                       }}
                     >
                       <Zap size={13} />
@@ -451,11 +451,11 @@ export const DownloadsView: React.FC = () => {
                               justifyContent: 'space-between',
                               padding: '8px 12px',
                               backgroundColor: isDownloading
-                                ? 'rgba(139, 124, 248, 0.1)'
+                                ? 'rgba(229, 149, 0, 0.1)'
                                 : 'rgba(255, 255, 255, 0.02)',
                               borderRadius: 'var(--radius-md)',
                               border: isDownloading
-                                ? '1px solid rgba(139, 124, 248, 0.25)'
+                                ? '1px solid rgba(229, 149, 0, 0.28)'
                                 : '1px solid rgba(255, 255, 255, 0.04)',
                             }}
                           >
@@ -642,7 +642,7 @@ export const DownloadsView: React.FC = () => {
                       }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="16">🎵</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="16">🎵</text></svg>';
                       }}
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -822,7 +822,7 @@ export const DownloadsView: React.FC = () => {
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%2316161a"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%2316161a"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div style={{ minWidth: 0, flex: 1 }}>
@@ -866,7 +866,7 @@ export const DownloadsView: React.FC = () => {
                       }}
                       title={task.album || undefined}
                     >
-                      {task.album || '—'}
+                      {task.album || '-'}
                     </td>
                     <td style={{ width: '140px', whiteSpace: 'nowrap' }}>
                       <QualityBadge quality={task.quality} isDownloaded={task.status === 'completed'} />

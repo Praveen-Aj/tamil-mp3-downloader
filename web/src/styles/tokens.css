@@ -1,69 +1,68 @@
-/* Design Tokens for V6 web UI */
+/* Design Tokens - Obsidian + Burnished Amber Hi-Fi Console */
 :root {
-  /* === SURFACE & BACKGROUND — Graphite/Charcoal (No blue tint) === */
-  --bg-app: #0B0B0D;
-  --bg-sidebar: #0F0F12;
-  --bg-header: #0F0F12;
-  --bg-player: rgba(11, 11, 13, 0.97);
-  --bg-surface: #1A1A1F;
-  --bg-surface-hover: #202028;
-  --bg-surface-active: #26262F;
-  --bg-inset: #080809;
-  --bg-glass: rgba(26, 26, 31, 0.88);
-  --bg-glass-hover: rgba(32, 32, 40, 0.92);
-  --bg-modal: #1A1A1F;
-  --bg-tooltip: #222228;
+  /* === SURFACE & BACKGROUND (Audiophile Obsidian & Basalt) === */
+  --bg-app: #07080A;
+  --bg-sidebar: #0A0C11;
+  --bg-header: #0A0C11;
+  --bg-player: rgba(10, 12, 17, 0.94);
+  --bg-surface: #11141C;
+  --bg-surface-elevated: #141720;
+  --bg-surface-hover: #181B26;
+  --bg-surface-active: #1D212E;
+  --bg-inset: #090B0F;
+  --bg-glass: rgba(17, 20, 28, 0.88);
+  --bg-glass-hover: rgba(24, 27, 38, 0.92);
+  --bg-modal: #11141C;
+  --bg-tooltip: #1A1D27;
 
-  /* === ACCENT — Single restrained violet === */
-  --accent-primary: #8B7CF8;
-  --accent-primary-hover: #7A6BE8;
-  --accent-primary-glow: rgba(139, 124, 248, 0.10);
-  
-  /* NO CYAN - Secondary accent mapped to primary to prevent overrides */
-  --accent-secondary: #8B7CF8;
-  --accent-secondary-hover: #7A6BE8;
-  --accent-secondary-glow: rgba(139, 124, 248, 0.08);
+  /* === ACCENT - Single Restrained Acoustic Amber / Burnished Gold === */
+  --accent-primary: #E59500;
+  --accent-primary-hover: #F5A623;
+  --accent-primary-glow: rgba(229, 149, 0, 0.12);
+  --primary-light: #FCD34D;
+  --accent-secondary: #E59500;
+  --accent-secondary-hover: #F5A623;
+  --accent-secondary-glow: rgba(229, 149, 0, 0.08);
 
-  /* === STATUS COLORS (Semantic only) === */
+  /* === STATUS COLORS (Semantic & restrained, decoupled from accent) === */
   --color-success: #22C55E;
   --color-success-bg: rgba(34, 197, 94, 0.10);
-  --color-warning: #F59E0B;
-  --color-warning-bg: rgba(245, 158, 11, 0.10);
-  --color-error: #F87171;
-  --color-error-bg: rgba(248, 113, 113, 0.10);
-  --color-info: #8B7CF8;
-  --color-info-bg: rgba(139, 124, 248, 0.10);
+  --color-warning: #E59500;
+  --color-warning-bg: rgba(229, 149, 0, 0.10);
+  --color-error: #EF4444;
+  --color-error-bg: rgba(239, 68, 68, 0.10);
+  --color-info: #E59500;
+  --color-info-bg: rgba(229, 149, 0, 0.10);
 
   /* === TYPOGRAPHY === */
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
-  /* === TEXT COLORS — Graphite-neutral, no blue cast === */
-  --text-primary: #F4F4F6;
-  --text-main: #F4F4F6;
-  --text-secondary: #8A8A96;
-  --text-muted: #56565E;
-  --text-inverse: #0B0B0D;
-  --primary-light: #BAB0FB;
+  /* === TEXT COLORS (High-contrast titanium & warm neutrals) === */
+  --text-primary: #EDEDF0;
+  --text-main: #EDEDF0;
+  --text-secondary: #8E929E;
+  --text-muted: #525662;
+  --text-inverse: #07080A;
 
-  /* === BORDERS — Neutral white opacity, no blue tint === */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-medium: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(255, 255, 255, 0.07);
-  --border-focus: #8B7CF8;
+  /* === BORDERS (Machined hairline edges & inset highlights) === */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-medium: rgba(255, 255, 255, 0.09);
+  --border-highlight: rgba(255, 255, 255, 0.08);
+  --border-focus: #E59500;
 
   /* === TRACK & ELEVATION STATES === */
-  --bg-surface-elevated: #22222B;
   --bg-track-hover: rgba(255, 255, 255, 0.035);
-  --bg-track-active: rgba(139, 124, 248, 0.12);
+  --bg-track-active: rgba(229, 149, 0, 0.10);
 
-  /* === SHADOWS — Minimal, tinted to graphite hue, reduced glow === */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.40);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
+  /* === SHADOWS (Soft, ambient-tinted, no harsh black) === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.65);
+  --shadow-amber: 0 4px 20px rgba(229, 149, 0, 0.15);
 
-  /* === BORDER RADII === */
+  /* === BORDER RADII (Hardware-inspired concentric curves) === */
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -71,14 +70,14 @@
   --radius-xl: 20px;
   --radius-pill: 9999px;
 
-  /* === DIMENSIONS === */
+  /* === SHELL DIMENSIONS === */
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 72px;
   --header-height: 64px;
   --player-height: 84px;
 
-  /* === TRANSITIONS === */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* === TRANSITIONS (Subtle spring & haptic easing) === */
+  --transition-fast: 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
