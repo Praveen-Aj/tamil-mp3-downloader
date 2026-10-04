@@ -70,6 +70,7 @@ export const Modal: React.FC<ModalProps> = ({
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '90vh',
+          animation: 'scaleIn 200ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         {/* Header */}

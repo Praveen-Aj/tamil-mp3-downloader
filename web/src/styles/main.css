@@ -378,6 +378,34 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Sidebar Navigation Items */
+.sidebar-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 13px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.sidebar-nav-item:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+.sidebar-nav-item.active {
+  background: rgba(139, 124, 248, 0.12);
+  color: var(--primary-light);
+  font-weight: 600;
+  border-color: rgba(139, 124, 248, 0.20);
+}
+
 /* Queue Drawer */
 .queue-drawer {
   position: fixed;

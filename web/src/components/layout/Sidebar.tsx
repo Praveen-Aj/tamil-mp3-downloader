@@ -185,34 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     <li key={item.id}>
                       <button
                         onClick={() => handleNavClick(item.id)}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '9px 10px',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: isActive ? 'rgba(139, 124, 248, 0.12)' : 'transparent',
-                          color: isActive ? '#BAB0FB' : 'var(--text-secondary)',
-                          fontWeight: isActive ? 600 : 500,
-                          fontSize: '13px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          transition: 'all var(--transition-fast)',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
-                            e.currentTarget.style.color = 'var(--text-primary)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                            e.currentTarget.style.color = 'var(--text-secondary)';
-                          }
-                        }}
+                        className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
                         aria-current={isActive ? 'page' : undefined}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
@@ -224,10 +197,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             style={{
                               padding: '1px 6px',
                               borderRadius: 'var(--radius-pill)',
-                              fontSize: '10px',
+                              fontSize: '10.5px',
                               fontWeight: 700,
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              color: 'var(--text-muted)',
+                              fontVariantNumeric: 'tabular-nums',
+                              backgroundColor: isActive ? 'rgba(139, 124, 248, 0.22)' : 'rgba(255, 255, 255, 0.07)',
+                              color: isActive ? 'var(--primary-light)' : 'var(--text-muted)',
                             }}
                           >
                             {item.badge > 9999 ? `${Math.round(item.badge / 1000)}k` : item.badge}

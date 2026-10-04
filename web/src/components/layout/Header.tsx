@@ -456,7 +456,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           }}
         >
           <HardDrive size={13} color="var(--text-muted)" />
-          <span>{formatStorage(stats?.total_storage_bytes)}</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatStorage(stats?.total_storage_bytes)}</span>
         </div>
 
         {/* Refresh Button */}
