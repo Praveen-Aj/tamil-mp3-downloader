@@ -17,8 +17,8 @@ export const MoviesView: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(18);
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'title' | 'year' | 'track_count'>('title');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<'title' | 'year' | 'track_count'>('year');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(false);
   const [hoveredMovieId, setHoveredMovieId] = useState<number | null>(null);
 

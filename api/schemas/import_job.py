@@ -33,6 +33,9 @@ class ImportAnalyzeResponse(BaseModel):
 
 class ImportExecuteRequest(BaseModel):
     """Payload to execute an import job."""
-    url: str
+    url: Optional[str] = None
+    job_id: Optional[str] = None
+    item_ids: Optional[List[int]] = None
     playlist_name: Optional[str] = None
+    create_playlist: bool = True
     auto_download: bool = True

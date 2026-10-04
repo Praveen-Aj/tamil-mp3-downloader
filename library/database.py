@@ -1804,6 +1804,28 @@ class SQLiteDatabase:
                 })
             return results
 
+    def get_song_movie_context(self, song_id: int) -> Optional[Dict[str, Any]]:
+        """Get movie title, release year, track number, and poster for a song if linked."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT m.id, m.title, m.year, sm.track_number, m.poster_url
+                FROM song_movies sm
+                JOIN movies m ON sm.movie_id = m.id
+                WHERE sm.song_id = ?
+                LIMIT 1
+            """, (song_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "movie_id": row["id"] if isinstance(row, dict) or hasattr(row, "keys") else row[0],
+                    "movie_title": row["title"] if isinstance(row, dict) or hasattr(row, "keys") else row[1],
+                    "movie_year": row["year"] if isinstance(row, dict) or hasattr(row, "keys") else row[2],
+                    "track_number": row["track_number"] if isinstance(row, dict) or hasattr(row, "keys") else row[3],
+                    "poster_url": row["poster_url"] if isinstance(row, dict) or hasattr(row, "keys") else row[4],
+                }
+            return None
+
     def delete_movie(self, movie_id: int) -> bool:
         """Delete a movie by ID (does not delete associated songs)."""
         with self._lock:

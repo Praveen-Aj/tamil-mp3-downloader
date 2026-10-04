@@ -80,7 +80,14 @@ export const moviesApi = {
   getMovie: (movieId: number) => api.get<Movie>(`/movies/${movieId}`),
 
   getMovieSongs: (movieId: number) =>
-    api.get<{ movie: Movie; songs: Song[]; stats: any }>(`/movies/${movieId}/songs`),
+    api.get<{
+      movie: Movie;
+      songs: Song[];
+      primary_songs?: Song[];
+      alternate_songs?: Song[];
+      non_primary_songs?: Song[];
+      stats: any;
+    }>(`/movies/${movieId}/songs`),
 
   planDownload: (movieId: number, preferredQuality = 320) =>
     api.post<DownloadPlanResult>(`/movies/${movieId}/plan`, { preferred_quality: preferredQuality }),
@@ -197,6 +204,8 @@ export const downloadsApi = {
 export const importsApi = {
   startUrlImport: (url: string) => api.post<ImportJob>('/imports/url', { url }),
   getJobStatus: (jobId: string) => api.get<ImportJob>(`/imports/jobs/${jobId}`),
+  executeImport: (payload: { job_id?: string; url?: string; item_ids?: number[]; create_playlist?: boolean; playlist_name?: string }) =>
+    api.post<{ job_id: string; playlist_id?: number; queued: boolean }>('/imports/execute', payload),
 };
 
 export const settingsApi = {

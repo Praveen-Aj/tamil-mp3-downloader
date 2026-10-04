@@ -31,6 +31,9 @@ export const PlayerBar: React.FC = () => {
     volume,
     isMuted,
     queue,
+    isPlayerHidden,
+    hidePlayer,
+    showPlayer,
     togglePlay,
     seek,
     setVolume,
@@ -83,6 +86,11 @@ export const PlayerBar: React.FC = () => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
+  // If user explicitly hid the player bar, do not display it (audio continues streaming in background)
+  if (isPlayerHidden) {
+    return null;
+  }
 
   // 1. Idle state: Compact, elegant bar
   if (!currentSong) {
@@ -406,6 +414,17 @@ export const PlayerBar: React.FC = () => {
             }}
             aria-label="Volume Slider"
           />
+
+          {/* Hide / Close player button */}
+          <button
+            onClick={hidePlayer}
+            className="btn-icon"
+            style={{ width: '32px', height: '32px', color: 'var(--text-muted)', marginLeft: '6px' }}
+            title="Hide player"
+            aria-label="Hide player"
+          >
+            <X size={18} />
+          </button>
         </div>
       </footer>
 

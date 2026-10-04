@@ -16,14 +16,14 @@ router = APIRouter(prefix="/movies", tags=["Movies"])
 @router.get("", response_model=ApiResponse[PaginatedResponse[Dict[str, Any]]])
 def list_movies(
     query: str = Query(default=""),
-    sort_by: str = Query(default="name"),
-    sort_order: str = Query(default="asc"),
+    sort_by: str = Query(default="year"),
+    sort_order: str = Query(default="desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     service: LibraryService = Depends(get_service),
 ) -> ApiResponse[PaginatedResponse[Dict[str, Any]]]:
-    """Fetch paginated movies with search and song/download statistics."""
-    sort_col = "title" if sort_by in ("name", "title") else sort_by
+    """Fetch paginated movies with search and song/download statistics. Defaults to Release Year DESC."""
+    sort_col = "year" if sort_by in ("year", "release_year") else ("title" if sort_by in ("name", "title") else sort_by)
     items, total = service.get_movies_page(
         query=query,
         sort_by=sort_col,
@@ -108,17 +108,40 @@ def get_movie(
         else:
             clean_songs.append(s)
 
-    stats = details.get("stats") or service.db.get_movie_download_stats(movie_id)
+    from library.track_classifier import classify_movie_soundtrack
+    classified = classify_movie_soundtrack(clean_songs)
+    primary_songs = classified["primary_songs"]
+    alternate_songs = classified["alternate_songs"]
+    non_primary_songs = classified["non_primary_songs"]
+
+    primary_downloaded = len([s for s in primary_songs if s.get("state") == "OWNED" or s.get("is_downloaded")])
+    primary_missing = max(0, len(primary_songs) - primary_downloaded)
+
+    stats = {
+        "total": len(primary_songs),
+        "downloaded": primary_downloaded,
+        "missing": primary_missing,
+        "primary_count": len(primary_songs),
+        "total_primary": len(primary_songs),
+        "alternate_count": len(alternate_songs),
+        "non_primary_count": len(non_primary_songs),
+        "total_including_variants": len(clean_songs),
+    }
+
     if isinstance(movie_dict, dict):
-        movie_dict["total_songs"] = stats.get("total", len(clean_songs))
-        movie_dict["downloaded_count"] = stats.get("downloaded", 0)
-        movie_dict["missing_count"] = stats.get("missing", 0)
+        movie_dict["total_songs"] = len(primary_songs)
+        movie_dict["downloaded_count"] = primary_downloaded
+        movie_dict["missing_count"] = primary_missing
 
     return ApiResponse(
         success=True,
         data={
             "movie": movie_dict,
-            "songs": clean_songs,
+            "songs": primary_songs,
+            "primary_songs": primary_songs,
+            "alternate_songs": alternate_songs,
+            "non_primary_songs": non_primary_songs,
+            "all_songs": clean_songs,
             "stats": stats,
             "cast": details.get("cast", []),
             "composers": details.get("composers", []),
@@ -139,13 +162,14 @@ def get_movie_songs(
 def plan_movie_download(
     movie_id: int,
     mode: str = Query(default="missing", pattern="^(all|missing)$"),
+    include_variants: bool = Query(default=False),
     service: LibraryService = Depends(get_service),
 ) -> ApiResponse[DownloadPlanResponse]:
-    """Generate download plan for all or missing songs in a movie."""
+    """Generate download plan for all or missing primary songs in a movie."""
     if mode == "all":
         plan = service.plan_movie_download_all(movie_id)
     else:
-        plan = service.plan_movie_download_missing(movie_id)
+        plan = service.plan_movie_download_missing(movie_id, include_variants=include_variants)
 
     return ApiResponse(
         success=True,
@@ -157,13 +181,14 @@ def plan_movie_download(
 def execute_movie_download(
     movie_id: int,
     mode: str = Query(default="missing", pattern="^(all|missing)$"),
+    include_variants: bool = Query(default=False),
     service: LibraryService = Depends(get_service),
 ) -> ApiResponse[Dict[str, Any]]:
-    """Execute background downloads for all or missing songs in a movie."""
+    """Execute background downloads for all or missing primary songs in a movie."""
     if mode == "all":
         plan = service.plan_movie_download_all(movie_id)
     else:
-        plan = service.plan_movie_download_missing(movie_id)
+        plan = service.plan_movie_download_missing(movie_id, include_variants=include_variants)
 
     queued_ids = service.execute_download_plan(plan)
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids

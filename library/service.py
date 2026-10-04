@@ -547,6 +547,72 @@ class LibraryService:
 
         from models.song import Song as DownloadSong
         from downloaders.http_downloader import HTTPDownloader
+        from library.storage_manager import get_canonical_download_path, tag_mp3_metadata
+
+        # Derive deterministic canonical target path
+        out_base_dir = Path(self.download_dir or settings.output_dir)
+        m_ctx = self.db.get_song_movie_context(song.id)
+        if m_ctx:
+            movie_title = m_ctx["movie_title"]
+            movie_year = m_ctx["movie_year"]
+            track_num = m_ctx["track_number"]
+            cover_art_url = m_ctx.get("poster_url")
+        else:
+            movie_title = song.album if (song.album and song.album.lower() != "singles") else None
+            movie_year = song.year
+            track_num = None
+            cover_art_url = None
+
+        canonical_target = get_canonical_download_path(
+            base_dir=out_base_dir,
+            song_title=song.title,
+            artist=song.artist,
+            movie_title=movie_title,
+            movie_year=movie_year,
+            track_number=track_num,
+        )
+
+        # Pre-check 1: If song is already marked OWNED and physical file exists, reuse immediately
+        if song.state == SongState.OWNED and song.file_path and os.path.isfile(song.file_path) and os.path.getsize(song.file_path) > 0:
+            logger.info(f"Song {song.id} ('{song.title}') is already owned at {song.file_path}. Skipping redundant download.")
+            self.registry.complete(
+                song_id=song.id,
+                download_id=download_id,
+                file_path=song.file_path,
+                file_size_bytes=os.path.getsize(song.file_path),
+                quality_kbps=song.quality_kbps or 320,
+                library_location_id=1,
+            )
+            self.emit_progress(DownloadProgressEvent(
+                download_id=download_id,
+                song_id=song.id,
+                title=song.title,
+                status="COMPLETED",
+                percent=1.0,
+                speed_str="Already Downloaded · 320 kbps MP3 · Ready to play",
+            ))
+            return True
+
+        # Pre-check 2: If the deterministic target file already exists on disk, reuse immediately
+        if canonical_target.is_file() and canonical_target.stat().st_size > 0:
+            logger.info(f"Found existing canonical file on disk for '{song.title}': {canonical_target}. Reusing.")
+            self.registry.complete(
+                song_id=song.id,
+                download_id=download_id,
+                file_path=str(canonical_target),
+                file_size_bytes=canonical_target.stat().st_size,
+                quality_kbps=320,
+                library_location_id=1,
+            )
+            self.emit_progress(DownloadProgressEvent(
+                download_id=download_id,
+                song_id=song.id,
+                title=song.title,
+                status="COMPLETED",
+                percent=1.0,
+                speed_str="Reused existing file · 320 kbps MP3 · Ready to play",
+            ))
+            return True
 
         # 1. Attempt download with primary source if available
         if source:
@@ -566,13 +632,14 @@ class LibraryService:
                     name=song.title,
                     url=download_url,
                     quality=f"{source.quality_kbps or 320}kbps",
-                    album_name=song.album or "Unknown Album",
+                    album_name=movie_title or song.album or "Unknown Album",
                     artist=song.artist,
-                    year=song.year,
+                    year=movie_year or song.year,
+                    track_number=track_num,
                 )
                 try:
                     downloader = HTTPDownloader(
-                        output_dir=Path(self.download_dir or settings.output_dir),
+                        output_dir=out_base_dir,
                         max_workers=settings.get("download.max_workers", 3),
                         show_progress=False,
                     )
@@ -585,8 +652,17 @@ class LibraryService:
                             percent=ratio,
                             speed_str=msg,
                         ))
-                    result = downloader.download_song(dl_song, progress_cb=_http_prog)
+                    result = downloader.download_song(dl_song, progress_cb=_http_prog, custom_target_path=canonical_target)
                     if result.success and result.file_path and result.file_path.exists() and result.file_path.stat().st_size > 0:
+                        tag_mp3_metadata(
+                            file_path=result.file_path,
+                            title=song.title,
+                            artist=song.artist,
+                            album_or_movie=movie_title or song.album,
+                            year=movie_year or song.year,
+                            track_number=track_num,
+                            cover_art_url=cover_art_url,
+                        )
                         was_upgrade = (song.state == SongState.OWNED)
                         file_size = result.file_path.stat().st_size if result.file_path.exists() else (result.size_downloaded or 0)
                         self.registry.complete(
@@ -630,13 +706,14 @@ class LibraryService:
                     name=song.title,
                     url=alt_url,
                     quality=f"{alt_src.quality_kbps or 320}kbps",
-                    album_name=song.album or "Unknown Album",
+                    album_name=movie_title or song.album or "Unknown Album",
                     artist=song.artist,
-                    year=song.year,
+                    year=movie_year or song.year,
+                    track_number=track_num,
                 )
                 try:
                     downloader = HTTPDownloader(
-                        output_dir=Path(self.download_dir or settings.output_dir),
+                        output_dir=out_base_dir,
                         max_workers=settings.get("download.max_workers", 3),
                         show_progress=False,
                     )
@@ -649,8 +726,17 @@ class LibraryService:
                             percent=ratio,
                             speed_str=msg,
                         ))
-                    res = downloader.download_song(dl_song, progress_cb=_alt_prog)
+                    res = downloader.download_song(dl_song, progress_cb=_alt_prog, custom_target_path=canonical_target)
                     if res.success and res.file_path and res.file_path.exists() and res.file_path.stat().st_size > 0:
+                        tag_mp3_metadata(
+                            file_path=res.file_path,
+                            title=song.title,
+                            artist=song.artist,
+                            album_or_movie=movie_title or song.album,
+                            year=movie_year or song.year,
+                            track_number=track_num,
+                            cover_art_url=cover_art_url,
+                        )
                         was_upgrade = (song.state == SongState.OWNED)
                         file_size = res.file_path.stat().st_size if res.file_path.exists() else (res.size_downloaded or 0)
                         self.registry.complete(
@@ -686,7 +772,7 @@ class LibraryService:
             )
             if candidates:
                 cand_list = [c if isinstance(c, AudioCandidate) else c[0] for c in candidates]
-                clean_stem = re.sub(r'[\\/*?:"<>|]', "", f"{song.artist or 'Track'} - {song.title}")[:80].strip()
+                clean_stem = canonical_target.stem
                 def _prov_prog(ratio: float, msg: str):
                     self.emit_progress(DownloadProgressEvent(
                         download_id=download_id,
@@ -698,21 +784,32 @@ class LibraryService:
                     ))
                 prov_res = self.provider_registry.download_with_fallback(
                     candidates=cand_list,
-                    output_dir=Path(self.download_dir or settings.output_dir),
+                    output_dir=canonical_target.parent,
                     filename_stem=clean_stem,
                     progress_cb=_prov_prog,
                 )
                 if prov_res.success and prov_res.file_path and prov_res.file_path.exists() and prov_res.file_path.stat().st_size > 0:
+                    final_path = prov_res.file_path
+                    if final_path != canonical_target:
+                        try:
+                            canonical_target.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(final_path), str(canonical_target))
+                            final_path = canonical_target
+                        except Exception:
+                            pass
+
                     # Tag ID3 metadata
-                    self.job_manager._tag_audio_file(
-                        file_path=prov_res.file_path,
+                    tag_mp3_metadata(
+                        file_path=final_path,
                         title=song.title,
-                        artist=song.artist or "",
-                        album=song.album or "Downloaded",
-                        track_num=1,
+                        artist=song.artist,
+                        album_or_movie=movie_title or song.album,
+                        year=movie_year or song.year,
+                        track_number=track_num,
+                        cover_art_url=cover_art_url,
                     )
                     was_upgrade = (song.state == SongState.OWNED)
-                    ext = prov_res.file_path.suffix.lower()
+                    ext = final_path.suffix.lower()
                     if ext == ".webm":
                         q_kbps = 160
                         fmt_label = "Opus (WebM)"
@@ -722,11 +819,11 @@ class LibraryService:
                     else:
                         q_kbps = 320
                         fmt_label = "320 kbps MP3"
-                    file_size = prov_res.file_path.stat().st_size if prov_res.file_path.exists() else (prov_res.size_bytes or 0)
+                    file_size = final_path.stat().st_size if final_path.exists() else (prov_res.size_bytes or 0)
                     self.registry.complete(
                         song_id=song.id,
                         download_id=download_id,
-                        file_path=str(prov_res.file_path),
+                        file_path=str(final_path),
                         file_size_bytes=file_size,
                         quality_kbps=q_kbps,
                         library_location_id=1,
@@ -1241,16 +1338,22 @@ class LibraryService:
         songs = self.db.get_movie_songs(movie_id)
         return self.planner.plan_downloads_for_songs(songs)
 
-    def plan_movie_download_missing(self, movie_id: int) -> DownloadPlan:
+    def plan_movie_download_missing(self, movie_id: int, include_variants: bool = False) -> DownloadPlan:
         """
-        Plan downloads ONLY for missing songs in a movie.
+        Plan downloads ONLY for missing primary official songs in a movie.
+        Excludes non-primary utility audio (ringtones, teasers, karaoke).
         Uses physical file verification & reconciliation.
         """
         self.reconcile_library_files()
         songs = self.db.get_movie_songs(movie_id)
-        # Missing means: state != OWNED or physical file is missing from disk
+        from library.track_classifier import classify_track_single, TrackClassification, extract_base_title
+        base_titles = {extract_base_title(s.title).lower() for s in songs if s.title}
+
         missing_songs = []
         for s in songs:
+            cls, _, _ = classify_track_single(s.title, s.duration_seconds, base_titles)
+            if not include_variants and cls != TrackClassification.PRIMARY:
+                continue
             if s.state != SongState.OWNED or not s.file_path or not os.path.isfile(s.file_path):
                 missing_songs.append(s)
         return self.planner.plan_downloads_for_songs(missing_songs)

@@ -42,11 +42,7 @@ export const PlaylistsView: React.FC = () => {
     try {
       const res = await playlistsApi.getPlaylists();
       if (res.success && res.data) {
-        // Filter out test/demo playlists from the UI
-        const validPlaylists = (res.data.items || []).filter(
-          (pl: Playlist) => !pl.name.toLowerCase().includes('test')
-        );
-        setPlaylists(validPlaylists);
+        setPlaylists(res.data.items || []);
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to load playlists', 'error');
@@ -109,6 +105,26 @@ export const PlaylistsView: React.FC = () => {
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to download playlist', 'error');
+    }
+  };
+
+  const handleDownloadMissing = async (e: React.MouseEvent, plId: number, plName: string) => {
+    e.stopPropagation();
+    const missing = playlistSongs.filter(s => !s.has_file && s.state !== 'OWNED' && s.download_state !== 'DOWNLOADED');
+    if (missing.length === 0) {
+      showToast('All songs in this playlist are already downloaded!', 'info');
+      return;
+    }
+    try {
+      const sIds = missing.map((s: any) => s.id || s.song_id).filter(Boolean);
+      const res = await downloadsApi.queueSongs(sIds);
+      if (res.success) {
+        showToast(`Queued ${missing.length} missing songs from "${plName}"`, 'success');
+        refreshStats();
+        loadPlaylistDetails(plId);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to download missing playlist tracks', 'error');
     }
   };
 
@@ -216,6 +232,15 @@ export const PlaylistsView: React.FC = () => {
                 >
                   <Play size={15} fill="currentColor" /> Play All
                 </Button>
+                {playlistSongs.some(s => !s.has_file && s.state !== 'OWNED' && s.download_state !== 'DOWNLOADED') && (
+                  <Button
+                    variant="secondary"
+                    onClick={(e) => handleDownloadMissing(e, selectedPlaylist.id, selectedPlaylist.name)}
+                    aria-label="Download Missing Tracks"
+                  >
+                    <Download size={15} color="var(--accent-primary)" /> Download Missing
+                  </Button>
+                )}
                 <Button
                   variant="primary"
                   onClick={(e) => handleDownload(e, selectedPlaylist.id, selectedPlaylist.name)}
@@ -543,7 +568,7 @@ export const PlaylistsView: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {pl.song_count ?? 0} {pl.song_count === 1 ? 'song' : 'songs'}
+                  {(pl.total_songs ?? pl.song_count ?? 0)} {(pl.total_songs ?? pl.song_count ?? 0) === 1 ? 'song' : 'songs'}
                 </span>
                 <Button
                   size="sm"

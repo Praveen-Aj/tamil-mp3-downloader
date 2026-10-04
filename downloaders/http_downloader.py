@@ -81,10 +81,17 @@ class HTTPDownloader(BaseDownloader):
         self,
         song: Song,
         progress_cb: Optional[Callable[[float, str], None]] = None,
+        custom_target_path: Optional[Path] = None,
     ) -> DownloadResult:
         """Download a single song (blocking, no rich UI)."""
-        album_dir = self._album_dir(song.album_name, year=song.year)
-        return self._download_with_progress(song, album_dir, pbar=None, progress_cb=progress_cb)
+        if custom_target_path is not None:
+            album_dir = custom_target_path.parent
+            album_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            album_dir = self._album_dir(song.album_name, year=song.year)
+        return self._download_with_progress(
+            song, album_dir, pbar=None, progress_cb=progress_cb, custom_target_path=custom_target_path
+        )
 
     def download_songs(self, songs: List[Song]) -> List[DownloadResult]:
         """Sequential download – used as fallback."""
@@ -193,16 +200,12 @@ class HTTPDownloader(BaseDownloader):
 
         return [r for r in results if r is not None]
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
     def _album_dir(self, album_name: str, year: Optional[int] = None) -> Path:
         safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", album_name).strip() or "Unknown"
         if year:
-            d = self.output_dir / str(year) / safe
+            d = self.output_dir / "Movies" / f"{safe} ({year})"
         else:
-            d = self.output_dir / safe
+            d = self.output_dir / "Movies" / safe
         d.mkdir(parents=True, exist_ok=True)
         return d
 
@@ -360,6 +363,7 @@ class HTTPDownloader(BaseDownloader):
         dest_dir: Path,
         pbar: Optional[tqdm] = None,
         progress_cb: Optional[Callable[[float, str], None]] = None,
+        custom_target_path: Optional[Path] = None,
     ) -> DownloadResult:
         """Resolve URL, download with progress, retry on failure."""
 
@@ -368,7 +372,9 @@ class HTTPDownloader(BaseDownloader):
 
         for attempt in range(self.max_retries):
             try:
-                result = self._attempt_download(song, url, dest_dir, pbar, progress_cb)
+                result = self._attempt_download(
+                    song, url, dest_dir, pbar, progress_cb, custom_target_path=custom_target_path
+                )
                 if result.success:
                     return result
                 # non-retriable HTTP errors
@@ -398,6 +404,7 @@ class HTTPDownloader(BaseDownloader):
         dest_dir: Path,
         pbar: Optional[tqdm] = None,
         progress_cb: Optional[Callable[[float, str], None]] = None,
+        custom_target_path: Optional[Path] = None,
     ) -> DownloadResult:
         """Single download attempt (no retry logic here)."""
 
@@ -414,7 +421,11 @@ class HTTPDownloader(BaseDownloader):
             final_url = url
 
         # ---- determine output path ----
-        out_path = self._output_path(song, dest_dir, final_url)
+        if custom_target_path is not None:
+            out_path = Path(custom_target_path)
+            dest_dir = out_path.parent
+        else:
+            out_path = self._output_path(song, dest_dir, final_url)
         tmp_path = out_path.with_suffix(out_path.suffix + ".part")
         state_path = self._state_path(dest_dir)
         state_key = out_path.name

@@ -113,6 +113,9 @@ export interface Playlist {
   name: string;
   description: string;
   song_count?: number;
+  total_songs?: number;
+  downloaded_songs?: number;
+  missing_songs?: number;
   created_at?: string;
 }
 
@@ -170,13 +173,31 @@ export interface DownloadPlanResult {
   }>;
 }
 
+export interface ImportJobItem {
+  id: number;
+  track_index?: number;
+  title: string;
+  artist: string;
+  album?: string;
+  duration_sec?: number;
+  state: string;
+  is_owned: boolean;
+  is_matched: boolean;
+  matched_song_id?: number | null;
+  provider?: string;
+  source_url?: string;
+  match_explanation?: string;
+}
+
 export interface ImportJob {
   id: string;
   url: string;
-  platform: 'spotify' | 'youtube' | 'direct' | 'unknown';
-  status: 'analyzing' | 'matching' | 'ready' | 'downloading' | 'completed' | 'failed';
+  title?: string;
+  platform: 'spotify' | 'youtube' | 'direct' | 'unknown' | string;
+  status: 'analyzing' | 'matching' | 'ready' | 'downloading' | 'completed' | 'failed' | string;
   total_tracks: number;
   matched_tracks: number;
   downloaded_tracks: number;
   error?: string;
+  items?: ImportJobItem[];
 }

@@ -16,6 +16,9 @@ interface AudioPlayerContextValue {
   volume: number;
   isMuted: boolean;
   queue: Song[];
+  isPlayerHidden: boolean;
+  hidePlayer: () => void;
+  showPlayer: () => void;
   playSong: (song: Song, contextQueue?: Song[]) => void;
   togglePlay: () => void;
   seek: (seconds: number) => void;
@@ -43,7 +46,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [volume, setVolumeState] = useState(0.85);
   const [isMuted, setIsMuted] = useState(false);
   const [queue, setQueue] = useState<Song[]>([]);
+  const [isPlayerHidden, setIsPlayerHidden] = useState(false);
   const previousVolumeRef = useRef(0.85);
+
+  const hidePlayer = useCallback(() => {
+    setIsPlayerHidden(true);
+  }, []);
+
+  const showPlayer = useCallback(() => {
+    setIsPlayerHidden(false);
+  }, []);
 
   // Verification helper hook for UI visual validation
   useEffect(() => {
@@ -148,6 +160,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const audio = audioRef.current;
     setCurrentSong(song);
     currentSongRef.current = song;
+    setIsPlayerHidden(false);
     setIsLoading(true);
     setProgress(0);
 
@@ -265,6 +278,9 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         volume,
         isMuted,
         queue,
+        isPlayerHidden,
+        hidePlayer,
+        showPlayer,
         playSong,
         togglePlay,
         seek,
