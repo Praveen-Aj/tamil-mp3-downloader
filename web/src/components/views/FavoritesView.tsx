@@ -79,38 +79,23 @@ export const FavoritesView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="view-container" style={{ gap: '20px' }}>
       {/* Header */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '24px 28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="view-header">
+        <div className="view-header-title">
           <div
+            className="view-header-icon"
             style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
               backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
               color: 'var(--color-error)',
             }}
           >
-            <Heart size={22} fill="currentColor" />
+            <Heart size={20} fill="currentColor" />
           </div>
           <div>
-            <h2 className="title-display" style={{ fontSize: '20px', margin: 0 }}>
-              Favorite Tracks
-            </h2>
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            <h1 className="view-title">Favorite Tracks</h1>
+            <div className="view-subtitle">
               {total} {total === 1 ? 'starred song' : 'starred songs'} in your personal collection
             </div>
           </div>
@@ -128,7 +113,7 @@ export const FavoritesView: React.FC = () => {
       </div>
 
       {/* Favorites — Desktop table */}
-      <div className="glass-panel" style={{ overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-card">
         <table className="data-table">
           <thead>
             <tr>

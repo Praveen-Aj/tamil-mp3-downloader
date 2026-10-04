@@ -155,7 +155,7 @@ export const ImportsView: React.FC = () => {
   const unownedMatchedCount = matchedItems.filter((it) => !it.is_owned).length;
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="view-container" style={{ maxWidth: '980px', margin: '0 auto', gap: '24px' }}>
       {/* 1. Header */}
       <div style={{ textAlign: 'center' }}>
         <div
@@ -183,7 +183,7 @@ export const ImportsView: React.FC = () => {
 
       {/* 2. URL Input Bar */}
       <div
-        className="glass-panel"
+        className="table-card"
         style={{
           padding: '24px',
           display: 'flex',
@@ -342,7 +342,7 @@ export const ImportsView: React.FC = () => {
           </div>
 
           {/* 4. Matched Tracks Table */}
-          <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+          <div className="table-card">
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>

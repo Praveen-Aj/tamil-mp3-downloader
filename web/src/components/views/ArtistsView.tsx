@@ -110,46 +110,26 @@ export const ArtistsView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="view-container">
       {/* View Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(45, 212, 191, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Users size={18} color="#2DD4BF" />
+      <div className="view-header">
+        <div className="view-header-title">
+          <div className="view-header-icon" style={{ backgroundColor: 'rgba(45, 212, 191, 0.12)', borderColor: 'rgba(45, 212, 191, 0.25)', color: '#2DD4BF' }}>
+            <Users size={18} />
           </div>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <h1 className="view-title">
               Artists & Composers
             </h1>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div className="view-subtitle">
               {total} Tamil composers, playback singers, and lyricists
-            </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* 1. Filter Tabs & Search Header */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '14px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+      <div className="view-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', flex: 1 }}>
           <div
             style={{

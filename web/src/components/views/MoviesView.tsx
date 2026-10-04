@@ -83,46 +83,26 @@ export const MoviesView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="view-container">
       {/* View Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(251, 191, 36, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Film size={18} color="#FBBF24" />
+      <div className="view-header">
+        <div className="view-header-title">
+          <div className="view-header-icon" style={{ backgroundColor: 'rgba(251, 191, 36, 0.12)', borderColor: 'rgba(251, 191, 36, 0.25)', color: '#FBBF24' }}>
+            <Film size={18} />
           </div>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <h1 className="view-title">
               Soundtracks & Albums
             </h1>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div className="view-subtitle">
               {total} Tamil film soundtracks
-            </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* 1. Header & Controls */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '18px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+      <div className="view-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', flex: 1 }}>
           <div
             style={{
@@ -131,13 +111,13 @@ export const MoviesView: React.FC = () => {
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-medium)',
               borderRadius: 'var(--radius-md)',
-              padding: '8px 14px',
+              padding: '7px 14px',
               gap: '10px',
               width: '320px',
               maxWidth: '100%',
             }}
           >
-            <Search size={16} color="var(--text-muted)" />
+            <Search size={15} color="var(--text-muted)" />
             <input
               type="text"
               placeholder="Search movies & soundtracks..."
@@ -193,7 +173,7 @@ export const MoviesView: React.FC = () => {
 
         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Film size={16} color="var(--accent-secondary)" />
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{total}</span> Soundtracks
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{total}</span> Soundtracks
         </div>
       </div>
 

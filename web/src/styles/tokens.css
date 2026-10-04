@@ -41,14 +41,22 @@
 
   /* === TEXT COLORS — Graphite-neutral, no blue cast === */
   --text-primary: #F4F4F6;
+  --text-main: #F4F4F6;
   --text-secondary: #8A8A96;
   --text-muted: #56565E;
   --text-inverse: #0B0B0D;
+  --primary-light: #BAB0FB;
 
   /* === BORDERS — Neutral white opacity, no blue tint === */
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-medium: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(255, 255, 255, 0.07);
   --border-focus: #8B7CF8;
+
+  /* === TRACK & ELEVATION STATES === */
+  --bg-surface-elevated: #22222B;
+  --bg-track-hover: rgba(255, 255, 255, 0.035);
+  --bg-track-active: rgba(139, 124, 248, 0.12);
 
   /* === SHADOWS — Minimal, tinted to graphite hue, reduced glow === */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);

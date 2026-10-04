@@ -207,48 +207,28 @@ export const SongsView: React.FC = () => {
   const notDownloadedCount = Math.max(0, totalCatalog - downloadedCount);
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="view-container">
       {/* View Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(139, 124, 248, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Music size={18} color="var(--primary-light)" />
+      <div className="view-header">
+        <div className="view-header-title">
+          <div className="view-header-icon">
+            <Music size={18} />
           </div>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <h1 className="view-title">
               Canonical Songs
             </h1>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div className="view-subtitle">
               {query.trim()
                 ? `Showing ${total} matching track${total === 1 ? '' : 's'} (${totalCatalog} in library)`
                 : `${totalCatalog} tracks in your library`}
-            </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Controls Bar */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="view-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Search */}
           <div
@@ -366,7 +346,7 @@ export const SongsView: React.FC = () => {
       </div>
 
       {/* Songs Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-card">
         <table className="data-table">
           <thead>
             <tr>
@@ -482,7 +462,7 @@ export const SongsView: React.FC = () => {
                             onClick={() => playSong(song, songs)}
                             style={{
                               fontWeight: 600,
-                              color: '#f8fafc',
+                              color: 'var(--text-primary)',
                               fontSize: '13.5px',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',

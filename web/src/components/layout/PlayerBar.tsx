@@ -294,7 +294,7 @@ export const PlayerBar: React.FC = () => {
 
           {/* Progress Bar & Timestamps */}
           <div className="player-progress-desktop" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '36px', textAlign: 'right' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '36px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
               {formatTime(progress)}
             </span>
             <div
@@ -309,7 +309,7 @@ export const PlayerBar: React.FC = () => {
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickX = e.clientX - rect.left;
-                const ratio = clickX / rect.width;
+                const ratio = Math.max(0, Math.min(1, clickX / rect.width));
                 seek(ratio * duration);
               }}
               role="slider"
@@ -324,12 +324,26 @@ export const PlayerBar: React.FC = () => {
                   height: '100%',
                   backgroundColor: 'var(--accent-primary)',
                   borderRadius: 'var(--radius-pill)',
-                  boxShadow: '0 0 10px var(--accent-primary-glow)',
+                  position: 'relative',
                   transition: 'width 80ms linear',
                 }}
-              />
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '-4px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
+                  }}
+                />
+              </div>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '36px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '36px', fontVariantNumeric: 'tabular-nums' }}>
               -{formatTime(remainingTime)}
             </span>
           </div>
@@ -407,10 +421,9 @@ export const PlayerBar: React.FC = () => {
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
+            className="audio-range"
             style={{
               width: '84px',
-              accentColor: 'var(--accent-primary)',
-              cursor: 'pointer',
             }}
             aria-label="Volume Slider"
           />

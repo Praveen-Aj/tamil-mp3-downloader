@@ -99,32 +99,18 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px', maxWidth: '820px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="view-container" style={{ maxWidth: '840px', margin: '0 auto', gap: '24px' }}>
       {/* View Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(139, 124, 248, 0.12)',
-              border: '1px solid rgba(139, 124, 248, 0.22)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--primary-light)',
-            }}
-          >
+      <div className="view-header">
+        <div className="view-header-title">
+          <div className="view-header-icon">
             <SettingsIcon size={18} />
           </div>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              Settings
-            </h1>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <h1 className="view-title">Settings</h1>
+            <div className="view-subtitle">
               Manage download preferences, storage destinations, and audio playback
-            </span>
+            </div>
           </div>
         </div>
 
@@ -134,7 +120,7 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* 1. DOWNLOAD SETTINGS */}
-      <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="table-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
           <div
             style={{
@@ -294,7 +280,7 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* 2. PLAYBACK SETTINGS */}
-      <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="table-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
           <div
             style={{
@@ -351,7 +337,7 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* 3. STORAGE & RECONCILIATION */}
-      <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="table-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
           <div
             style={{

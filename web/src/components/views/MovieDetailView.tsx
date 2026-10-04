@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Play, Pause, Download, Music, Film, CheckCircle2, Clock, Sparkles, ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Download, Film, CheckCircle2, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { moviesApi, downloadsApi } from '../../api/endpoints';
 import { Movie, Song } from '../../api/types';
 import { useApp } from '../../context/AppContext';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { Button } from '../common/Button';
-import { QualityBadge, StateBadge, Badge } from '../common/Badge';
+import { QualityBadge, StateBadge } from '../common/Badge';
 import { api } from '../../api/client';
 
 export const MovieDetailView: React.FC = () => {
@@ -195,7 +195,7 @@ export const MovieDetailView: React.FC = () => {
                 onClick={() => playSong(song, allContext)}
                 style={{
                   fontWeight: 600,
-                  color: '#f8fafc',
+                  color: 'var(--text-primary)',
                   fontSize: '13.5px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -268,7 +268,7 @@ export const MovieDetailView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div className="view-container" style={{ gap: '24px' }}>
       <Button variant="ghost" onClick={() => navigateTo('movies')} style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: '13px' }}>
         <ArrowLeft size={15} /> Movies
       </Button>
@@ -317,7 +317,7 @@ export const MovieDetailView: React.FC = () => {
             <Film size={14} /> Original Motion Picture Soundtrack
           </div>
 
-          <h1 className="title-display" style={{ fontSize: '32px', fontWeight: 800, marginTop: '6px', marginBottom: '8px', color: '#f8fafc', letterSpacing: '-0.02em' }}>
+          <h1 className="title-display" style={{ fontSize: '30px', fontWeight: 800, marginTop: '6px', marginBottom: '8px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             {movie?.title}
           </h1>
 
@@ -359,7 +359,7 @@ export const MovieDetailView: React.FC = () => {
       </div>
 
       {/* 2. Official Primary Tracklist Section */}
-      <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-card">
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
@@ -434,7 +434,7 @@ export const MovieDetailView: React.FC = () => {
 
       {/* 4. Non-Primary Utility Audio / Ringtones / Teasers (collapsible) */}
       {nonPrimarySongs.length > 0 && (
-        <div className="glass-panel" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+        <div className="table-card">
           <div
             onClick={() => setShowNonPrimary(!showNonPrimary)}
             style={{

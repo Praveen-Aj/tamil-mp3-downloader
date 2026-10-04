@@ -15,7 +15,6 @@ import {
   Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { DownloadStateBadge, QualityBadge } from '../common/Badge';
 import { songsApi, moviesApi, artistsApi, downloadsApi } from '../../api/endpoints';
@@ -109,7 +108,7 @@ export const DashboardView: React.FC = () => {
   const missingCount = Math.max(0, (stats?.total_songs ?? 0) - (stats?.total_owned ?? 0));
 
   return (
-    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+    <div className="view-container" style={{ gap: '30px' }}>
       {/* 1. Music Library Hero Header */}
       <div
         className="glass-panel"
@@ -126,7 +125,7 @@ export const DashboardView: React.FC = () => {
         }}
       >
         <div style={{ maxWidth: '640px' }}>
-          <h1 className="title-display" style={{ fontSize: '28px', fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+          <h1 className="title-display" style={{ fontSize: '26px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             Tamil Music Library
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '6px', fontSize: '13.5px', marginBottom: '16px' }}>
@@ -136,19 +135,19 @@ export const DashboardView: React.FC = () => {
           {/* Minimalist Library Stats Row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--text-muted)' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontWeight: 600 }}>
-              <CheckCircle2 size={14} /> {stats?.total_owned ?? 0} Downloaded
+              <CheckCircle2 size={14} /> <span style={{ fontVariantNumeric: 'tabular-nums' }}>{stats?.total_owned ?? 0}</span> Downloaded
             </span>
             <span>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
-              <Film size={14} color="var(--accent-secondary)" /> {stats?.total_movies ?? 0} Soundtracks
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)' }}>
+              <Film size={14} color="var(--accent-secondary)" /> <span style={{ fontVariantNumeric: 'tabular-nums' }}>{stats?.total_movies ?? 0}</span> Soundtracks
             </span>
             <span>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
-              <Music size={14} color="var(--accent-primary)" /> {stats?.total_songs ?? 0} Tracks
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)' }}>
+              <Music size={14} color="var(--accent-primary)" /> <span style={{ fontVariantNumeric: 'tabular-nums' }}>{stats?.total_songs ?? 0}</span> Tracks
             </span>
             <span>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f8fafc' }}>
-              <HardDrive size={13} color="#f59e0b" /> {formatBytes(stats?.total_storage_bytes)}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)' }}>
+              <HardDrive size={13} color="#f59e0b" /> <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatBytes(stats?.total_storage_bytes)}</span>
             </span>
           </div>
         </div>
@@ -197,38 +196,17 @@ export const DashboardView: React.FC = () => {
             className="grid-responsive"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))',
               gap: '16px',
             }}
           >
             {downloadedSongs.map((song) => (
-              <Card
+              <div
                 key={song.id}
                 onClick={() => playSong(song, downloadedSongs)}
-                className="glass-card"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px',
-                  borderRadius: 'var(--radius-lg)',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
-                  transition: 'transform var(--transition-fast), border-color var(--transition-fast)',
-                }}
+                className="poster-card"
               >
-                <div
-                  style={{
-                    width: '100%',
-                    aspectRatio: '1',
-                    borderRadius: 'var(--radius-md)',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    backgroundColor: '#16161a',
-                    marginBottom: '10px',
-                  }}
-                >
+                <div className="poster-img-wrap">
                   <img
                     src={api.getArtworkUrl('song', song.id, 240, 240)}
                     alt={song.title}
@@ -239,33 +217,19 @@ export const DashboardView: React.FC = () => {
                         'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2316161a"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%238B7CF8" font-size="24">🎵</text></svg>';
                     }}
                   />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '8px',
-                      right: '8px',
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--accent-primary)',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-                    }}
-                  >
+                  <div className="poster-overlay-btn">
                     <Play size={15} fill="currentColor" />
                   </div>
                 </div>
-
-                <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {song.title}
+                <div className="poster-meta">
+                  <div className="poster-title" title={song.title}>
+                    {song.title}
+                  </div>
+                  <div className="poster-subtitle">
+                    {song.album || song.artist || 'Tamil Track'}
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                  {song.artist || song.album || 'Tamil Track'}
-                </div>
-              </Card>
+              </div>
             ))}
           </div>
         </section>
@@ -302,31 +266,12 @@ export const DashboardView: React.FC = () => {
               const downloadedCount = movie.downloaded_count ?? 0;
 
               return (
-                <Card
+                <div
                   key={movie.id}
                   onClick={() => navigateTo('movie_detail', movie.id)}
-                  className="glass-card"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-lg)',
-                    cursor: 'pointer',
-                    backgroundColor: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
+                  className="poster-card"
                 >
-                  <div
-                    style={{
-                      width: '100%',
-                      aspectRatio: '2 / 3',
-                      borderRadius: 'var(--radius-md)',
-                      overflow: 'hidden',
-                      position: 'relative',
-                      backgroundColor: '#16161a',
-                      marginBottom: '10px',
-                    }}
-                  >
+                  <div className="poster-img-wrap aspect-2-3">
                     <img
                       src={api.getArtworkUrl('movie', movie.id, 400, 600)}
                       alt={movie.title}
@@ -345,12 +290,13 @@ export const DashboardView: React.FC = () => {
                           right: '8px',
                           backgroundColor: 'rgba(11, 11, 13, 0.85)',
                           backdropFilter: 'blur(8px)',
-                          color: '#f8fafc',
+                          color: 'var(--text-primary)',
                           fontSize: '11px',
                           fontWeight: 700,
                           padding: '2px 7px',
                           borderRadius: 'var(--radius-xs)',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
                         {movie.year}
@@ -358,13 +304,15 @@ export const DashboardView: React.FC = () => {
                     )}
                   </div>
 
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {movie.title}
+                  <div className="poster-meta">
+                    <div className="poster-title" title={movie.title}>
+                      {movie.title}
+                    </div>
+                    <div className="poster-subtitle">
+                      {trackCount} songs {downloadedCount > 0 ? `· ${downloadedCount} ready` : ''}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {trackCount} songs {downloadedCount > 0 ? `· ${downloadedCount} ready` : ''}
-                  </div>
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -398,29 +346,23 @@ export const DashboardView: React.FC = () => {
             }}
           >
             {topArtists.map((artist) => (
-              <Card
+              <div
                 key={artist.id}
                 onClick={() => navigateTo('artist_detail', artist.id)}
-                className="glass-card"
+                className="poster-card"
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   textAlign: 'center',
-                  padding: '18px 12px',
-                  borderRadius: 'var(--radius-xl)',
-                  cursor: 'pointer',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
+                  padding: '18px 12px 14px',
                 }}
               >
                 <div
                   style={{
-                    width: '92px',
-                    height: '92px',
+                    width: '88px',
+                    height: '88px',
                     borderRadius: '50%',
                     overflow: 'hidden',
-                    backgroundColor: '#16161a',
+                    backgroundColor: 'var(--bg-inset)',
                     marginBottom: '10px',
                     border: '2px solid var(--border-medium)',
                   }}
@@ -437,13 +379,13 @@ export const DashboardView: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                <div className="poster-title" title={artist.name} style={{ width: '100%' }}>
                   {artist.name}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'capitalize' }}>
+                <div className="poster-subtitle" style={{ width: '100%', textTransform: 'capitalize' }}>
                   {artist.role ? artist.role.replace('_', ' ') : 'Artist'}
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         </section>

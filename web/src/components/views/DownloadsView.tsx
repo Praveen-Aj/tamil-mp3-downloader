@@ -11,7 +11,6 @@ import {
   ChevronUp,
   Layers,
   Music2,
-  Disc3,
 } from 'lucide-react';
 import { downloadsApi } from '../../api/endpoints';
 import { DownloadTask, BatchJob } from '../../api/types';
@@ -160,41 +159,25 @@ export const DownloadsView: React.FC = () => {
   const standaloneActive = active.filter((t) => !activeBatchDownloadIds.has(t.id));
 
   return (
-    <div style={{ padding: '20px 32px 32px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+    <div className="view-container" style={{ gap: '20px' }}>
       {/* 1. Header */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-xl)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="view-header">
+        <div className="view-header-title">
           <div
+            className="view-header-icon"
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: 'var(--radius-sm)',
               backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.22)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(16, 185, 129, 0.22)',
               color: '#10B981',
             }}
           >
             <ArrowDownCircle size={20} />
           </div>
           <div>
-            <h1 className="title-display" style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+            <h1 className="view-title">
               Downloads
             </h1>
-            <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            <div className="view-subtitle">
               {active.length > 0
                 ? `${active.length} active download${active.length > 1 ? 's' : ''}${queue.length > 0 ? ` · ${queue.length} in queue` : ''}`
                 : queue.length > 0
@@ -256,7 +239,7 @@ export const DownloadsView: React.FC = () => {
                           style={{
                             fontWeight: 700,
                             fontSize: '15px',
-                            color: '#f8fafc',
+                            color: 'var(--text-primary)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',

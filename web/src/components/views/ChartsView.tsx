@@ -117,38 +117,25 @@ export const ChartsView: React.FC = () => {
   const activeChart = charts.find((c) => c.id === selectedChartId);
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="view-container" style={{ gap: '24px' }}>
       {/* Top Selector & Actions */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '20px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="view-header">
+        <div className="view-header-title">
           <div
+            className="view-header-icon"
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
               backgroundColor: 'rgba(244, 63, 94, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(244, 63, 94, 0.25)',
+              color: '#f43f5e',
             }}
           >
-            <Flame size={22} color="#f43f5e" />
+            <Flame size={20} />
           </div>
           <div>
-            <h2 className="title-display" style={{ fontSize: '18px' }}>
+            <h1 className="view-title">
               {activeChart?.name || activeChart?.title || 'Tamil Charts & Trends'}
-            </h2>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            </h1>
+            <div className="view-subtitle">
               {activeChart?.provider_name ? `${activeChart.provider_name} · ` : ''}{entries.length} tracks
             </div>
           </div>
@@ -181,7 +168,7 @@ export const ChartsView: React.FC = () => {
       </div>
 
       {/* Chart Entries List */}
-      <div className="glass-panel" style={{ padding: '8px 0', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-card">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
             Loading chart rankings...

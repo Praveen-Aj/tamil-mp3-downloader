@@ -89,9 +89,9 @@ export const SearchView: React.FC = () => {
   const totalResults = songs.length + movies.length + artists.length;
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="view-container" style={{ gap: '24px' }}>
       {/* Search Input Bar */}
-      <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="table-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', gap: '12px' }}>
           <div
             style={{

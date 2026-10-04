@@ -178,10 +178,9 @@ export const PlaylistsView: React.FC = () => {
     }
   };
 
-  // If a playlist is selected, show the Drilldown / Detail View
   if (selectedPlaylist) {
     return (
-      <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="view-container" style={{ gap: '24px' }}>
         {/* Back navigation & Header */}
         <div
           className="glass-panel"
@@ -262,7 +261,7 @@ export const PlaylistsView: React.FC = () => {
         </div>
 
         {/* Songs List */}
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
+        <div className="table-card">
           {loadingSongs ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
               Loading songs in playlist...
@@ -452,36 +451,23 @@ export const PlaylistsView: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="view-container" style={{ gap: '24px' }}>
       {/* Header Bar */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '20px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="view-header">
+        <div className="view-header-title">
           <div
+            className="view-header-icon"
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: 'var(--radius-sm)',
               backgroundColor: 'rgba(251, 113, 133, 0.12)',
-              border: '1px solid rgba(251, 113, 133, 0.22)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(251, 113, 133, 0.22)',
               color: '#FB7185',
             }}
           >
             <ListMusic size={20} />
           </div>
           <div>
-            <h2 className="title-display" style={{ fontSize: '18px' }}>Custom Playlists</h2>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <h1 className="view-title">Custom Playlists</h1>
+            <div className="view-subtitle">
               Curate and batch-download personal music collections
             </div>
           </div>
