@@ -24,7 +24,8 @@ export const QualityBadge: React.FC<{
   const numQuality = typeof quality === 'number' ? quality : parseInt(String(quality).replace(/\D/g, ''), 10) || 0;
 
   if (isDownloaded === false || (!quality && quality !== 0)) {
-    const targetKbps = numQuality > 0 ? numQuality : 320;
+    // Approved supported target quality profiles are 320, 192, and 128 kbps (default 320 kbps)
+    const targetKbps = [320, 192, 128].includes(numQuality) ? numQuality : 320;
     return (
       <span className={`quality-chip ${className}`} style={style}>
         {targetKbps} kbps · Target

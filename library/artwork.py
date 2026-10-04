@@ -49,13 +49,13 @@ CACHE_DIR = Path("cache") / "artwork"
 DEFAULT_MEMORY_CAPACITY = 300
 DEFAULT_DISK_MAX_MB = 200
 
-# Modern Design Palette for Fallbacks
+# Approved True Obsidian + Champagne Brass visual system for procedural fallbacks
 FALLBACK_PALETTES = {
-    "movie": [("#1e1b4b", "#4338ca"), ("#2e1065", "#6b21a8"), ("#172554", "#1d4ed8"), ("#3b0764", "#701a75")],
-    "artist": [("#0f172a", "#334155"), ("#1c1917", "#44403c"), ("#18181b", "#3f3f46"), ("#292524", "#57534e")],
-    "chart": [("#3b0764", "#7e22ce"), ("#4a044e", "#a21caf"), ("#1e1b4b", "#4f46e5"), ("#701a75", "#c026d3")],
-    "playlist": [("#042f2e", "#0f766e"), ("#083344", "#0e7490"), ("#172554", "#2563eb"), ("#064e3b", "#059669")],
-    "song": [("#0b1120", "#1e293b"), ("#0f172a", "#1e1b4b"), ("#090d16", "#14213d"), ("#18181b", "#27272a")],
+    "movie": [("#0A0B0E", "#181A22"), ("#0E0F14", "#221E18"), ("#0B0C10", "#1C1916"), ("#08090C", "#201D1A")],
+    "artist": [("#0A0B0E", "#16171C"), ("#0D0E12", "#1E1F24"), ("#101014", "#1B1C20"), ("#0C0D11", "#191A1E")],
+    "chart": [("#0A0B0E", "#201A12"), ("#0E0F14", "#262016"), ("#0C0D10", "#221C14"), ("#09090C", "#1D1812")],
+    "playlist": [("#0A0B0E", "#18191E"), ("#0D0E12", "#1C1E20"), ("#101014", "#1E1D1A"), ("#0C0D10", "#1A1A1E")],
+    "song": [("#0A0B0E", "#16171C"), ("#0E0F14", "#221E16"), ("#0B0C10", "#1A1B20"), ("#08090C", "#1E1A14")],
 }
 
 
@@ -353,7 +353,7 @@ class ArtworkFallbackGenerator:
                 draw.rounded_rectangle(
                     [(bx, base_y - bh), (bx + bar_w, base_y)],
                     radius=max(1, bar_w // 2),
-                    fill=(255, 255, 255, 140),
+                    fill=(212, 163, 89, 180),
                 )
 
         # Soft inner border for depth
@@ -418,7 +418,7 @@ class ArtworkFallbackGenerator:
                 t_x = (w - t_w) // 2 - t_bbox[0]
                 t_y = min(h - t_h - 12, y_offset + icon_size + 14)
                 draw.text((t_x + 1, t_y + 1), title_text, font=text_font, fill=(0, 0, 0, 180))
-                draw.text((t_x, t_y), title_text, font=text_font, fill=(241, 245, 249, 230))
+                draw.text((t_x, t_y), title_text, font=text_font, fill=(237, 237, 240, 230))
             except Exception:
                 pass
 

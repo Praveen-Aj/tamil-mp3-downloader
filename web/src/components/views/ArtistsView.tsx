@@ -99,11 +99,11 @@ export const ArtistsView: React.FC = () => {
       case 'composer':
         return { bg: 'rgba(212, 163, 89, 0.14)', text: '#E0B268', border: 'rgba(212, 163, 89, 0.28)' };
       case 'singer':
-        return { bg: 'rgba(34, 197, 94, 0.12)', text: '#86EFAC', border: 'rgba(34, 197, 94, 0.22)' };
+        return { bg: 'rgba(255, 255, 255, 0.05)', text: '#EDEDF0', border: 'rgba(255, 255, 255, 0.12)' };
       case 'lyricist':
-        return { bg: 'rgba(212, 163, 89, 0.14)', text: '#E0B268', border: 'rgba(212, 163, 89, 0.28)' };
+        return { bg: 'rgba(212, 163, 89, 0.08)', text: '#D4A359', border: 'rgba(212, 163, 89, 0.20)' };
       default:
-        return { bg: 'rgba(148, 163, 184, 0.12)', text: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)' };
+        return { bg: 'rgba(255, 255, 255, 0.04)', text: '#8E929E', border: 'rgba(255, 255, 255, 0.08)' };
     }
   };
 
