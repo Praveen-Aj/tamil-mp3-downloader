@@ -168,10 +168,22 @@ export const SongsView: React.FC = () => {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '-';
+    if (!seconds || seconds <= 0) {
+      return <span style={{ opacity: 0.28, letterSpacing: '1px' }}>--:--</span>;
+    }
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const sanitizeTitle = (title: string, album?: string) => {
+    if (!title || /^[\?\s\-_.]+$/.test(title.trim())) {
+      if (album && album !== '-' && album !== '—') {
+        return `${album} Track`;
+      }
+      return 'Tamil Track';
+    }
+    return title;
   };
 
   // Select all toggles on current page
@@ -208,55 +220,9 @@ export const SongsView: React.FC = () => {
 
   return (
     <div className="view-container">
-      {/* View Header */}
-      <div className="view-header">
-        <div className="view-header-title">
-          <div className="view-header-icon">
-            <Music size={18} />
-          </div>
-          <div>
-            <h1 className="view-title">
-              Canonical Songs
-            </h1>
-            <div className="view-subtitle">
-              {query.trim()
-                ? `Showing ${total} matching track${total === 1 ? '' : 's'} (${totalCatalog} in library)`
-                : `${totalCatalog} tracks in your library`}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Controls Bar */}
-      <div className="view-toolbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Search */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'var(--bg-surface)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 'var(--radius-md)',
-              padding: '6px 12px',
-              gap: '8px',
-              width: '280px',
-            }}
-          >
-            <Search size={15} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Search canonical tracks..."
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(1);
-              }}
-              style={{ flex: 1, fontSize: '13px' }}
-              aria-label="Filter songs by title"
-            />
-          </div>
-
+      {/* High-Precision Controls Bar (Single Compact Header Strip) */}
+      <div className="view-toolbar" style={{ marginTop: '4px', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
           {/* State Filter Buttons */}
           <div style={{ display: 'flex', gap: '6px' }}>
             {(['ALL', 'OWNED', 'NEW'] as const).map((st) => {
@@ -286,9 +252,36 @@ export const SongsView: React.FC = () => {
             })}
           </div>
 
+          {/* Quick Track Filter Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'var(--bg-inset)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '5px 10px',
+              gap: '6px',
+              width: '220px',
+            }}
+          >
+            <Search size={13} color="var(--text-muted)" />
+            <input
+              type="text"
+              placeholder="Filter tracks..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
+              style={{ flex: 1, fontSize: '12px' }}
+              aria-label="Filter songs by title"
+            />
+          </div>
+
           {/* Sort By Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ArrowUpDown size={14} color="var(--text-muted)" />
+            <ArrowUpDown size={13} color="var(--text-muted)" />
             <select
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
@@ -298,20 +291,20 @@ export const SongsView: React.FC = () => {
                 setPage(1);
               }}
               style={{
-                backgroundColor: 'var(--bg-surface)',
+                backgroundColor: 'var(--bg-inset)',
                 border: '1px solid var(--border-medium)',
-                borderRadius: 'var(--radius-md)',
+                borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-primary)',
                 fontSize: '12px',
-                padding: '6px 10px',
+                padding: '5px 8px',
                 cursor: 'pointer',
               }}
               aria-label="Sort tracks"
             >
-              <option value="title-asc">Title (A → Z)</option>
-              <option value="title-desc">Title (Z → A)</option>
-              <option value="artist-asc">Artist (A → Z)</option>
-              <option value="album-asc">Album / Movie (A → Z)</option>
+              <option value="title-asc">Title (A - Z)</option>
+              <option value="title-desc">Title (Z - A)</option>
+              <option value="artist-asc">Artist (A - Z)</option>
+              <option value="album-asc">Album / Movie (A - Z)</option>
               <option value="year-desc">Year (Newest)</option>
               <option value="year-asc">Year (Oldest)</option>
               <option value="quality-desc">Quality (Highest)</option>
@@ -329,7 +322,7 @@ export const SongsView: React.FC = () => {
               loading={batchActionLoading}
               aria-label="Download Selected Tracks"
             >
-              <Download size={14} /> Download Selected ({selectedIds.size})
+              <Download size={13} /> Download Selected ({selectedIds.size})
             </Button>
           )}
 
@@ -340,7 +333,7 @@ export const SongsView: React.FC = () => {
             loading={batchActionLoading}
             aria-label="Download All Missing Tracks"
           >
-            <Download size={14} /> Download All Missing
+            <Download size={13} /> Download Missing
           </Button>
         </div>
       </div>
@@ -392,7 +385,7 @@ export const SongsView: React.FC = () => {
                   <tr
                     key={song.id}
                     style={{
-                      backgroundColor: isSelected ? 'rgba(229, 149, 0, 0.10)' : undefined,
+                      backgroundColor: isSelected ? 'rgba(212, 163, 89, 0.10)' : undefined,
                     }}
                   >
                     {/* Checkbox */}
@@ -435,7 +428,7 @@ export const SongsView: React.FC = () => {
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
-                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                             }}
                           />
                           <div
@@ -469,9 +462,9 @@ export const SongsView: React.FC = () => {
                               textOverflow: 'ellipsis',
                               cursor: 'pointer',
                             }}
-                            title={song.title}
+                            title={sanitizeTitle(song.title, song.album)}
                           >
-                            {song.title}
+                            {sanitizeTitle(song.title, song.album)}
                           </div>
                           <div
                             style={{
@@ -491,7 +484,7 @@ export const SongsView: React.FC = () => {
 
                     {/* Secondary: Soundtrack / Album & Year */}
                     <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {song.album || 'Soundtrack'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
+                      {song.album && song.album !== '-' && song.album !== '—' ? song.album : 'Soundtrack'} {song.year ? <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>({song.year})</span> : ''}
                     </td>
 
                     {/* Duration */}

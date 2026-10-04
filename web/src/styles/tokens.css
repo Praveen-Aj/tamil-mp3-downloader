@@ -1,38 +1,38 @@
-/* Design Tokens - Obsidian + Burnished Amber Hi-Fi Console */
+/* Design Tokens - Audiophile Obsidian + Brushed Champagne Brass */
 :root {
-  /* === SURFACE & BACKGROUND (Audiophile Obsidian & Basalt) === */
-  --bg-app: #07080A;
-  --bg-sidebar: #0A0C11;
-  --bg-header: #0A0C11;
-  --bg-player: rgba(10, 12, 17, 0.94);
-  --bg-surface: #11141C;
-  --bg-surface-elevated: #141720;
-  --bg-surface-hover: #181B26;
-  --bg-surface-active: #1D212E;
-  --bg-inset: #090B0F;
-  --bg-glass: rgba(17, 20, 28, 0.88);
-  --bg-glass-hover: rgba(24, 27, 38, 0.92);
-  --bg-modal: #11141C;
-  --bg-tooltip: #1A1D27;
+  /* === SURFACE & BACKGROUND (True Neutral Obsidian & Basalt) === */
+  --bg-app: #060608;
+  --bg-sidebar: #09090C;
+  --bg-header: #09090C;
+  --bg-player: rgba(9, 9, 12, 0.96);
+  --bg-surface: #101014;
+  --bg-surface-elevated: #15151A;
+  --bg-surface-hover: #1A1A22;
+  --bg-surface-active: #202028;
+  --bg-inset: #08080A;
+  --bg-glass: rgba(16, 16, 20, 0.92);
+  --bg-glass-hover: rgba(22, 22, 28, 0.95);
+  --bg-modal: #101014;
+  --bg-tooltip: #181820;
 
-  /* === ACCENT - Single Restrained Acoustic Amber / Burnished Gold === */
-  --accent-primary: #E59500;
-  --accent-primary-hover: #F5A623;
-  --accent-primary-glow: rgba(229, 149, 0, 0.12);
-  --primary-light: #FCD34D;
-  --accent-secondary: #E59500;
-  --accent-secondary-hover: #F5A623;
-  --accent-secondary-glow: rgba(229, 149, 0, 0.08);
+  /* === ACCENT - Refined Brushed Champagne Brass / Audiophile Gold === */
+  --accent-primary: #D4A359;
+  --accent-primary-hover: #E0B268;
+  --accent-primary-glow: rgba(212, 163, 89, 0.16);
+  --primary-light: #E0B268;
+  --accent-secondary: #D4A359;
+  --accent-secondary-hover: #E0B268;
+  --accent-secondary-glow: rgba(212, 163, 89, 0.10);
 
   /* === STATUS COLORS (Semantic & restrained, decoupled from accent) === */
   --color-success: #22C55E;
   --color-success-bg: rgba(34, 197, 94, 0.10);
-  --color-warning: #E59500;
-  --color-warning-bg: rgba(229, 149, 0, 0.10);
+  --color-warning: #D4A359;
+  --color-warning-bg: rgba(212, 163, 89, 0.12);
   --color-error: #EF4444;
   --color-error-bg: rgba(239, 68, 68, 0.10);
-  --color-info: #E59500;
-  --color-info-bg: rgba(229, 149, 0, 0.10);
+  --color-info: #D4A359;
+  --color-info-bg: rgba(212, 163, 89, 0.10);
 
   /* === TYPOGRAPHY === */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -44,23 +44,23 @@
   --text-main: #EDEDF0;
   --text-secondary: #8E929E;
   --text-muted: #525662;
-  --text-inverse: #07080A;
+  --text-inverse: #060608;
 
   /* === BORDERS (Machined hairline edges & inset highlights) === */
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-medium: rgba(255, 255, 255, 0.09);
   --border-highlight: rgba(255, 255, 255, 0.08);
-  --border-focus: #E59500;
+  --border-focus: #D4A359;
 
   /* === TRACK & ELEVATION STATES === */
   --bg-track-hover: rgba(255, 255, 255, 0.035);
-  --bg-track-active: rgba(229, 149, 0, 0.10);
+  --bg-track-active: rgba(212, 163, 89, 0.10);
 
   /* === SHADOWS (Soft, ambient-tinted, no harsh black) === */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.65);
-  --shadow-amber: 0 4px 20px rgba(229, 149, 0, 0.15);
+  --shadow-amber: 0 4px 20px rgba(212, 163, 89, 0.16);
 
   /* === BORDER RADII (Hardware-inspired concentric curves) === */
   --radius-xs: 4px;

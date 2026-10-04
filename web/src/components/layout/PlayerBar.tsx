@@ -160,7 +160,7 @@ export const PlayerBar: React.FC = () => {
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%2311141c"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="16">🎵</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%2311141c"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
             }}
           />
           <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
@@ -379,7 +379,7 @@ export const PlayerBar: React.FC = () => {
             style={{
               width: '34px',
               height: '34px',
-              backgroundColor: isQueueOpen ? 'rgba(229, 149, 0, 0.15)' : 'transparent',
+              backgroundColor: isQueueOpen ? 'rgba(212, 163, 89, 0.16)' : 'transparent',
               color: isQueueOpen ? 'var(--accent-primary)' : 'var(--text-secondary)',
               position: 'relative',
             }}
@@ -495,8 +495,8 @@ export const PlayerBar: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(229, 149, 0, 0.10)',
-                border: '1px solid rgba(229, 149, 0, 0.22)',
+                backgroundColor: 'rgba(212, 163, 89, 0.12)',
+                border: '1px solid rgba(212, 163, 89, 0.25)',
                 marginBottom: '10px',
               }}
             >

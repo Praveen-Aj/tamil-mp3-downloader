@@ -175,7 +175,7 @@ export const ChartsView: React.FC = () => {
           </div>
         ) : entries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(229, 149, 0, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(212, 163, 89, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Flame size={28} color="var(--accent-primary)" />
             </div>
             <div>

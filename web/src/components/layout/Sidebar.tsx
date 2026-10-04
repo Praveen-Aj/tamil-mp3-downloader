@@ -135,8 +135,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 width: '36px',
                 height: '36px',
                 borderRadius: 'var(--radius-md)',
-                background: 'linear-gradient(135deg, #F5A623 0%, #D97706 100%)',
-                boxShadow: '0 2px 10px rgba(229, 149, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+                background: 'linear-gradient(135deg, #E0B268 0%, #C59B4B 100%)',
+                boxShadow: '0 2px 10px rgba(212, 163, 89, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -240,9 +240,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                               fontSize: '10.5px',
                               fontWeight: 700,
                               fontVariantNumeric: 'tabular-nums',
-                              backgroundColor: isActive ? 'rgba(229, 149, 0, 0.20)' : 'rgba(255, 255, 255, 0.05)',
-                              color: isActive ? '#FCD34D' : 'var(--text-muted)',
-                              border: isActive ? '1px solid rgba(229, 149, 0, 0.35)' : '1px solid transparent',
+                              backgroundColor: isActive ? 'rgba(212, 163, 89, 0.16)' : 'rgba(255, 255, 255, 0.05)',
+                              color: isActive ? '#E0B268' : 'var(--text-muted)',
+                              border: isActive ? '1px solid rgba(212, 163, 89, 0.35)' : '1px solid transparent',
                             }}
                           >
                             {item.badge > 9999 ? `${Math.round(item.badge / 1000)}k` : item.badge}

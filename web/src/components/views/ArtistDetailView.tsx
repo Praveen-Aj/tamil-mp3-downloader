@@ -248,7 +248,7 @@ export const ArtistDetailView: React.FC = () => {
                 <tr
                   key={song.id}
                   style={{
-                    backgroundColor: currentSong?.id === song.id ? 'rgba(229, 149, 0, 0.10)' : undefined,
+                    backgroundColor: currentSong?.id === song.id ? 'rgba(212, 163, 89, 0.10)' : undefined,
                   }}
                 >
                   {/* Track Number */}
@@ -285,7 +285,7 @@ export const ArtistDetailView: React.FC = () => {
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2311141c"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2311141c"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div

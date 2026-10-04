@@ -50,7 +50,7 @@
 }
 
 .text-gradient-gold {
-  color: #f59e0b;
+  color: var(--accent-primary);
 }
 
 /* Badges & Pills (Subtle Text Indicators) */
@@ -66,8 +66,8 @@
 }
 
 .badge-primary {
-  background: rgba(229, 149, 0, 0.12);
-  color: #FCD34D;
+  background: rgba(212, 163, 89, 0.14);
+  color: #E0B268;
 }
 
 .badge-success {
@@ -133,9 +133,9 @@
 }
 
 .filter-tab.active-all {
-  background: rgba(229, 149, 0, 0.12);
-  color: #FCD34D;
-  border-color: rgba(229, 149, 0, 0.28);
+  background: rgba(212, 163, 89, 0.14);
+  color: #E0B268;
+  border-color: rgba(212, 163, 89, 0.35);
   font-weight: 600;
 }
 
@@ -174,11 +174,12 @@
 
 .btn-primary {
   background: var(--accent-primary);
-  color: #ffffff;
+  color: #060608;
+  font-weight: 600;
 }
 .btn-primary:hover {
   background: var(--accent-primary-hover);
-  box-shadow: 0 2px 10px rgba(229, 149, 0, 0.20);
+  box-shadow: 0 2px 12px rgba(212, 163, 89, 0.25);
 }
 
 .btn-secondary {
@@ -217,8 +218,8 @@
 }
 .btn-icon-primary {
   background: var(--accent-primary);
-  color: #07080A;
-  box-shadow: 0 2px 8px rgba(229, 149, 0, 0.25);
+  color: #060608;
+  box-shadow: 0 2px 8px rgba(212, 163, 89, 0.25);
 }
 .btn-icon-primary:hover {
   background: var(--accent-primary-hover);
@@ -263,6 +264,41 @@
 
 .data-table tbody tr.active {
   background-color: var(--bg-surface-active);
+}
+
+/* Tactile Machined Checkboxes */
+.data-table input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background-color: var(--bg-inset);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  vertical-align: middle;
+  transition: all var(--transition-fast);
+}
+
+.data-table input[type="checkbox"]:hover {
+  border-color: var(--accent-primary);
+}
+
+.data-table input[type="checkbox"]:checked {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.data-table input[type="checkbox"]:checked::before {
+  content: "";
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid #060608;
+  border-bottom: 2px solid #060608;
+  transform: rotate(-45deg) translate(1px, -1px);
 }
 
 /* Track Thumbnail with Hover Play Overlay */
@@ -398,10 +434,10 @@
   color: var(--text-primary);
 }
 .sidebar-nav-item.active {
-  background: rgba(229, 149, 0, 0.10);
+  background: rgba(212, 163, 89, 0.12);
   color: #EDEDF0;
   font-weight: 600;
-  border-color: rgba(229, 149, 0, 0.22);
+  border-color: rgba(212, 163, 89, 0.28);
 }
 
 /* Queue Drawer */
@@ -529,8 +565,8 @@ input[type="range"].audio-range:active::-webkit-slider-thumb {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: rgba(229, 149, 0, 0.10);
-  border: 1px solid rgba(229, 149, 0, 0.20);
+  background: rgba(212, 163, 89, 0.12);
+  border: 1px solid rgba(212, 163, 89, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1005,11 +1041,11 @@ input[type="range"].audio-range:active::-webkit-slider-thumb {
   gap: 12px;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  background: rgba(17, 20, 28, 0.94);
+  background: rgba(16, 16, 20, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(229, 149, 0, 0.35);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(229, 149, 0, 0.15);
+  border: 1px solid rgba(212, 163, 89, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(212, 163, 89, 0.15);
   z-index: 90;
   animation: slideUp 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -165,7 +165,7 @@ export const DashboardView: React.FC = () => {
                   width: '320px',
                   height: '320px',
                   borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(229, 149, 0, 0.12) 0%, transparent 70%)',
+                  background: 'radial-gradient(circle, rgba(212, 163, 89, 0.14) 0%, transparent 70%)',
                   pointerEvents: 'none',
                   filter: 'blur(30px)',
                 }}
@@ -180,8 +180,8 @@ export const DashboardView: React.FC = () => {
                   gap: '6px',
                   padding: '3px 9px',
                   borderRadius: 'var(--radius-pill)',
-                  backgroundColor: 'rgba(229, 149, 0, 0.12)',
-                  border: '1px solid rgba(229, 149, 0, 0.28)',
+                  backgroundColor: 'rgba(212, 163, 89, 0.12)',
+                  border: '1px solid rgba(212, 163, 89, 0.28)',
                   fontSize: '11px',
                   fontWeight: 700,
                   letterSpacing: '0.08em',
@@ -277,7 +277,7 @@ export const DashboardView: React.FC = () => {
                   loading="lazy"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="270" height="380" fill="%2311141c"><rect width="270" height="380"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="32">🎬</text></svg>';
+                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="270" height="380" fill="%2311141c"><rect width="270" height="380"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="32">🎬</text></svg>';
                   }}
                 />
               </div>
@@ -354,7 +354,7 @@ export const DashboardView: React.FC = () => {
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HardDrive size={15} color="#E59500" /> Disk Usage
+                    <HardDrive size={15} color="var(--accent-primary)" /> Disk Usage
                   </span>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                     {formatBytes(stats?.total_storage_bytes)}
@@ -463,7 +463,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="24">🎵</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="24">🎵</text></svg>';
                     }}
                   />
                   <div className="poster-overlay-btn">
@@ -548,7 +548,7 @@ export const DashboardView: React.FC = () => {
                       loading="lazy"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141c"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="36">🎬</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141c"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
                       }}
                     />
                     {movie.year && (
@@ -668,7 +668,7 @@ export const DashboardView: React.FC = () => {
                     overflow: 'hidden',
                     backgroundColor: 'var(--bg-inset)',
                     marginBottom: '12px',
-                    border: '2px solid rgba(229, 149, 0, 0.20)',
+                    border: '2px solid rgba(212, 163, 89, 0.25)',
                     boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)',
                   }}
                 >
@@ -679,7 +679,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="28">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="28">👤</text></svg>';
                     }}
                   />
                 </div>
@@ -761,7 +761,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="16">🎵</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
                     }}
                   />
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -783,8 +783,8 @@ export const DashboardView: React.FC = () => {
                       width: '32px',
                       height: '32px',
                       color: 'var(--accent-primary)',
-                      backgroundColor: 'rgba(229, 149, 0, 0.10)',
-                      border: '1px solid rgba(229, 149, 0, 0.22)',
+                      backgroundColor: 'rgba(212, 163, 89, 0.12)',
+                      border: '1px solid rgba(212, 163, 89, 0.28)',
                     }}
                     title="Download track"
                   >

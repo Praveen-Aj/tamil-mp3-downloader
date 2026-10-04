@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = 'var(--accent-primary)';
-            e.currentTarget.style.boxShadow = '0 0 12px rgba(229, 149, 0, 0.14)';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(212, 163, 89, 0.16)';
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = 'var(--border-medium)';

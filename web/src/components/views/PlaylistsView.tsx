@@ -202,8 +202,8 @@ export const PlaylistsView: React.FC = () => {
                 width: '44px',
                 height: '44px',
                 borderRadius: '10px',
-                backgroundColor: 'rgba(229, 149, 0, 0.12)',
-                border: '1px solid rgba(229, 149, 0, 0.25)',
+                backgroundColor: 'rgba(212, 163, 89, 0.12)',
+                border: '1px solid rgba(212, 163, 89, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -317,7 +317,7 @@ export const PlaylistsView: React.FC = () => {
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src =
-                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="14">🎵</text></svg>';
+                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                               }}
                             />
                             <div

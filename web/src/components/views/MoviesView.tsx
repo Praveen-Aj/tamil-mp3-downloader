@@ -252,7 +252,7 @@ export const MoviesView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141C"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23E59500" font-size="36">🎬</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141C"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
                     }}
                   />
 
@@ -307,8 +307,8 @@ export const MoviesView: React.FC = () => {
                         position: 'absolute',
                         top: '8px',
                         left: '8px',
-                        backgroundColor: 'rgba(229, 149, 0, 0.90)',
-                        color: '#07080A',
+                        backgroundColor: 'rgba(212, 163, 89, 0.90)',
+                        color: '#060608',
                         fontSize: '10px',
                         fontWeight: 700,
                         padding: '3px 7px',
@@ -346,14 +346,14 @@ export const MoviesView: React.FC = () => {
                             alignItems: 'center',
                             gap: '6px',
                             backgroundColor: 'var(--accent-primary)',
-                            color: '#07080A',
+                            color: '#060608',
                             border: 'none',
                             borderRadius: 'var(--radius-pill)',
                             padding: '8px 16px',
                             fontSize: '12px',
                             fontWeight: 700,
                             cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(229, 149, 0, 0.3)',
+                            boxShadow: '0 4px 12px rgba(212, 163, 89, 0.3)',
                           }}
                         >
                           <Play size={13} fill="currentColor" /> Play Soundtrack

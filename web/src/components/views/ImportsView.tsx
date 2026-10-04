@@ -382,7 +382,7 @@ export const ImportsView: React.FC = () => {
                       <tr
                         key={item.id}
                         style={{
-                          backgroundColor: isSelected ? 'rgba(229, 149, 0, 0.08)' : undefined,
+                          backgroundColor: isSelected ? 'rgba(212, 163, 89, 0.08)' : undefined,
                           opacity: isOwned ? 0.75 : 1,
                         }}
                       >
