@@ -5,6 +5,7 @@
 import { api } from './client';
 import {
   Artist,
+  BatchJob,
   Chart,
   ChartEntry,
   DownloadPlanResult,
@@ -199,6 +200,10 @@ export const downloadsApi = {
 
   cancelTask: (taskId: number) => api.post(`/downloads/${taskId}/cancel`),
   retryTask: (taskId: number) => api.post(`/downloads/${taskId}/retry`),
+
+  getBatches: () => api.get<BatchJob[]>('/downloads/batches'),
+  getBatch: (batchId: string) => api.get<BatchJob>(`/downloads/batches/${batchId}`),
+  cancelBatch: (batchId: string) => api.post(`/downloads/batches/${batchId}/cancel`),
 };
 
 export const importsApi = {

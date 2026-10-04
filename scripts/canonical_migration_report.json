@@ -1,0 +1,369 @@
+{
+  "total_files_discovered": 80,
+  "successfully_mapped": 75,
+  "migrated_count": 50,
+  "already_canonical_count": 25,
+  "duplicates_detected": [],
+  "ambiguous_unmapped": [],
+  "temporary_artifacts_removed": [
+    "2026\\Meesaya Murukku 2\\.download_state.json",
+    "2026\\Thalaivaru Kalavaramey\\.download_state.json",
+    "2026\\The Paradise\\.download_state.json",
+    "Anbil Avan\\.download_state.json",
+    "Meesaya Murukku 2\\.download_state.json"
+  ],
+  "files_untouched": [],
+  "errors": [],
+  "migrated": [
+    {
+      "id": 7169,
+      "title": "Mersalaayitten",
+      "from": "A.R. Rahman,\u00a0Anirudh Ravichander,\u00a0Neeti Mohan,\u00a0Kabilan - Mersalaayitten.mp3",
+      "to": "Movies\\I (Ai) (2015)\\01 - Mersalaayitten.mp3",
+      "size": 12074696
+    },
+    {
+      "id": 7207,
+      "title": "Kanave Kanave",
+      "from": "Anirudh Ravichander - Kanave Kanave.mp3",
+      "to": "Singles\\Anirudh Ravichander - Kanave Kanave.mp3",
+      "size": 11713336
+    },
+    {
+      "id": 7177,
+      "title": "Naana Thaana (From \"Thaanaa Serndha Koottam\")",
+      "from": "Anirudh Ravichander - Naana Thaana (From Thaanaa Serndha Koottam).mp3",
+      "to": "Movies\\Thaanaa Serndha Koottam (2018)\\Naana Thaana.mp3",
+      "size": 10386282
+    },
+    {
+      "id": 7176,
+      "title": "Thangamey",
+      "from": "Anirudh Ravichander - Thangamey.mp3",
+      "to": "Movies\\Naanum Rowdydhaan (2015)\\01 - Thangamey.mp3",
+      "size": 10478498
+    },
+    {
+      "id": 7190,
+      "title": "Uyire Un Uyirena",
+      "from": "Anirudh Ravichander - Uyire Un Uyirena.mp3",
+      "to": "Singles\\Anirudh Ravichander - Uyire Un Uyirena.mp3",
+      "size": 11424090
+    },
+    {
+      "id": 7174,
+      "title": "Gaandakannazhagi",
+      "from": "Anirudh Ravichander and Neeti Mohan - Gaandakannazhagi.mp3",
+      "to": "Singles\\Anirudh Ravichander - Gaandakannazhagi.mp3",
+      "size": 9815459
+    },
+    {
+      "id": 7171,
+      "title": "Neeyum Naanum",
+      "from": "Anirudh Ravichander and Neeti Mohan - Neeyum Naanum.mp3",
+      "to": "Singles\\Anirudh Ravichander - Neeyum Naanum.mp3",
+      "size": 12162120
+    },
+    {
+      "id": 7172,
+      "title": "Kadhal Kan Kattudhe",
+      "from": "Anirudh Ravichander,Shakthishree Gopalan - Kadhal Kan Kattudhe.mp3",
+      "to": "Singles\\Anirudh Ravichander - Kadhal Kan Kattudhe.mp3",
+      "size": 8011745
+    },
+    {
+      "id": 7200,
+      "title": "Bae (From \"Don\")",
+      "from": "Anirudh Ravichander,\u00a0Adithya RK,\u00a0Vignesh Shivan - Bae (From Don).mp3",
+      "to": "Singles\\Anirudh Ravichander - Bae (From Don).mp3",
+      "size": 9688626
+    },
+    {
+      "id": 7208,
+      "title": "Idhazhin Oram - The Innocence of Love",
+      "from": "Anirudh Ravichander,\u00a0Ajesh,\u00a0Aishwarya R Dhanush - Idhazhin Oram - The Innocence.mp3",
+      "to": "Singles\\Anirudh Ravichander - Idhazhin Oram - The Innocence of Love.mp3",
+      "size": 8211652
+    },
+    {
+      "id": 7173,
+      "title": "Don'u Don'u Don'u - The Don's Romance",
+      "from": "Anirudh Ravichander,\u00a0Alisha Thomas,\u00a0Dhanush - Don'u Don'u Don'u - The Don's Roma.mp3",
+      "to": "Singles\\Anirudh Ravichander - Don'u Don'u Don'u - The Don's Romance.mp3",
+      "size": 7414051
+    },
+    {
+      "id": 7193,
+      "title": "So Baby (From \"Doctor\")",
+      "from": "Anirudh Ravichander,\u00a0Ananthakrrishnan,\u00a0Sivakarthikeyan - So Baby (From Doctor).mp3",
+      "to": "Singles\\Anirudh Ravichander - So Baby (From Doctor).mp3",
+      "size": 10103775
+    },
+    {
+      "id": 7184,
+      "title": "Engadi Porandha",
+      "from": "Anirudh Ravichander,\u00a0Andrea Jeremiah - Engadi Porandha.mp3",
+      "to": "Singles\\Anirudh Ravichander - Engadi Porandha.mp3",
+      "size": 7821468
+    },
+    {
+      "id": 7163,
+      "title": "Sirikkadhey",
+      "from": "Anirudh Ravichander,\u00a0Arjun Kanungo,\u00a0Srinidhi Venkatesh,\u00a0Vignesh Shivan - Sirikka.mp3",
+      "to": "Movies\\Remo (2016)\\05 - Sirikkadhey.mp3",
+      "size": 10216211
+    },
+    {
+      "id": 7187,
+      "title": "Darling Dambakku",
+      "from": "Anirudh Ravichander,\u00a0Benny Dayal,\u00a0Sunidhi Chauhan - Darling Dambakku.mp3",
+      "to": "Singles\\Anirudh Ravichander - Darling Dambakku.mp3",
+      "size": 10055715
+    },
+    {
+      "id": 7180,
+      "title": "Nanbiye - From \"Teddy\"",
+      "from": "Anirudh Ravichander,\u00a0D. Imman - Nanbiye - From Teddy.mp3",
+      "to": "Singles\\Anirudh Ravichander - Nanbiye - From Teddy.mp3",
+      "size": 10867711
+    },
+    {
+      "id": 7202,
+      "title": "Ilamai Thirumbudhe - From \"Petta\"",
+      "from": "Anirudh Ravichander,\u00a0Dhanush - Ilamai Thirumbudhe - From Petta.mp3",
+      "to": "Singles\\Anirudh Ravichander - Ilamai Thirumbudhe - From Petta.mp3",
+      "size": 8887183
+    },
+    {
+      "id": 7194,
+      "title": "Nijamellam Maranthupochu",
+      "from": "Anirudh Ravichander,\u00a0Dhanush - Nijamellam Maranthupochu.mp3",
+      "to": "Singles\\Anirudh Ravichander - Nijamellam Maranthupochu.mp3",
+      "size": 9224471
+    },
+    {
+      "id": 7178,
+      "title": "Oh Oh (From \"Thangamagan\") - The First Love of Tamizh",
+      "from": "Anirudh Ravichander,\u00a0Dhanush,\u00a0Nikhita Gandhi - Oh Oh (From Thangamagan) - The Fi.mp3",
+      "to": "Singles\\Anirudh Ravichander - Oh Oh (From Thangamagan) - The First Love of Tamizh.mp3",
+      "size": 10921572
+    },
+    {
+      "id": 7203,
+      "title": "Kannazhaga - The Kiss of Love",
+      "from": "Anirudh Ravichander,\u00a0Dhanush,\u00a0Shruti Haasan - Kannazhaga - The Kiss of Love.mp3",
+      "to": "Movies\\3 (Three) (2012)\\04 - Kannazhaga - The Kiss of Love.mp3",
+      "size": 8350979
+    },
+    {
+      "id": 7192,
+      "title": "Chellamma (From \"Doctor\")",
+      "from": "Anirudh Ravichander,\u00a0Jonita Gandhi,\u00a0Sivakarthikeyan - Chellamma (From Doctor).mp3",
+      "to": "Singles\\Anirudh Ravichander - Chellamma (From Doctor).mp3",
+      "size": 9393625
+    },
+    {
+      "id": 7182,
+      "title": "Anbenum",
+      "from": "Anirudh Ravichander,\u00a0Lothika - Anbenum.mp3",
+      "to": "Singles\\Anirudh Ravichander - Anbenum.mp3",
+      "size": 8544094
+    },
+    {
+      "id": 7183,
+      "title": "Onnume Aagala",
+      "from": "Anirudh Ravichander,\u00a0MALIII - Onnume Aagala.mp3",
+      "to": "Singles\\Anirudh Ravichander - Onnume Aagala.mp3",
+      "size": 9988422
+    },
+    {
+      "id": 7205,
+      "title": "Po Nee Po - The Pain of Love",
+      "from": "Anirudh Ravichander,\u00a0Mohit Chauhan,\u00a0Dhanush - Po Nee Po - The Pain of Love.mp3",
+      "to": "Singles\\Anirudh Ravichander - Po Nee Po - The Pain of Love.mp3",
+      "size": 10193138
+    },
+    {
+      "id": 7199,
+      "title": "Tamilselvi",
+      "from": "Anirudh Ravichander,\u00a0Nakash Aziz,\u00a0Vignesh Shivan - Tamilselvi.mp3",
+      "to": "Movies\\Remo (2016)\\06 - Tamilselvi.mp3",
+      "size": 9220634
+    },
+    {
+      "id": 7181,
+      "title": "Idhayane",
+      "from": "Anirudh Ravichander,\u00a0Neeti Mohan,\u00a0Madhan Karky - Idhayane.mp3",
+      "to": "Movies\\Velaikkaran (2017)\\03 - Idhayane.mp3",
+      "size": 9120690
+    },
+    {
+      "id": 7185,
+      "title": "Kadhalaada",
+      "from": "Anirudh Ravichander,\u00a0Pradeep Kumar,\u00a0Shashaa Tirupati - Kadhalaada.mp3",
+      "to": "Singles\\Anirudh Ravichander - Kadhalaada.mp3",
+      "size": 10519856
+    },
+    {
+      "id": 7196,
+      "title": "Osaka Osaka",
+      "from": "Anirudh Ravichander,\u00a0Pragathi Guruprasad,\u00a0Madhan Karky - Osaka Osaka.mp3",
+      "to": "Singles\\Anirudh Ravichander - Osaka Osaka.mp3",
+      "size": 14651987
+    },
+    {
+      "id": 7161,
+      "title": "Hayyoda (From \"Jawan\")",
+      "from": "Anirudh Ravichander,\u00a0Priya Mali - Hayyoda (From Jawan).mp3",
+      "to": "Movies\\Jawan (2023)\\Hayyoda.mp3",
+      "size": 7531259
+    },
+    {
+      "id": 7191,
+      "title": "Naan Pizhai (From \"Kaathuvaakula Rendu Kaadhal\")",
+      "from": "Anirudh Ravichander,\u00a0Ravi G,\u00a0Shashaa Tirupati,\u00a0Vignesh Shivan - Naan Pizhai (Fro.mp3",
+      "to": "Singles\\Anirudh Ravichander - Naan Pizhai (From Kaathuvaakula Rendu Kaadhal).mp3",
+      "size": 9623328
+    },
+    {
+      "id": 7198,
+      "title": "Yaanji",
+      "from": "Anirudh Ravichander,\u00a0Sam C.S.,\u00a0Shakthisree Gopalan - Yaanji.mp3",
+      "to": "Singles\\Anirudh Ravichander - Yaanji.mp3",
+      "size": 10924414
+    },
+    {
+      "id": 7195,
+      "title": "Rendu Kaadhal (From \"Kaathuvaakula Rendu Kaadhal\")",
+      "from": "Anirudh Ravichander,\u00a0Shakthisree Gopalan,\u00a0Aishwarya Suresh Bindra,\u00a0Vignesh Shiva.mp3",
+      "to": "Singles\\Anirudh Ravichander - Rendu Kaadhal (From Kaathuvaakula Rendu Kaadhal).mp3",
+      "size": 9797284
+    },
+    {
+      "id": 7179,
+      "title": "Velicha Poove (From \"Ethir Neechal\")",
+      "from": "Anirudh Ravichander,\u00a0Shreya Ghoshal,\u00a0Mohit Chauhan,\u00a0Vaali - Velicha Poove (From.mp3",
+      "to": "Movies\\Ethir Neechal (2012)\\Velicha Poove.mp3",
+      "size": 13230756
+    },
+    {
+      "id": 7197,
+      "title": "Un Vizhigalil",
+      "from": "Anirudh Ravichander,\u00a0Shruti Haasan,\u00a0R.D. Raja - Un Vizhigalil.mp3",
+      "to": "Singles\\Anirudh Ravichander - Un Vizhigalil.mp3",
+      "size": 9815468
+    },
+    {
+      "id": 7201,
+      "title": "Enna Solla - The New Life of Tamizh",
+      "from": "Anirudh Ravichander,\u00a0Shweta Mohan,\u00a0Dhanush - Enna Solla - The New Life of Tamizh.mp3",
+      "to": "Singles\\Anirudh Ravichander - Enna Solla - The New Life of Tamizh.mp3",
+      "size": 8734407
+    },
+    {
+      "id": 7189,
+      "title": "Avalukena",
+      "from": "Anirudh Ravichander,\u00a0Srinidhi Venkatesh - Avalukena.mp3",
+      "to": "Singles\\Anirudh Ravichander - Avalukena.mp3",
+      "size": 11200200
+    },
+    {
+      "id": 7186,
+      "title": "Ailasa Ailasa",
+      "from": "Anirudh Ravichander,\u00a0Suchitra,\u00a0Madhan Karky - Ailasa Ailasa.mp3",
+      "to": "Singles\\Anirudh Ravichander - Ailasa Ailasa.mp3",
+      "size": 9789520
+    },
+    {
+      "id": 7159,
+      "title": "Dheema (From \"Love Insurance Kompany\")",
+      "from": "Anirudh Ravichander,\u00a0Vignesh Shivan - Dheema (From Love Insurance Kompany).mp3",
+      "to": "Singles\\Anirudh Ravichander - Dheema (From Love Insurance Kompany).mp3",
+      "size": 9531998
+    },
+    {
+      "id": 7204,
+      "title": "Enakenna Yaarum Illaye (From \"Aakko\")",
+      "from": "Anirudh Ravichander,\u00a0Vignesh Shivan - Enakenna Yaarum Illaye (From Aakko).mp3",
+      "to": "Movies\\Aakko (2015)\\Enakenna Yaarum Illaye.mp3",
+      "size": 10406471
+    },
+    {
+      "id": 7206,
+      "title": "Senjitaley",
+      "from": "Anirudh Ravichander,\u00a0Vignesh Shivan - Senjitaley.mp3",
+      "to": "Movies\\Remo (2016)\\04 - Senjitaley.mp3",
+      "size": 10087406
+    },
+    {
+      "id": 7160,
+      "title": "Nee Paartha Vizhigal - The Touch of Love",
+      "from": "Anirudh Ravichander,\u00a0Vijay Yesudas,\u00a0Shweta Mohan,\u00a0Dhanush - Nee Paartha Vizhigal.mp3",
+      "to": "Singles\\Anirudh Ravichander - Nee Paartha Vizhigal - The Touch of Love.mp3",
+      "size": 10695746
+    },
+    {
+      "id": 7175,
+      "title": "Aathi (From \"Kaththi\")",
+      "from": "Anirudh Ravichander,\u00a0Vishal Dadlani - Aathi (From Kaththi).mp3",
+      "to": "Movies\\Kaththi (2014)\\Aathi.mp3",
+      "size": 12145794
+    },
+    {
+      "id": 7162,
+      "title": "Oh Penne",
+      "from": "Anirudh Ravichander,\u00a0Vishal Dadlani,\u00a0Na.Muthukumar - Oh Penne.mp3",
+      "to": "Singles\\Anirudh Ravichander - Oh Penne.mp3",
+      "size": 12315885
+    },
+    {
+      "id": 7188,
+      "title": "Un Paarvayil",
+      "from": "Anirudh Ravichander,\u00a0Vivek Siva - Un Paarvayil.mp3",
+      "to": "Singles\\Anirudh Ravichander - Un Paarvayil.mp3",
+      "size": 4174617
+    },
+    {
+      "id": 7165,
+      "title": "Paththavaikkum (From \"Devara Part 1\")",
+      "from": "Deepthi Suresh,\u00a0Anirudh Ravichander,\u00a0Vignesh Shivan - Paththavaikkum (From Devar.mp3",
+      "to": "Movies\\Devara Part 1 (2024)\\Paththavaikkum.mp3",
+      "size": 8659462
+    },
+    {
+      "id": 7167,
+      "title": "Megham Karukatha (From \"Thiruchitrambalam\")",
+      "from": "Dhanush,\u00a0Anirudh Ravichander - Megham Karukatha (From Thiruchitrambalam).mp3",
+      "to": "Singles\\Dhanush - Megham Karukatha (From Thiruchitrambalam).mp3",
+      "size": 11631693
+    },
+    {
+      "id": 7164,
+      "title": "Othaiyadi Pathayila",
+      "from": "Dhibu Ninan Thomas,\u00a0Anirudh Ravichander,\u00a0Arunraja Kamaraj - Othaiyadi Pathayila.mp3",
+      "to": "Singles\\Dhibu Ninan Thomas - Othaiyadi Pathayila.mp3",
+      "size": 10121070
+    },
+    {
+      "id": 7170,
+      "title": "Takkunu Takkunu",
+      "from": "Hiphop Tamizha,\u00a0Anirudh Ravichander - Takkunu Takkunu.mp3",
+      "to": "Singles\\Hiphop Tamizha - Takkunu Takkunu.mp3",
+      "size": 8520085
+    },
+    {
+      "id": 7166,
+      "title": "Kannamma",
+      "from": "Sam C.S.,\u00a0Anirudh Ravichander - Kannamma.mp3",
+      "to": "Movies\\Ispade Rajavum Idhaya Raniyum (2019)\\01 - Kannamma.mp3",
+      "size": 10380490
+    },
+    {
+      "id": 7168,
+      "title": "Bodhai Kaname - From \"Oh Manapenne\"",
+      "from": "Vishal Chandrashekhar,\u00a0Anirudh Ravichander,\u00a0Shashaa Tirupati - Bodhai Kaname - F.mp3",
+      "to": "Singles\\Vishal Chandrashekhar - Bodhai Kaname - From Oh Manapenne.mp3",
+      "size": 10459348
+    }
+  ]
+}

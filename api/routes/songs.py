@@ -140,7 +140,11 @@ def download_all_missing_songs(
         return ApiResponse(success=True, message="All songs are already downloaded", data={"queued_count": 0})
 
     plan = service.planner.plan_downloads_for_songs(missing_songs, preferred_quality=preferred_quality)
-    queued_ids = service.execute_download_plan(plan)
+    queued_ids = service.execute_download_plan(
+        plan,
+        batch_title="Songs — Download Missing",
+        source_type="songs",
+    )
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,

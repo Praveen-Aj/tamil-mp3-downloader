@@ -153,10 +153,21 @@ def execute_artist_download(
     else:
         plan = service.plan_artist_download_missing(artist_id)
 
-    queued_ids = service.execute_download_plan(plan)
+    import uuid
+    artist = service.db.get_artist(artist_id)
+    artist_name = artist.name if artist else f"Artist #{artist_id}"
+    batch_title = f"Artist — {artist_name}"
+    batch_id = f"batch-artist-{artist_id}-{uuid.uuid4().hex[:6]}"
+
+    queued_ids = service.execute_download_plan(
+        plan=plan,
+        batch_id=batch_id,
+        batch_title=batch_title,
+        source_type="artist",
+    )
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
-        message=f"Queued {queued_count} downloads for artist",
-        data={"artist_id": artist_id, "queued_count": queued_count},
+        message=f"Queued {queued_count} downloads for {artist_name}",
+        data={"artist_id": artist_id, "batch_id": batch_id, "queued_count": queued_count},
     )

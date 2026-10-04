@@ -190,10 +190,20 @@ def execute_movie_download(
     else:
         plan = service.plan_movie_download_missing(movie_id, include_variants=include_variants)
 
-    queued_ids = service.execute_download_plan(plan)
+    import uuid
+    movie = service.db.get_movie(movie_id)
+    movie_title = f"{movie.title} ({movie.year})" if movie else f"Movie #{movie_id}"
+    batch_id = f"batch-movie-{movie_id}-{uuid.uuid4().hex[:6]}"
+
+    queued_ids = service.execute_download_plan(
+        plan=plan,
+        batch_id=batch_id,
+        batch_title=movie_title,
+        source_type="movie",
+    )
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
-        message=f"Queued {queued_count} downloads for movie",
-        data={"movie_id": movie_id, "queued_count": queued_count},
+        message=f"Queued {queued_count} downloads for {movie_title}",
+        data={"movie_id": movie_id, "batch_id": batch_id, "queued_count": queued_count},
     )

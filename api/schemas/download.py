@@ -56,6 +56,7 @@ class DownloadExecuteRequest(BaseModel):
     """Request to trigger background downloads for specified songs."""
     song_ids: List[int]
     category: Optional[str] = None  # e.g., 'movie', 'playlist', 'chart', 'selected'
+    batch_title: Optional[str] = None
 
 
 def format_download_plan(plan: Any) -> DownloadPlanResponse:

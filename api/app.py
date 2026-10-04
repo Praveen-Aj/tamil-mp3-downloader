@@ -32,34 +32,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     def progress_listener(event: DownloadProgressEvent) -> None:
         """Listener invoked by background download workers."""
         try:
-            raw_pct = getattr(event, "percent", None)
-            if raw_pct is not None:
-                prog_pct = round(raw_pct * 100.0 if raw_pct <= 1.0 else raw_pct, 1)
-            else:
-                prog_pct = round(getattr(event, "progress_percent", 0.0), 1)
+            batch_data = getattr(event, "batch_data", None)
+            batch_id = getattr(event, "batch_id", None)
+            if batch_data:
+                ws_manager.dispatch_from_thread(
+                    event_type="batch.progress",
+                    data=batch_data,
+                )
+            elif batch_id and hasattr(service, "get_batch"):
+                b_info = service.get_batch(batch_id)
+                if b_info:
+                    ws_manager.dispatch_from_thread(
+                        event_type="batch.progress",
+                        data=b_info,
+                    )
 
-            raw_speed = getattr(event, "speed_bps", None)
-            if raw_speed is not None:
-                spd_kbps = round(raw_speed / 1024.0, 1)
-            else:
-                spd_kbps = round(getattr(event, "speed_kbps", 0.0), 1)
+            # If this is also or primarily a track event (download_id > 0 or song_id > 0)
+            dl_id = getattr(event, "download_id", None)
+            song_id = getattr(event, "song_id", None)
+            if dl_id or song_id:
+                raw_pct = getattr(event, "percent", None)
+                if raw_pct is not None:
+                    prog_pct = round(raw_pct * 100.0 if raw_pct <= 1.0 else raw_pct, 1)
+                else:
+                    prog_pct = round(getattr(event, "progress_percent", 0.0), 1)
 
-            ws_manager.dispatch_from_thread(
-                event_type="download.progress",
-                data={
-                    "download_id": getattr(event, "download_id", None),
-                    "song_id": getattr(event, "song_id", None),
-                    "track_title": getattr(event, "title", "") or getattr(event, "track_title", ""),
-                    "artist": getattr(event, "artist", None),
-                    "status": getattr(event, "status", "DOWNLOADING"),
-                    "progress_percent": prog_pct,
-                    "bytes_downloaded": getattr(event, "bytes_downloaded", 0),
-                    "total_bytes": getattr(event, "total_bytes", None),
-                    "speed_kbps": spd_kbps,
-                    "eta_seconds": getattr(event, "eta_seconds", None),
-                    "error": getattr(event, "error_message", None) or getattr(event, "error", None),
-                },
-            )
+                raw_speed = getattr(event, "speed_bps", None)
+                if raw_speed is not None:
+                    spd_kbps = round(raw_speed / 1024.0, 1)
+                else:
+                    spd_kbps = round(getattr(event, "speed_kbps", 0.0), 1)
+
+                ws_manager.dispatch_from_thread(
+                    event_type="download.progress",
+                    data={
+                        "download_id": dl_id,
+                        "song_id": song_id,
+                        "track_title": getattr(event, "title", "") or getattr(event, "track_title", ""),
+                        "artist": getattr(event, "artist", None),
+                        "status": getattr(event, "status", "DOWNLOADING"),
+                        "progress_percent": prog_pct,
+                        "bytes_downloaded": getattr(event, "bytes_downloaded", 0),
+                        "total_bytes": getattr(event, "total_bytes", None),
+                        "speed_kbps": spd_kbps,
+                        "eta_seconds": getattr(event, "eta_seconds", None),
+                        "error": getattr(event, "error_message", None) or getattr(event, "error", None),
+                        "batch_id": batch_id,
+                    },
+                )
         except Exception:
             logger.debug("Failed dispatching progress event", exc_info=True)
 

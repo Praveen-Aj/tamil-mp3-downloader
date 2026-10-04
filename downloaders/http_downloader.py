@@ -582,6 +582,13 @@ class HTTPDownloader(BaseDownloader):
 
             self._apply_id3_tags(song, out_path)
         except Exception:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+                if out_path.exists() and out_path.stat().st_size == 0:
+                    out_path.unlink()
+            except Exception:
+                pass
             self._update_state_entry(
                 state_path,
                 state_key,

@@ -227,11 +227,12 @@ class ImportJobManager:
         output_dir: Optional[Path] = None,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
         item_progress_cb: Optional[Callable[[int, int, str, float, str], None]] = None,
+        batch: Optional[Any] = None,
     ) -> Dict[str, int]:
         """
         Execute downloads for job items in READY, NEEDS_REVIEW, or FAILED state.
-        Synchronizes downloaded tracks with the canonical SQLite library as OWNED
-        and creates unified Download tracking records.
+        Synchronizes downloaded tracks with the canonical SQLite library as OWNED,
+        enforces canonical storage paths (Movies/ or Singles/), and supports batch cancellation.
         """
         job = self.db.get_import_job(job_id)
         if not job:
@@ -248,14 +249,26 @@ class ImportJobManager:
             return {"completed": 0, "failed": 0, "total": 0}
 
         self.db.update_import_job_status(job_id, JobStatus.IN_PROGRESS)
-        out_dir = output_dir or Path(settings.output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
+        base_output_dir = output_dir or Path(settings.output_dir)
+        base_output_dir.mkdir(parents=True, exist_ok=True)
+
+        from library.storage_manager import resolve_canonical_path_for_song
 
         completed_count = 0
         failed_count = 0
         total = len(target_items)
 
         for idx, item in enumerate(target_items, start=1):
+            # Check for batch-level cancellation
+            if batch and getattr(batch, "is_cancelled", False):
+                logger.info(f"Import job {job_id} cancelled via batch. Halting track downloads.")
+                for rem in target_items[idx - 1:]:
+                    self.db.update_import_job_item_state(rem.id, ItemState.CANCELLED)
+                    if rem.download_id:
+                        self.db.update_download_state(rem.download_id, DownloadState.CANCELLED, error_message="Batch cancelled by user")
+                self.db.update_import_job_status(job_id, JobStatus.FAILED)
+                break
+
             if progress_cb:
                 progress_cb(idx, total, f"Downloading: {item.title}")
 
@@ -279,19 +292,27 @@ class ImportJobManager:
                         c_hash = s.canonical_hash
                         break
 
-            # Check if physical file exists via existing song or expected filename
-            clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{item.artist or 'Track'} - {item.title}")[:80].strip()
-            potential_file = out_dir / f"{clean_name}.mp3"
+            # Deterministically resolve canonical destination path using DB metadata
+            canonical_target, movie_info, primary_artist = resolve_canonical_path_for_song(
+                db=self.db,
+                base_dir=base_output_dir,
+                song_id=existing_song.id if existing_song else None,
+                song_title=item.title,
+                artist=item.artist,
+                album=effective_album,
+                track_number=item.track_index,
+            )
+            canonical_target.parent.mkdir(parents=True, exist_ok=True)
 
             reusable_path = None
             if existing_song and existing_song.state == SongState.OWNED and existing_song.file_path:
                 p = Path(existing_song.file_path)
                 if not p.is_absolute():
-                    p = (out_dir.parent / p).resolve() if not (Path.cwd() / p).exists() else (Path.cwd() / p).resolve()
+                    p = (base_output_dir.parent / p).resolve() if not (Path.cwd() / p).exists() else (Path.cwd() / p).resolve()
                 if p.is_file() and p.exists() and p.stat().st_size > 0:
                     reusable_path = p
-            elif potential_file.is_file() and potential_file.exists() and potential_file.stat().st_size > 0:
-                reusable_path = potential_file
+            elif canonical_target.is_file() and canonical_target.exists() and canonical_target.stat().st_size > 0:
+                reusable_path = canonical_target
 
             if reusable_path:
                 if not existing_song:
@@ -316,6 +337,8 @@ class ImportJobManager:
                     canonical_song_id=song_id,
                 )
                 completed_count += 1
+                if batch and hasattr(self.db, "batch_manager"):
+                    self.db.batch_manager.on_track_completed(batch.batch_id, item.download_id or 0)
                 if progress_cb:
                     progress_cb(idx, total, f"Reused existing file: {item.title}")
                 continue
@@ -341,6 +364,13 @@ class ImportJobManager:
             else:
                 song_id = existing_song.id
                 self.db.update_song_state(song_id, SongState.DOWNLOADING)
+
+            # Ensure song_movies relationship is linked if canonical movie was resolved
+            if movie_info and movie_info.get("movie_id"):
+                try:
+                    self.db.link_song_movie(song_id, movie_info["movie_id"], movie_info.get("track_number"))
+                except Exception:
+                    pass
 
             # Ensure a valid song_source exists in database for this song
             source_id = None
@@ -373,8 +403,11 @@ class ImportJobManager:
             item.download_id = dl_id
             self.db.update_import_job_item_state(item.id, ItemState.DOWNLOADING)
 
-            # Sanitize filename
-            clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{item.artist or 'Track'} - {item.title}")[:80].strip()
+            if batch:
+                if dl_id not in batch.child_download_ids:
+                    batch.child_download_ids.append(dl_id)
+                batch.active_download_id = dl_id
+                batch.current_track = item.title
 
             # Prepare candidates for download
             candidates: List[AudioCandidate] = []
@@ -402,29 +435,43 @@ class ImportJobManager:
                 if item_progress_cb:
                     item_progress_cb(dl_id, song_id, item.title, ratio, msg)
 
+            target_dir = canonical_target.parent
+            target_stem = canonical_target.stem
+
             dl_res: DownloadResult = self.provider_registry.download_with_fallback(
                 candidates=candidates,
-                output_dir=out_dir,
-                filename_stem=clean_name,
+                output_dir=target_dir,
+                filename_stem=target_stem,
                 progress_cb=_item_hook,
             )
 
-            if dl_res.success and dl_res.file_path and dl_res.file_path.exists():
-                file_size = dl_res.size_bytes or dl_res.file_path.stat().st_size
+            if dl_res.success and dl_res.file_path and dl_res.file_path.exists() and dl_res.file_path.stat().st_size > 0:
+                final_path = dl_res.file_path
+                if final_path != canonical_target:
+                    try:
+                        import shutil
+                        shutil.move(str(final_path), str(canonical_target))
+                        final_path = canonical_target
+                    except Exception:
+                        pass
+
+                file_size = final_path.stat().st_size
+                effective_album_or_movie = movie_info["movie_title"] if movie_info else (effective_album or job.title)
+                effective_year = movie_info["movie_year"] if movie_info else getattr(job, "year", None)
+
                 # Apply ID3 tags & artwork
-                effective_album = item.album or (job.title if job.content_type == ContentType.ALBUM.value else "")
                 self._tag_audio_file(
-                    file_path=dl_res.file_path,
+                    file_path=final_path,
                     title=item.title,
                     artist=item.artist or "",
-                    album=effective_album or job.title,
+                    album=effective_album_or_movie,
                     track_num=item.track_index,
                     artwork_url=job.artwork_url,
                 )
 
                 # Register in canonical SQLite library as OWNED
                 self._register_in_library(
-                    file_path=dl_res.file_path,
+                    file_path=final_path,
                     title=item.title,
                     artist=item.artist or "",
                     album=effective_album,
@@ -434,7 +481,7 @@ class ImportJobManager:
                 # Update Download record
                 self.db.update_download_completed(
                     download_id=dl_id,
-                    output_path=str(dl_res.file_path),
+                    output_path=str(final_path),
                     file_size_bytes=file_size,
                     download_speed_bps=None,
                     was_upgrade=False,
@@ -449,8 +496,14 @@ class ImportJobManager:
                     canonical_song_id=song_id,
                 )
                 completed_count += 1
+                if batch:
+                    batch.completed_ids.add(dl_id)
+                    if batch.active_download_id == dl_id:
+                        batch.active_download_id = None
+                    batch.updated_at = datetime.now()
+
                 if item_progress_cb:
-                    ext = dl_res.file_path.suffix.lower() if dl_res.file_path else ""
+                    ext = final_path.suffix.lower()
                     if ext == ".webm":
                         fmt_desc = "Opus (WebM) · 160 kbps"
                     elif ext == ".m4a":
@@ -461,6 +514,14 @@ class ImportJobManager:
                         fmt_desc = f"{ext.lstrip('.').upper()} Audio"
                     item_progress_cb(dl_id, song_id, item.title, 1.0, f"Downloaded · {fmt_desc} · Ready to play")
             else:
+                # Cleanup any failed 0-byte or temporary files
+                for f_cand in target_dir.glob(f"{target_stem}.*"):
+                    try:
+                        if f_cand.is_file() and (f_cand.stat().st_size == 0 or f_cand.suffix.lower() in [".webm", ".part", ".crdownload"]):
+                            f_cand.unlink()
+                    except Exception:
+                        pass
+
                 err = dl_res.error_message or "Download failed"
                 self.db.update_download_state(dl_id, state=DownloadState.FAILED, error_message=err)
                 self.db.update_song_state(song_id, state=SongState.FAILED)
@@ -470,11 +531,19 @@ class ImportJobManager:
                     error_message=err,
                 )
                 failed_count += 1
+                if batch:
+                    batch.failed_ids.add(dl_id)
+                    if batch.active_download_id == dl_id:
+                        batch.active_download_id = None
+                    batch.updated_at = datetime.now()
+
                 if item_progress_cb:
                     item_progress_cb(dl_id, song_id, item.title, 0.0, err)
 
         final_status = JobStatus.COMPLETED if failed_count == 0 else JobStatus.READY
         self.db.update_import_job_status(job_id, final_status)
+        if batch and (batch.completed + batch.failed + batch.cancelled) >= batch.total_tracks:
+            batch.status = "completed" if batch.completed > 0 else ("cancelled" if batch.is_cancelled else "failed")
         return {"completed": completed_count, "failed": failed_count, "total": total}
 
     def _tag_audio_file(

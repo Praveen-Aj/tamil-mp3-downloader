@@ -110,13 +110,13 @@ def test_canonical_download_path_generation():
     expected2 = base_dir / "Movies" / "Leo (2023)" / "Badass.mp3"
     assert path2 == expected2
 
-    # 3. Standalone single
+    # 3. Standalone single (uses primary artist without messy ft. lists)
     path3 = get_canonical_download_path(
         base_dir=base_dir,
         song_title="Enjoy Enjaami",
         artist="Dhee ft. Arivu",
     )
-    expected3 = base_dir / "Singles" / "Dhee ft. Arivu - Enjoy Enjaami.mp3"
+    expected3 = base_dir / "Singles" / "Dhee - Enjoy Enjaami.mp3"
     assert path3 == expected3
 
 

@@ -136,6 +136,32 @@ export interface DownloadTask {
   error?: string;
 }
 
+export interface BatchChildTrack {
+  download_id: number;
+  song_id: number;
+  title: string;
+  artist?: string;
+  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+  is_active: boolean;
+}
+
+export interface BatchJob {
+  batch_id: string;
+  title: string;
+  source_type: string;
+  total_tracks: number;
+  completed: number;
+  active: number;
+  queued: number;
+  failed: number;
+  cancelled: number;
+  overall_percentage: number;
+  current_track?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+  tracks?: BatchChildTrack[];
+  created_at?: string;
+}
+
 export interface SystemStats {
   total_songs: number;
   total_owned: number;

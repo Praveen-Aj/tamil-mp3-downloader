@@ -64,7 +64,7 @@ class DownloadProgressEvent:
     download_id: Optional[int] = None
     song_id: Optional[int] = None
     title: str = ""
-    status: str = "DOWNLOADING"  # QUEUED, DOWNLOADING, COMPLETED, FAILED
+    status: str = "DOWNLOADING"  # QUEUED, DOWNLOADING, COMPLETED, FAILED, CANCELLED
     bytes_downloaded: int = 0
     total_bytes: Optional[int] = None
     speed_bps: float = 0.0
@@ -73,6 +73,8 @@ class DownloadProgressEvent:
     speed_str: str = ""
     eta_str: str = ""
     error_message: Optional[str] = None
+    batch_id: Optional[str] = None
+    batch_data: Optional[Dict[str, Any]] = None
 
     @property
     def progress_percent(self) -> float:
@@ -134,6 +136,9 @@ class LibraryService:
         )
         from ui.services.artwork_service import ArtworkService
         self.artwork = ArtworkService.get_instance()
+
+        from library.batch_manager import BatchDownloadManager
+        self.batch_manager = BatchDownloadManager(self)
 
         self.charts_service = ChartDiscoveryService(self.db)
         self._lock = threading.RLock()
@@ -859,11 +864,15 @@ class LibraryService:
     def execute_download_plan(
         self,
         plan: DownloadPlan,
+        batch_id: Optional[str] = None,
+        batch_title: Optional[str] = None,
+        source_type: Optional[str] = None,
         run_async: bool = True,
         progress_cb: Optional[Callable[[int, int], None]] = None,
     ) -> List[int]:
         """
-        Enqueue planned downloads into DownloadRegistry and trigger download execution pipeline.
+        Enqueue planned downloads into DownloadRegistry and trigger download execution pipeline
+        with batch tracking and cancellation control.
         """
         enqueued_ids = []
         for planned in plan.new_songs:
@@ -874,32 +883,72 @@ class LibraryService:
             if dl_id:
                 enqueued_ids.append(dl_id)
 
-        if run_async and enqueued_ids:
-            def _worker():
-                max_w = min(int(settings.get("download.max_workers", 3)), len(enqueued_ids))
-                completed_count = 0
-                with ThreadPoolExecutor(max_workers=max_w) as executor:
-                    futures = {executor.submit(self.execute_single_download, dl_id): dl_id for dl_id in enqueued_ids}
-                    for future in as_completed(futures):
-                        dl_id = futures[future]
-                        try:
-                            res = future.result()
-                            logger.info(f"Worker finished download dl_id={dl_id} -> {res}")
-                        except Exception as e:
-                            logger.error(f"Exception in async download worker for dl_id={dl_id}: {e}", exc_info=True)
-                        completed_count += 1
-                        if progress_cb:
-                            progress_cb(completed_count, len(enqueued_ids))
+        if not enqueued_ids:
+            return []
 
-            threading.Thread(target=_worker, daemon=True).start()
-        elif not run_async:
+        # Create or link batch for multi-track operations
+        batch = None
+        if batch_id:
+            batch = self.batch_manager.create_batch(
+                batch_id=batch_id,
+                title=batch_title or "Download Batch",
+                source_type=source_type or "songs",
+                child_download_ids=enqueued_ids,
+            )
+        elif len(enqueued_ids) > 1:
+            b_id = f"batch-{uuid.uuid4().hex[:8]}"
+            b_title = batch_title or f"Download Batch ({len(enqueued_ids)} tracks)"
+            batch = self.batch_manager.create_batch(
+                batch_id=b_id,
+                title=b_title,
+                source_type=source_type or "songs",
+                child_download_ids=enqueued_ids,
+            )
+
+        def _execute_queue():
+            completed_count = 0
             for idx, dl_id in enumerate(enqueued_ids, start=1):
+                # 1. Check if the batch was cancelled
+                if batch and batch.is_cancelled:
+                    logger.info(f"Batch {batch.batch_id} cancelled. Halting queue worker.")
+                    break
+
+                # 2. Check if this individual track was cancelled
+                dl = self.db.get_download(dl_id)
+                dl_st = getattr(dl.state, "value", str(dl.state)) if dl else ""
+                if dl_st == "CANCELLED":
+                    logger.info(f"Download {dl_id} was marked CANCELLED; skipping execution.")
+                    continue
+
+                song = self.db.get_song(dl.song_id) if dl else None
+                song_title = song.title if song else f"Track #{dl_id}"
+
+                if batch:
+                    self.batch_manager.on_track_started(batch.batch_id, dl_id, song_title)
+
                 try:
-                    self.execute_single_download(dl_id)
-                    if progress_cb:
-                        progress_cb(idx, len(enqueued_ids))
+                    success = self.execute_single_download(dl_id)
+                    if batch:
+                        if success:
+                            self.batch_manager.on_track_completed(batch.batch_id, dl_id)
+                        else:
+                            dl_after = self.db.get_download(dl_id)
+                            st_after = getattr(dl_after.state, "value", str(dl_after.state)) if dl_after else ""
+                            if st_after != "CANCELLED":
+                                self.batch_manager.on_track_failed(batch.batch_id, dl_id)
                 except Exception as e:
-                    logger.error(f"Exception in sync download for dl_id={dl_id}: {e}", exc_info=True)
+                    logger.error(f"Error executing download dl_id={dl_id}: {e}", exc_info=True)
+                    if batch:
+                        self.batch_manager.on_track_failed(batch.batch_id, dl_id)
+
+                completed_count += 1
+                if progress_cb:
+                    progress_cb(completed_count, len(enqueued_ids))
+
+        if run_async:
+            threading.Thread(target=_execute_queue, daemon=True).start()
+        else:
+            _execute_queue()
 
         return enqueued_ids
 
@@ -1120,9 +1169,22 @@ class LibraryService:
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
     ) -> Optional[threading.Thread]:
         """
-        Start executing downloads for an analyzed import job.
+        Start executing downloads for an analyzed import job with batch tracking and cancellation.
         """
         target_dir = output_dir or Path(self.download_dir)
+        job = self.get_import_job(job_id)
+        batch = None
+        if job:
+            platform_str = getattr(job.platform, "value", str(job.platform)).title()
+            batch_title = f"{platform_str} — {job.title}"
+            batch = self.batch_manager.create_batch(
+                batch_id=f"batch-import-{job_id}",
+                title=batch_title,
+                source_type="spotify",
+                child_download_ids=[],
+                total_tracks=job.total_tracks,
+            )
+
         def _item_prog(dl_id: int, s_id: int, title: str, ratio: float, msg: str):
             status = "COMPLETED" if ratio >= 1.0 and "Downloaded" in msg else ("FAILED" if "failed" in msg.lower() else "DOWNLOADING")
             self.emit_progress(DownloadProgressEvent(
@@ -1132,6 +1194,7 @@ class LibraryService:
                 status=status,
                 percent=ratio,
                 speed_str=msg,
+                batch_id=batch.batch_id if batch else None,
             ))
 
         if run_async:
@@ -1143,6 +1206,7 @@ class LibraryService:
                         output_dir=target_dir,
                         progress_cb=progress_cb,
                         item_progress_cb=_item_prog,
+                        batch=batch,
                     )
                 except Exception as e:
                     logger.error(f"Error executing import job {job_id}: {e}", exc_info=True)
@@ -1156,6 +1220,7 @@ class LibraryService:
                 output_dir=target_dir,
                 progress_cb=progress_cb,
                 item_progress_cb=_item_prog,
+                batch=batch,
             )
 
     def get_import_job(self, job_id: str) -> Optional[ImportJob]:
@@ -1272,8 +1337,21 @@ class LibraryService:
         pass
 
     def cancel_download(self, download_id: int) -> bool:
-        """Cancel an active or queued download."""
-        return self.registry.cancel(download_id)
+        """Cancel an individual active or queued download."""
+        return self.batch_manager.cancel_track(download_id)
+
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel an entire multi-track download batch."""
+        return self.batch_manager.cancel_batch(batch_id)
+
+    def get_batches(self) -> List[Dict[str, Any]]:
+        """Return all active and recent download batches with child track details."""
+        return [b.to_dict(service=self, include_tracks=True) for b in self.batch_manager.get_all_batches()]
+
+    def get_batch(self, batch_id: str) -> Optional[Dict[str, Any]]:
+        """Return specific batch details."""
+        b = self.batch_manager.get_batch(batch_id)
+        return b.to_dict(service=self, include_tracks=True) if b else None
 
     # ------------------------------------------------------------------
     # V5.3 Movie Discovery & Movie Library Operations

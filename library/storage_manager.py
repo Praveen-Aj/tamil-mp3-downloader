@@ -43,6 +43,20 @@ def sanitize_filename(name: str) -> str:
     return clean or "Unknown"
 
 
+def get_primary_artist(artist: Optional[str]) -> str:
+    """
+    Extract clean primary artist from potentially comma/feat/and separated string.
+    Avoids filenames with long comma-separated artist lists.
+    """
+    if not artist:
+        return "Unknown Artist"
+    clean = artist.replace("\xa0", " ").strip()
+    # Split on commas, slash, semicolon, feat, ft, and, &
+    parts = re.split(r"\s*(?:,|/|;|\bfeat\.?|\bft\.?|\band\b|&)\s*", clean, flags=re.IGNORECASE)
+    primary = parts[0].strip() if parts else clean
+    return sanitize_filename(primary or "Unknown Artist")
+
+
 def get_canonical_download_path(
     base_dir: Path,
     song_title: str,
@@ -54,6 +68,8 @@ def get_canonical_download_path(
 ) -> Path:
     """
     Derive the deterministic destination path according to canonical rules.
+    - Movie songs: Movies/<Movie Name> (<Year>)/<TrackNum> - <Title>.mp3
+    - Standalone singles: Singles/<Primary Artist> - <Title>.mp3
     """
     base_dir = Path(base_dir)
     safe_title = sanitize_filename(song_title)
@@ -69,17 +85,168 @@ def get_canonical_download_path(
         folder_name = f"{safe_movie}{year_suffix}"
         target_dir = base_dir / "Movies" / folder_name
 
+        # Clean redundant '(From ...)' matching movie name from the track title
+        cleaned_track_title = re.sub(
+            r'\s*\((?:From|from)\s+["\']?' + re.escape(safe_movie) + r'["\']?\)',
+            '',
+            safe_title,
+            flags=re.IGNORECASE
+        ).strip()
+        final_track_title = cleaned_track_title if cleaned_track_title else safe_title
+
         if track_number and int(track_number) > 0:
-            filename = f"{int(track_number):02d} - {safe_title}.mp3"
+            filename = f"{int(track_number):02d} - {final_track_title}.mp3"
         else:
-            filename = f"{safe_title}.mp3"
+            filename = f"{final_track_title}.mp3"
         return target_dir / filename
 
     # Standalone Song Rule: Singles/<Artist> - <Title>.mp3
-    safe_artist = sanitize_filename(artist or "Unknown Artist")
+    safe_artist = get_primary_artist(artist)
     target_dir = base_dir / "Singles"
     filename = f"{safe_artist} - {safe_title}.mp3"
     return target_dir / filename
+
+
+def _get_db_cursor(db):
+    if db is None:
+        return None
+    if hasattr(db, "_conn") and db._conn:
+        return db._conn.cursor()
+    if hasattr(db, "cursor"):
+        return db.cursor()
+    return None
+
+
+def resolve_canonical_path_for_song(
+    db,
+    base_dir: Path,
+    song_id: Optional[int] = None,
+    song_title: Optional[str] = None,
+    artist: Optional[str] = None,
+    album: Optional[str] = None,
+    year: Optional[int] = None,
+    track_number: Optional[int] = None,
+) -> Tuple[Path, Optional[Dict[str, Any]], str]:
+    """
+    Deterministically resolve canonical path and movie metadata using DB canonical relationships.
+    Returns: (canonical_path, movie_dict_or_None, primary_artist)
+    """
+    base_dir = Path(base_dir)
+    effective_movie: Optional[str] = None
+    effective_year: Optional[int] = None
+    effective_track: Optional[int] = track_number
+    movie_info: Optional[Dict[str, Any]] = None
+    cur = _get_db_cursor(db)
+
+    # 1. Check direct song_id in DB if available
+    if song_id and db:
+        if hasattr(db, "get_song_movie_context"):
+            m_ctx = db.get_song_movie_context(song_id)
+            if m_ctx:
+                effective_movie = m_ctx.get("movie_title")
+                effective_year = m_ctx.get("movie_year")
+                if m_ctx.get("track_number") and not effective_track:
+                    effective_track = m_ctx.get("track_number")
+                movie_info = m_ctx
+        elif cur:
+            try:
+                cur.execute("""
+                    SELECT m.id, m.title, m.year, sm.track_number
+                    FROM song_movies sm
+                    JOIN movies m ON sm.movie_id = m.id
+                    WHERE sm.song_id = ?
+                """, (song_id,))
+                row = cur.fetchone()
+                if row:
+                    effective_movie = row[1]
+                    effective_year = row[2]
+                    if row[3] and not effective_track:
+                        effective_track = row[3]
+                    movie_info = {"movie_id": row[0], "movie_title": effective_movie, "movie_year": effective_year, "track_number": effective_track}
+            except Exception:
+                pass
+
+    # 2. Check title for '(From "MovieName")' or '(From MovieName)'
+    if not effective_movie and song_title and cur:
+        m_match = re.search(r'\(From\s+["\']?([^"\'\)]+)["\']?\)', song_title, re.IGNORECASE)
+        if m_match:
+            cand_name = m_match.group(1).strip().strip("\"'")
+            try:
+                cur.execute("SELECT id, title, year FROM movies WHERE LOWER(title) = LOWER(?)", (cand_name,))
+                row = cur.fetchone()
+                if not row:
+                    # Normalized match
+                    cand_norm = re.sub(r'[^a-zA-Z0-9]', '', cand_name.lower())
+                    cur.execute("SELECT id, title, year FROM movies")
+                    for m_row in cur.fetchall():
+                        if re.sub(r'[^a-zA-Z0-9]', '', m_row[1].lower()) == cand_norm:
+                            row = m_row
+                            break
+                if row:
+                    effective_movie = row[1]
+                    effective_year = row[2]
+                    movie_info = {"movie_id": row[0], "movie_title": effective_movie, "movie_year": effective_year}
+            except Exception:
+                pass
+
+    # 3. Check album against movies table
+    if not effective_movie and album and album.strip() and album.lower() != "singles" and cur:
+        try:
+            cur.execute("SELECT id, title, year FROM movies WHERE LOWER(title) = LOWER(?)", (album.strip(),))
+            row = cur.fetchone()
+            if not row:
+                alb_norm = re.sub(r'[^a-zA-Z0-9]', '', album.lower())
+                cur.execute("SELECT id, title, year FROM movies")
+                for m_row in cur.fetchall():
+                    if re.sub(r'[^a-zA-Z0-9]', '', m_row[1].lower()) == alb_norm:
+                        row = m_row
+                        break
+            if row:
+                effective_movie = row[1]
+                effective_year = row[2]
+                movie_info = {"movie_id": row[0], "movie_title": effective_movie, "movie_year": effective_year}
+        except Exception:
+            pass
+
+    # 4. Check other songs with same title in DB that have movie associations
+    if not effective_movie and song_title and cur:
+        try:
+            clean_t = re.sub(r'\s*\((?:From|from)\s+[^)]+\)', '', song_title).strip()
+            clean_t = re.sub(r'\s*-\s*the\s+.*', '', clean_t, flags=re.IGNORECASE).strip()
+            norm_t = re.sub(r'[^a-zA-Z0-9]', '', clean_t.lower())
+            cur.execute("""
+                SELECT m.id, m.title, m.year, sm.track_number
+                FROM songs s
+                JOIN song_movies sm ON s.id = sm.song_id
+                JOIN movies m ON sm.movie_id = m.id
+                WHERE s.title_normalized = ?
+                LIMIT 1
+            """, (norm_t,))
+            row = cur.fetchone()
+            if row:
+                effective_movie = row[1]
+                effective_year = row[2]
+                if row[3] and not effective_track:
+                    effective_track = row[3]
+                movie_info = {"movie_id": row[0], "movie_title": effective_movie, "movie_year": effective_year, "track_number": effective_track}
+        except Exception:
+            pass
+
+    # 5. If still no movie, fallback to song year if known
+    if effective_movie and not effective_year and year:
+        effective_year = year
+
+    title_to_use = song_title or "Unknown Track"
+    dest_path = get_canonical_download_path(
+        base_dir=base_dir,
+        song_title=title_to_use,
+        artist=artist,
+        movie_title=effective_movie,
+        movie_year=effective_year,
+        track_number=effective_track,
+    )
+    primary_art = get_primary_artist(artist)
+    return dest_path, movie_info, primary_art
 
 
 def tag_mp3_metadata(
@@ -175,134 +342,297 @@ def migrate_storage_to_canonical(
     dry_run: bool = False,
 ) -> Dict[str, Any]:
     """
-    Safely migrate existing owned files in base_dir to the canonical directory structure:
-    Movies/<Movie Name> (<Year>)/<Track> - <Title>.mp3
-    Singles/<Artist> - <Title>.mp3
+    Safely migrate existing physical files in base_dir to the canonical directory structure:
+    Songs New/
+    ├── Movies/<Movie Name> (<Year>)/<Track> - <Title>.mp3
+    └── Singles/<Primary Artist> - <Title>.mp3
 
-    Preserves user files, updates SQLite records, and leaves ambiguous files in place.
+    Preserves user audio, cleans up empty legacy year/bare folders, deletes temporary/0-byte
+    artifacts, updates SQLite songs and downloads records, and provides a forensic audit report.
     """
-    base_dir = Path(base_dir)
+    base_dir = Path(base_dir).resolve()
     cursor = db_conn.cursor()
 
-    # Query all owned songs with their movie and track details
+    # Pre-load movies map
+    cursor.execute("SELECT id, title, year FROM movies")
+    movies_list = [{"id": r[0], "title": r[1], "year": r[2]} for r in cursor.fetchall()]
+
+    # Pre-load songs map
     cursor.execute("""
-        SELECT
-            s.id,
-            s.title,
-            s.artist,
-            s.album,
-            s.year,
-            s.file_path,
-            s.file_size_bytes,
-            m.title as movie_title,
-            m.year as movie_year,
-            sm.track_number
+        SELECT s.id, s.title, s.artist, s.album, s.year, s.file_path, s.file_size_bytes,
+               m.id as movie_id, m.title as movie_title, m.year as movie_year, sm.track_number
         FROM songs s
         LEFT JOIN song_movies sm ON s.id = sm.song_id
         LEFT JOIN movies m ON sm.movie_id = m.id
-        WHERE s.state = 'OWNED' AND s.file_path IS NOT NULL AND s.file_path != ''
     """)
-    owned_songs = cursor.fetchall()
+    songs_by_fp = {}
+    songs_by_id = {}
+    for r in cursor.fetchall():
+        row_dict = {
+            "id": r[0], "title": r[1], "artist": r[2], "album": r[3], "year": r[4],
+            "file_path": r[5], "file_size_bytes": r[6], "movie_id": r[7],
+            "movie_title": r[8], "movie_year": r[9], "track_number": r[10]
+        }
+        songs_by_id[r[0]] = row_dict
+        if r[5]:
+            try:
+                songs_by_fp[Path(r[5]).resolve()] = row_dict
+            except Exception:
+                pass
 
+    total_discovered = 0
     migrated = []
-    skipped = []
+    already_canonical = []
+    duplicates_detected = []
+    ambiguous_unmapped = []
+    temporary_artifacts_removed = []
+    files_untouched = []
     errors = []
 
-    for row in owned_songs:
-        sid, title, artist, album, year, fp, sz, m_title, m_year, trk_num = row
-        current_path = Path(fp)
+    # 1. Traverse all physical files
+    all_disk_files: List[Path] = []
+    for root, dirs, files in os.walk(base_dir):
+        for f in files:
+            all_disk_files.append(Path(root) / f)
 
-        # Verify current file exists
-        if not current_path.is_file() or not current_path.exists():
-            skipped.append({"id": sid, "title": title, "reason": f"File does not exist: {fp}"})
+    total_discovered = len(all_disk_files)
+
+    for fp in all_disk_files:
+        try:
+            rel = fp.relative_to(base_dir)
+        except Exception:
+            rel = Path(fp.name)
+
+        rel_str = str(rel).replace("\\", "/")
+
+        # 1a. Handle legacy .download_state.json debris in root or legacy subfolders
+        if fp.name == ".download_state.json":
+            if not rel_str.startswith("Movies/"):
+                if not dry_run:
+                    try:
+                        fp.unlink()
+                        temporary_artifacts_removed.append(str(rel))
+                    except Exception as e:
+                        errors.append({"file": str(rel), "error": str(e)})
+                else:
+                    temporary_artifacts_removed.append(str(rel))
             continue
 
-        # Effective movie metadata
-        effective_movie = m_title or (album if album and album.lower() != "singles" else None)
-        effective_year = m_year or year
+        # 1b. Handle 0-byte or temporary .part / .webm files
+        size = fp.stat().st_size
+        suffix = fp.suffix.lower()
+        if size == 0 or suffix in [".part", ".crdownload"]:
+            if not dry_run:
+                try:
+                    fp.unlink()
+                    temporary_artifacts_removed.append(str(rel))
+                except Exception as e:
+                    errors.append({"file": str(rel), "error": str(e)})
+            else:
+                temporary_artifacts_removed.append(str(rel))
+            continue
 
-        # Compute deterministic destination path
-        canonical_dest = get_canonical_download_path(
+        # Check if non-audio file
+        if suffix not in [".mp3", ".m4a", ".flac", ".wav", ".webm", ".opus", ".aac"]:
+            files_untouched.append({"file": str(rel), "reason": f"Non-audio file: {suffix}"})
+            continue
+
+        # 1c. Match to canonical song in DB
+        matched_song = songs_by_fp.get(fp.resolve())
+
+        # If not matched by exact file_path, match by clean title & artist
+        if not matched_song:
+            stem = fp.stem
+            # Clean stem
+            clean_stem = re.sub(r"^\d+\s*-\s*", "", stem).strip()
+            clean_title = clean_stem
+            cand_artist = None
+            if " - " in clean_stem:
+                parts = clean_stem.split(" - ")
+                cand_artist = parts[0].strip()
+                clean_title = parts[-1].strip()
+
+            # Strip (From ...) for lookup
+            clean_title_core = re.sub(r'\s*\((?:From|from)\s+[^)]+\)', '', clean_title).strip()
+            norm_title = re.sub(r'[^a-zA-Z0-9]', '', clean_title_core.lower())
+
+            # Find matching song in database
+            matched_candidates = []
+            for s in songs_by_id.values():
+                s_norm = re.sub(r'[^a-zA-Z0-9]', '', s["title"].lower())
+                if s_norm == norm_title:
+                    matched_candidates.append(s)
+
+            if len(matched_candidates) == 1:
+                matched_song = matched_candidates[0]
+            elif len(matched_candidates) > 1 and cand_artist:
+                norm_art = re.sub(r'[^a-zA-Z0-9]', '', cand_artist.lower())
+                for c in matched_candidates:
+                    c_art = re.sub(r'[^a-zA-Z0-9]', '', (c["artist"] or "").lower())
+                    if norm_art in c_art or c_art in norm_art:
+                        matched_song = c
+                        break
+                if not matched_song:
+                    matched_song = matched_candidates[0]
+
+        # 1d. Resolve canonical destination path
+        if not matched_song:
+            # If already inside Movies/ or Singles/, it's already in the canonical directory hierarchy
+            if rel_str.startswith("Movies/") or rel_str.startswith("Singles/"):
+                already_canonical.append({"id": None, "title": fp.stem, "path": str(rel)})
+                continue
+
+            # Check if filename specifies a movie or artist
+            dest_path, m_info, p_art = resolve_canonical_path_for_song(
+                db=db_conn,
+                base_dir=base_dir,
+                song_title=clean_title if 'clean_title' in locals() else fp.stem,
+                artist=cand_artist if 'cand_artist' in locals() else None,
+            )
+            ambiguous_unmapped.append({
+                "file": str(rel),
+                "proposed_destination": str(dest_path.relative_to(base_dir)),
+                "reason": "No direct database song record matched"
+            })
+            continue
+
+        sid = matched_song["id"]
+        title = matched_song["title"]
+        artist = matched_song["artist"]
+
+        # If already inside canonical Movies/ or Singles/ folder structure
+        if rel_str.startswith("Movies/") or rel_str.startswith("Singles/"):
+            # Check if folder matches movie name
+            already_canonical.append({"id": sid, "title": title, "path": str(rel)})
+            continue
+
+        # Resolve using canonical movie relationships
+        dest_path, movie_info, primary_artist = resolve_canonical_path_for_song(
+            db=db_conn,
             base_dir=base_dir,
+            song_id=sid,
             song_title=title,
             artist=artist,
-            movie_title=effective_movie,
-            movie_year=effective_year,
-            track_number=trk_num,
+            album=matched_song["album"],
+            year=matched_song["year"],
+            track_number=matched_song["track_number"]
         )
 
-        # Check if already in canonical location
+        # Check if already canonical
         try:
-            if current_path.resolve() == canonical_dest.resolve():
-                skipped.append({"id": sid, "title": title, "reason": "Already at canonical location"})
+            if fp.resolve() == dest_path.resolve():
+                already_canonical.append({"id": sid, "title": title, "path": str(rel)})
                 continue
         except Exception:
             pass
+
+        # Check if destination already exists
+        if dest_path.exists() and dest_path.stat().st_size > 0:
+            # Duplicate physical file exists at canonical destination!
+            duplicates_detected.append({
+                "id": sid,
+                "title": title,
+                "source": str(rel),
+                "canonical_target": str(dest_path.relative_to(base_dir)),
+                "target_size": dest_path.stat().st_size,
+                "source_size": size,
+            })
+            if not dry_run:
+                # Update DB to point to canonical destination
+                cursor.execute(
+                    "UPDATE songs SET file_path = ?, file_size_bytes = ?, state = 'OWNED' WHERE id = ?",
+                    (str(dest_path), dest_path.stat().st_size, sid)
+                )
+                cursor.execute(
+                    "UPDATE downloads SET output_path = ?, file_size_bytes = ? WHERE song_id = ?",
+                    (str(dest_path), dest_path.stat().st_size, sid)
+                )
+                # Safely delete duplicate source if sizes match or target is valid
+                try:
+                    fp.unlink()
+                except Exception as e:
+                    logger.warning(f"Could not remove duplicate source file {fp}: {e}")
+            continue
 
         if dry_run:
             migrated.append({
                 "id": sid,
                 "title": title,
-                "from": str(current_path),
-                "to": str(canonical_dest),
+                "from": str(rel),
+                "to": str(dest_path.relative_to(base_dir)),
                 "dry_run": True,
             })
             continue
 
         try:
             # Create destination folder
-            canonical_dest.parent.mkdir(parents=True, exist_ok=True)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Safely move file
-            shutil.move(str(current_path), str(canonical_dest))
+            shutil.move(str(fp), str(dest_path))
 
             # Verify destination file
-            if not canonical_dest.exists() or canonical_dest.stat().st_size == 0:
-                raise RuntimeError(f"Destination file verification failed: {canonical_dest}")
+            if not dest_path.exists() or dest_path.stat().st_size == 0:
+                raise RuntimeError(f"Destination file verification failed: {dest_path}")
 
             # Ensure ID3 tags are complete
             tag_mp3_metadata(
-                file_path=canonical_dest,
+                file_path=dest_path,
                 title=title,
                 artist=artist,
-                album_or_movie=effective_movie,
-                year=effective_year,
-                track_number=trk_num,
+                album_or_movie=movie_info["movie_title"] if movie_info else (matched_song["album"] or title),
+                year=movie_info["movie_year"] if movie_info else matched_song["year"],
+                track_number=matched_song["track_number"],
             )
 
             # Update database
-            new_size = canonical_dest.stat().st_size
+            new_size = dest_path.stat().st_size
             cursor.execute(
-                "UPDATE songs SET file_path = ?, file_size_bytes = ? WHERE id = ?",
-                (str(canonical_dest), new_size, sid)
+                "UPDATE songs SET file_path = ?, file_size_bytes = ?, state = 'OWNED' WHERE id = ?",
+                (str(dest_path), new_size, sid)
             )
-
-            # Update downloads history records referencing old path
             cursor.execute(
                 "UPDATE downloads SET output_path = ?, file_size_bytes = ? WHERE song_id = ?",
-                (str(canonical_dest), new_size, sid)
+                (str(dest_path), new_size, sid)
             )
 
             migrated.append({
                 "id": sid,
                 "title": title,
-                "from": str(current_path),
-                "to": str(canonical_dest),
+                "from": str(rel),
+                "to": str(dest_path.relative_to(base_dir)),
                 "size": new_size,
             })
-            logger.info(f"Successfully migrated song {sid} ('{title}') -> {canonical_dest}")
+            logger.info(f"Successfully migrated song {sid} ('{title}') -> {dest_path}")
         except Exception as e:
             logger.error(f"Error migrating song {sid} ('{title}'): {e}")
             errors.append({"id": sid, "title": title, "error": str(e)})
 
-    if not dry_run and migrated:
+    # 2. Clean up empty legacy directories in base_dir
+    if not dry_run:
+        for root, dirs, files in os.walk(base_dir, topdown=False):
+            curr_dir = Path(root)
+            if curr_dir == base_dir or curr_dir == (base_dir / "Movies") or curr_dir == (base_dir / "Singles"):
+                continue
+            # If directory is empty, remove it
+            try:
+                if not any(curr_dir.iterdir()):
+                    curr_dir.rmdir()
+                    logger.info(f"Removed empty directory: {curr_dir}")
+            except Exception:
+                pass
+
         db_conn.commit()
 
     return {
+        "total_files_discovered": total_discovered,
+        "successfully_mapped": len(migrated) + len(already_canonical) + len(duplicates_detected),
         "migrated_count": len(migrated),
-        "skipped_count": len(skipped),
-        "error_count": len(errors),
-        "migrated": migrated,
-        "skipped": skipped,
+        "already_canonical_count": len(already_canonical),
+        "duplicates_detected": duplicates_detected,
+        "ambiguous_unmapped": ambiguous_unmapped,
+        "temporary_artifacts_removed": temporary_artifacts_removed,
+        "files_untouched": files_untouched,
         "errors": errors,
+        "migrated": migrated,
     }

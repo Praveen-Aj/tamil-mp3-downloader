@@ -21,6 +21,7 @@ router = APIRouter(prefix="/downloads", tags=["Downloads"])
 class DownloadQueueRequest(BaseModel):
     song_ids: List[int]
     preferred_quality: Optional[int] = 320
+    batch_title: Optional[str] = None
 
 
 def format_download_task(d: Download, service: LibraryService) -> Dict[str, Any]:
@@ -197,6 +198,42 @@ def plan_downloads(
     )
 
 
+@router.get("/batches", response_model=ApiResponse[List[Dict[str, Any]]])
+def list_batches(
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[List[Dict[str, Any]]]:
+    """Fetch all active and recent batch download jobs."""
+    batches = service.get_batches()
+    return ApiResponse(success=True, data=batches)
+
+
+@router.get("/batches/{batch_id}", response_model=ApiResponse[Dict[str, Any]])
+def get_batch_details(
+    batch_id: str,
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Fetch specific batch details including child tracks."""
+    batch = service.get_batch(batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    return ApiResponse(success=True, data=batch)
+
+
+@router.post("/batches/{batch_id}/cancel", response_model=ApiResponse[Dict[str, Any]])
+def cancel_batch_task(
+    batch_id: str,
+    service: LibraryService = Depends(get_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Cancel an entire multi-track download batch."""
+    cancelled = service.cancel_batch(batch_id)
+    if not cancelled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Batch {batch_id} not found or cannot be cancelled",
+        )
+    return ApiResponse(success=True, message="Batch cancelled")
+
+
 @router.post("/execute", response_model=ApiResponse[Dict[str, Any]])
 def execute_downloads(
     payload: DownloadExecuteRequest,
@@ -204,7 +241,14 @@ def execute_downloads(
 ) -> ApiResponse[Dict[str, Any]]:
     """Execute background downloads for selected songs."""
     plan = service.preview_download_plan(payload.song_ids)
-    queued_ids = service.execute_download_plan(plan)
+    batch_title = payload.batch_title or (
+        f"Selected Tracks ({len(payload.song_ids)} songs)" if len(payload.song_ids) > 1 else None
+    )
+    queued_ids = service.execute_download_plan(
+        plan,
+        batch_title=batch_title,
+        source_type=payload.category or "selection",
+    )
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,
@@ -220,7 +264,14 @@ def queue_downloads(
 ) -> ApiResponse[Dict[str, Any]]:
     """Queue one or more songs for background download."""
     plan = service.preview_download_plan(payload.song_ids)
-    queued_ids = service.execute_download_plan(plan)
+    batch_title = payload.batch_title or (
+        f"Queued Selection ({len(payload.song_ids)} songs)" if len(payload.song_ids) > 1 else None
+    )
+    queued_ids = service.execute_download_plan(
+        plan,
+        batch_title=batch_title,
+        source_type="selection",
+    )
     queued_count = len(queued_ids) if isinstance(queued_ids, list) else queued_ids
     return ApiResponse(
         success=True,

@@ -178,11 +178,15 @@ class YouTubeProvider(AudioProvider):
                 provider_name=self.name,
             )
 
+        import uuid
+        import shutil
         import yt_dlp
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        # Target path pattern
-        target_template = str(output_dir / f"{filename_stem}.%(ext)s")
+        # Dedicated isolated temporary directory for intermediate download and conversion
+        temp_work_dir = output_dir / ".tmp" / f"ytdl_{uuid.uuid4().hex[:8]}"
+        temp_work_dir.mkdir(parents=True, exist_ok=True)
+        target_template = str(temp_work_dir / f"{filename_stem}.%(ext)s")
 
         def _hook(d):
             if not progress_cb:
@@ -231,47 +235,79 @@ class YouTubeProvider(AudioProvider):
                 "preferredquality": "320",
             }]
 
+        final_result = None
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 error_code = ydl.download([candidate.source_url])
                 if error_code != 0:
-                    return DownloadResult(
+                    final_result = DownloadResult(
                         success=False,
                         error_message=f"yt-dlp download failed with exit code {error_code}",
                         provider_name=self.name,
                     )
+                    return final_result
 
-            # Locate downloaded file
-            # Could be .mp3, .m4a, .webm, .opus
+            # Locate converted/downloaded file in temp_work_dir
+            found_temp_file = None
             for ext in [".mp3", ".m4a", ".webm", ".opus", ".aac"]:
-                cand_path = output_dir / f"{filename_stem}{ext}"
+                cand_path = temp_work_dir / f"{filename_stem}{ext}"
                 if cand_path.exists() and cand_path.stat().st_size > 1024:
-                    return DownloadResult(
-                        success=True,
-                        file_path=cand_path,
-                        size_bytes=cand_path.stat().st_size,
-                        provider_name=self.name,
-                    )
+                    found_temp_file = cand_path
+                    break
 
-            # Search any created file starting with filename_stem
-            matches = list(output_dir.glob(f"{filename_stem}.*"))
-            if matches and matches[0].stat().st_size > 1024:
-                return DownloadResult(
+            if not found_temp_file:
+                matches = list(temp_work_dir.glob(f"{filename_stem}.*"))
+                if matches and matches[0].stat().st_size > 1024:
+                    found_temp_file = matches[0]
+
+            if found_temp_file and found_temp_file.exists() and found_temp_file.stat().st_size > 0:
+                final_dest = output_dir / f"{filename_stem}{found_temp_file.suffix}"
+                # Atomically move verified final file to destination
+                shutil.move(str(found_temp_file), str(final_dest))
+                final_result = DownloadResult(
                     success=True,
-                    file_path=matches[0],
-                    size_bytes=matches[0].stat().st_size,
+                    file_path=final_dest,
+                    size_bytes=final_dest.stat().st_size,
                     provider_name=self.name,
                 )
+                return final_result
 
-            return DownloadResult(
+            final_result = DownloadResult(
                 success=False,
                 error_message="Downloaded file missing or empty after completion",
                 provider_name=self.name,
             )
+            return final_result
         except Exception as e:
             logger.error(f"YouTubeProvider download exception: {e}", exc_info=True)
-            return DownloadResult(
+            final_result = DownloadResult(
                 success=False,
                 error_message=str(e),
                 provider_name=self.name,
             )
+            return final_result
+        finally:
+            # Clean up isolated temporary work directory and all intermediate files
+            try:
+                if temp_work_dir.exists():
+                    shutil.rmtree(str(temp_work_dir), ignore_errors=True)
+            except Exception:
+                pass
+
+            # Cleanup .tmp directory if empty
+            try:
+                tmp_parent = output_dir / ".tmp"
+                if tmp_parent.exists() and not any(tmp_parent.iterdir()):
+                    tmp_parent.rmdir()
+            except Exception:
+                pass
+
+            # Regression cleanup: ensure no 0-byte or .webm/.part files in output_dir
+            for cleanup_file in output_dir.glob(f"{filename_stem}.*"):
+                try:
+                    if cleanup_file.exists():
+                        if cleanup_file.stat().st_size == 0 or cleanup_file.suffix.lower() in [".webm", ".part", ".crdownload"]:
+                            cleanup_file.unlink()
+                            logger.info(f"Cleaned up incomplete artifact: {cleanup_file}")
+                except Exception:
+                    pass
