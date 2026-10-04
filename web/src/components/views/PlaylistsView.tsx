@@ -304,7 +304,7 @@ export const PlaylistsView: React.FC = () => {
                               borderRadius: 'var(--radius-sm)',
                               overflow: 'hidden',
                               position: 'relative',
-                              backgroundColor: '#16161a',
+                              backgroundColor: '#101014',
                               cursor: 'pointer',
                               flexShrink: 0,
                             }}
@@ -317,7 +317,7 @@ export const PlaylistsView: React.FC = () => {
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src =
-                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23101014"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                               }}
                             />
                             <div
@@ -455,14 +455,7 @@ export const PlaylistsView: React.FC = () => {
       {/* Header Bar */}
       <div className="view-header">
         <div className="view-header-title">
-          <div
-            className="view-header-icon"
-            style={{
-              backgroundColor: 'rgba(251, 113, 133, 0.12)',
-              borderColor: 'rgba(251, 113, 133, 0.22)',
-              color: '#FB7185',
-            }}
-          >
+          <div className="view-header-icon">
             <ListMusic size={20} />
           </div>
           <div>
@@ -508,7 +501,8 @@ export const PlaylistsView: React.FC = () => {
                     width: '44px',
                     height: '44px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+                    backgroundColor: 'rgba(212, 163, 89, 0.10)',
+                    border: '1px solid rgba(212, 163, 89, 0.22)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

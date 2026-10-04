@@ -16,6 +16,8 @@
   --bg-tooltip: #181820;
 
   /* === ACCENT - Refined Brushed Champagne Brass / Audiophile Gold === */
+  --primary: #D4A359;
+  --primary-hover: #E0B268;
   --accent-primary: #D4A359;
   --accent-primary-hover: #E0B268;
   --accent-primary-glow: rgba(212, 163, 89, 0.16);

@@ -151,7 +151,7 @@ export const MovieDetailView: React.FC = () => {
                 borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden',
                 position: 'relative',
-                backgroundColor: '#11141c',
+                backgroundColor: '#101014',
                 cursor: 'pointer',
                 flexShrink: 0,
               }}
@@ -169,7 +169,7 @@ export const MovieDetailView: React.FC = () => {
                 loading="lazy"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
-                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2311141c"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23101014"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                 }}
               />
               <div
@@ -295,7 +295,7 @@ export const MovieDetailView: React.FC = () => {
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
             boxShadow: '0 12px 28px rgba(0, 0, 0, 0.55)',
-            backgroundColor: '#16161a',
+            backgroundColor: '#101014',
             flexShrink: 0,
             border: '1px solid var(--border-subtle)',
           }}
@@ -306,7 +306,7 @@ export const MovieDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141c"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%23101014"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
             }}
           />
         </div>

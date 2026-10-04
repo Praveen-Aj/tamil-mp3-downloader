@@ -114,7 +114,7 @@ export const ArtistsView: React.FC = () => {
       {/* View Header */}
       <div className="view-header">
         <div className="view-header-title">
-          <div className="view-header-icon" style={{ backgroundColor: 'rgba(45, 212, 191, 0.12)', borderColor: 'rgba(45, 212, 191, 0.25)', color: '#2DD4BF' }}>
+          <div className="view-header-icon">
             <Users size={18} />
           </div>
           <div>
@@ -250,7 +250,7 @@ export const ArtistsView: React.FC = () => {
                     height: '120px',
                     borderRadius: '50%',
                     overflow: 'hidden',
-                    backgroundColor: '#0f172a',
+                    backgroundColor: '#101014',
                     marginBottom: '16px',
                     position: 'relative',
                     border: `3px solid ${isHovered ? 'var(--accent-primary)' : 'var(--border-medium)'}`,
@@ -271,7 +271,7 @@ export const ArtistsView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%2311141C"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="32">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" fill="%23101014"><rect width="240" height="240"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="32">👤</text></svg>';
                     }}
                   />
                 </div>

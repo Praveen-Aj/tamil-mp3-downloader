@@ -162,7 +162,7 @@ export const FavoritesView: React.FC = () => {
                           borderRadius: 'var(--radius-sm)',
                           overflow: 'hidden',
                           position: 'relative',
-                          backgroundColor: '#16161a',
+                          backgroundColor: '#101014',
                           cursor: 'pointer',
                           flexShrink: 0,
                         }}
@@ -180,7 +180,7 @@ export const FavoritesView: React.FC = () => {
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2316161a"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23101014"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div
@@ -327,7 +327,7 @@ export const FavoritesView: React.FC = () => {
                 className="mobile-track-card__art"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
-                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%231e293b"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">♪</text></svg>';
+                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%23101014"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">♪</text></svg>';
                 }}
               />
               <div className="mobile-track-card__info">

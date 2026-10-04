@@ -62,9 +62,9 @@ export const StateBadge: React.FC<{
       <Badge
         variant="warning"
         style={{
-          backgroundColor: 'rgba(245, 158, 11, 0.15)',
-          color: '#fbbf24',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
+          backgroundColor: 'rgba(212, 163, 89, 0.14)',
+          color: '#E0B268',
+          border: '1px solid rgba(212, 163, 89, 0.32)',
           fontWeight: 600,
         }}
       >

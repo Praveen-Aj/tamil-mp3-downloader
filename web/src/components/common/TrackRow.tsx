@@ -144,7 +144,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
             loading="lazy"
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%231e293b"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14">🎵</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="%23101014"><rect width="44" height="44"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
             }}
           />
         </div>

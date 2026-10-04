@@ -159,7 +159,7 @@ export const ArtistDetailView: React.FC = () => {
             height: '140px',
             borderRadius: '50%',
             overflow: 'hidden',
-            backgroundColor: '#16161a',
+            backgroundColor: '#101014',
             border: '2px solid var(--border-medium)',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
             flexShrink: 0,
@@ -171,14 +171,14 @@ export const ArtistDetailView: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%2316161a"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="48">👤</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%23101014"><rect width="300" height="300"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="48">👤</text></svg>';
             }}
           />
         </div>
 
         {/* Hero Metadata & Actions */}
         <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f59e0b', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             <Users size={14} /> {formatRoleName(artist?.role)}
           </div>
 
@@ -267,7 +267,7 @@ export const ArtistDetailView: React.FC = () => {
                           borderRadius: 'var(--radius-sm)',
                           overflow: 'hidden',
                           position: 'relative',
-                          backgroundColor: '#11141c',
+                          backgroundColor: '#101014',
                           cursor: 'pointer',
                           flexShrink: 0,
                         }}
@@ -285,7 +285,7 @@ export const ArtistDetailView: React.FC = () => {
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%2311141c"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23101014"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div

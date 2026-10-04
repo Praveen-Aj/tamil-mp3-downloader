@@ -222,7 +222,7 @@ export const SettingsView: React.FC = () => {
             max="8"
             value={maxWorkers}
             onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
-            style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }}
+            style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
             aria-label="Simultaneous Downloads Slider"
           />
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -317,7 +317,7 @@ export const SettingsView: React.FC = () => {
             type="checkbox"
             checked={autoplayNext}
             onChange={(e) => setAutoplayNext(e.target.checked)}
-            style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+            style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
             aria-label="Toggle continuous playback"
           />
         </div>
@@ -344,13 +344,13 @@ export const SettingsView: React.FC = () => {
               width: '26px',
               height: '26px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              backgroundColor: 'rgba(212, 163, 89, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <HardDrive size={14} color="#FBBF24" />
+            <HardDrive size={14} color="var(--accent-primary)" />
           </div>
           <div>
             <h2 style={{ fontSize: '14px', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-main)' }}>

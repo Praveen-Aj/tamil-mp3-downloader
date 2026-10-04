@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
-  Music,
   CheckSquare,
   Square,
   AlertTriangle,
@@ -177,7 +176,7 @@ export const SongsView: React.FC = () => {
   };
 
   const sanitizeTitle = (title: string, album?: string) => {
-    if (!title || /^[\?\s\-_.]+$/.test(title.trim())) {
+    if (!title || /^[?\s\-_.]+$/.test(title.trim())) {
       if (album && album !== '-' && album !== '—') {
         return `${album} Track`;
       }
@@ -410,7 +409,7 @@ export const SongsView: React.FC = () => {
                             borderRadius: 'var(--radius-sm)',
                             overflow: 'hidden',
                             position: 'relative',
-                            backgroundColor: '#11141c',
+                            backgroundColor: '#101014',
                             cursor: 'pointer',
                             flexShrink: 0,
                           }}
@@ -428,7 +427,7 @@ export const SongsView: React.FC = () => {
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
-                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%23101014"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                             }}
                           />
                           <div

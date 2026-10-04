@@ -163,15 +163,16 @@ export const ImportsView: React.FC = () => {
             width: '56px',
             height: '56px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #10b981 0%, #22C55E 100%)',
+            backgroundColor: 'rgba(212, 163, 89, 0.12)',
+            border: '1px solid rgba(212, 163, 89, 0.25)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.25)',
+            boxShadow: '0 8px 24px rgba(212, 163, 89, 0.15)',
             marginBottom: '16px',
           }}
         >
-          <Link2 size={28} color="#ffffff" />
+          <Link2 size={28} color="var(--accent-primary)" />
         </div>
         <h2 className="title-display" style={{ fontSize: '24px', fontWeight: 800 }}>
           Import from Spotify & Web

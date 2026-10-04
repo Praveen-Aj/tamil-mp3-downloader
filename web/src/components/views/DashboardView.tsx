@@ -277,7 +277,7 @@ export const DashboardView: React.FC = () => {
                   loading="lazy"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="270" height="380" fill="%2311141c"><rect width="270" height="380"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="32">🎬</text></svg>';
+                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="270" height="380" fill="%23101014"><rect width="270" height="380"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="32">🎬</text></svg>';
                   }}
                 />
               </div>
@@ -463,7 +463,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="24">🎵</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%23101014"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="24">🎵</text></svg>';
                     }}
                   />
                   <div className="poster-overlay-btn">
@@ -548,7 +548,7 @@ export const DashboardView: React.FC = () => {
                       loading="lazy"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141c"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%23101014"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
                       }}
                     />
                     {movie.year && (
@@ -679,7 +679,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%2311141c"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="28">👤</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%23101014"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="28">👤</text></svg>';
                     }}
                   />
                 </div>
@@ -761,7 +761,7 @@ export const DashboardView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2311141c"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%23101014"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
                     }}
                   />
                   <div style={{ minWidth: 0, flex: 1 }}>

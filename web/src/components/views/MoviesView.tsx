@@ -86,7 +86,7 @@ export const MoviesView: React.FC = () => {
       {/* View Header */}
       <div className="view-header">
         <div className="view-header-title">
-          <div className="view-header-icon" style={{ backgroundColor: 'rgba(251, 191, 36, 0.12)', borderColor: 'rgba(251, 191, 36, 0.25)', color: '#FBBF24' }}>
+          <div className="view-header-icon">
             <Film size={18} />
           </div>
           <div>
@@ -234,7 +234,7 @@ export const MoviesView: React.FC = () => {
                     borderRadius: 'var(--radius-md)',
                     overflow: 'hidden',
                     position: 'relative',
-                    backgroundColor: '#0f172a',
+                    backgroundColor: '#101014',
                     marginBottom: '12px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
                   }}
@@ -252,7 +252,7 @@ export const MoviesView: React.FC = () => {
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%2311141C"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
+                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" fill="%23101014"><rect width="300" height="450"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="36">🎬</text></svg>';
                     }}
                   />
 

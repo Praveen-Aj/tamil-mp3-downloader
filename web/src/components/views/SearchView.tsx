@@ -197,7 +197,7 @@ export const SearchView: React.FC = () => {
                           className="track-thumb"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%231a1a1f"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="12">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23101014"><rect width="40" height="40"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="12">🎵</text></svg>';
                           }}
                         />
                         <div className="play-overlay">
@@ -271,7 +271,7 @@ export const SearchView: React.FC = () => {
                       style={{ width: '100%', aspectRatio: '2/3', borderRadius: 'var(--radius-sm)', objectFit: 'cover', marginBottom: '10px', backgroundColor: 'var(--bg-surface-active)' }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" fill="%231a1a1f"><rect width="240" height="360"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23BAB0FB" font-size="28">🎬</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" fill="%23101014"><rect width="240" height="360"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="28">🎬</text></svg>';
                       }}
                     />
                     <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -302,7 +302,7 @@ export const SearchView: React.FC = () => {
           {(activeTab === 'all' || activeTab === 'artists') && artists.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Users size={18} color="#f59e0b" />
+                <Users size={18} color="var(--accent-primary)" />
                 <h3 className="title-display" style={{ fontSize: '16px', margin: 0, color: 'var(--text-primary)' }}>
                   Artists & Composers ({artists.length})
                 </h3>
@@ -322,7 +322,7 @@ export const SearchView: React.FC = () => {
                       style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', backgroundColor: 'var(--bg-surface-active)' }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="%231a1a1f"><rect width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f59e0b" font-size="20">👤</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="%23101014"><rect width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="20">👤</text></svg>';
                       }}
                     />
                     <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>

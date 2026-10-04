@@ -637,12 +637,12 @@ export const DownloadsView: React.FC = () => {
                         height: '42px',
                         borderRadius: 'var(--radius-sm)',
                         objectFit: 'cover',
-                        backgroundColor: '#16161a',
+                        backgroundColor: '#101014',
                         flexShrink: 0,
                       }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%2316161a"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%23101014"><rect width="42" height="42"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
                       }}
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -817,12 +817,12 @@ export const DownloadsView: React.FC = () => {
                             height: '38px',
                             borderRadius: 'var(--radius-sm)',
                             objectFit: 'cover',
-                            backgroundColor: '#16161a',
+                            backgroundColor: '#101014',
                             flexShrink: 0,
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%2316161a"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
+                              'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="%23101014"><rect width="38" height="38"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="14">🎵</text></svg>';
                           }}
                         />
                         <div style={{ minWidth: 0, flex: 1 }}>

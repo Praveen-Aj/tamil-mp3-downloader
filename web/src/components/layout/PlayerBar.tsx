@@ -160,7 +160,7 @@ export const PlayerBar: React.FC = () => {
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%2311141c"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%23101014"><rect width="56" height="56"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23D4A359" font-size="16">🎵</text></svg>';
             }}
           />
           <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
@@ -507,7 +507,7 @@ export const PlayerBar: React.FC = () => {
                   style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover' }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%231e293b"><rect width="32" height="32"/></svg>';
+                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="%23101014"><rect width="32" height="32"/></svg>';
                   }}
                 />
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -560,7 +560,7 @@ export const PlayerBar: React.FC = () => {
                         style={{ width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover' }}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="%231e293b"><rect width="28" height="28"/></svg>';
+                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="%23101014"><rect width="28" height="28"/></svg>';
                         }}
                       />
                       <div style={{ minWidth: 0, flex: 1 }}>

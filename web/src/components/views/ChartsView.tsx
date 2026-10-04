@@ -121,14 +121,7 @@ export const ChartsView: React.FC = () => {
       {/* Top Selector & Actions */}
       <div className="view-header">
         <div className="view-header-title">
-          <div
-            className="view-header-icon"
-            style={{
-              backgroundColor: 'rgba(244, 63, 94, 0.15)',
-              borderColor: 'rgba(244, 63, 94, 0.25)',
-              color: '#f43f5e',
-            }}
-          >
+          <div className="view-header-icon">
             <Flame size={20} />
           </div>
           <div>
@@ -216,11 +209,11 @@ export const ChartsView: React.FC = () => {
                         style={{
                           color:
                             item.rank === 1
-                              ? '#f59e0b'
+                              ? 'var(--accent-primary)'
                               : item.rank === 2
-                              ? '#94a3b8'
+                              ? '#cbd5e1'
                               : item.rank === 3
-                              ? '#d97706'
+                              ? '#C59B4B'
                               : 'var(--text-muted)',
                         }}
                       >
